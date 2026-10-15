@@ -5,7 +5,7 @@
   "dependencies": {
     "@modelcontextprotocol/server": "2.3.1",
     "@slice/ui": "workspace:*",
-    "@vinext/cloudflare": "1.0.1",
+    "@vinext/cloudflare": "1.1.0",
     "jose": "^6.2.12",
     "react": "19.3.0",
     "react-dom": "19.3.0",
