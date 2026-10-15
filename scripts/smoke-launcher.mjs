@@ -31,7 +31,7 @@ const worker = spawn(
     "0",
   ],
   {
-    cwd: fileURLToPath(new URL("../apps/launcher/", import.meta.url)),
+    cwd: fileURLToPath(new URL("../platform/", import.meta.url)),
     detached: true,
     stdio: ["ignore", "pipe", "pipe"],
   },

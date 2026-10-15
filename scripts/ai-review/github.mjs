@@ -193,6 +193,7 @@ export async function collectContext(api, target, standards) {
   const apps = new Set(
     context.files.map((file) => /^apps\/([^/]+)\//.exec(file.path)?.[1]).filter(Boolean),
   );
+  const platform = context.files.some((file) => file.path.startsWith("platform/"));
   const tooling = context.files.some((file) => /^(scripts\/|\.github\/)/.test(file.path));
   const changedPaths = new Set(context.files.map((file) => file.path));
   for (const path of [...trees[target.head].keys()].sort()) {
@@ -200,6 +201,7 @@ export async function collectContext(api, target, standards) {
     const app = /^apps\/([^/]+)\//.exec(path)?.[1];
     const relevant =
       apps.has(app) ||
+      (platform && path.startsWith("platform/")) ||
       path.startsWith("packages/") ||
       (tooling && /^(scripts\/|\.github\/)/.test(path)) ||
       ["package.json", "pnpm-workspace.yaml"].includes(path);

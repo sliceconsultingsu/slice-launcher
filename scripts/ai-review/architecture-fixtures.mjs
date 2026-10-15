@@ -103,7 +103,7 @@ export function applyCandidate(fixture, candidateId) {
   return sources;
 }
 function modules(sources, repository) {
-  const requireApp = createRequire(join(repository, "apps/launcher/package.json"));
+  const requireApp = createRequire(join(repository, "platform/package.json"));
   const cache = {};
   function load(path) {
     if (cache[path]) return cache[path];

@@ -12,20 +12,20 @@ const scripts = Object.fromEntries(
 function fixture(t, manifest) {
   const root = mkdtempSync(join(tmpdir(), "slice-workspace-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  mkdirSync(join(root, "apps", "example"), { recursive: true });
-  writeFileSync(join(root, "apps", "example", "package.json"), JSON.stringify(manifest));
+  mkdirSync(join(root, "platform"), { recursive: true });
+  writeFileSync(join(root, "platform", "package.json"), JSON.stringify(manifest));
   writeFileSync(
-    join(root, "apps", "example", "README.md"),
+    join(root, "platform", "README.md"),
     "## Configuration\n## Permissions\n## Deployment\n## Testing\n",
   );
   return root;
 }
 
-test("accepts an app with every required quality check", (t) => {
+test("accepts the platform with every required quality check", (t) => {
   assert.deepEqual(checkAppScripts(fixture(t, { scripts })), []);
 });
 
-test("rejects an app that silently omits tests or type checking", (t) => {
+test("rejects the platform that silently omits tests or type checking", (t) => {
   const errors = checkAppScripts(
     fixture(t, { scripts: { lint: "eslint .", build: "vite build" } }),
   );
@@ -38,8 +38,8 @@ test("rejects blank commands instead of treating them as checks", (t) => {
   assert.equal(checkAppScripts(fixture(t, { scripts: { ...scripts, test: " " } })).length, 1);
 });
 
-test("requires operational documentation for a new app", (t) => {
+test("requires operational documentation for the platform", (t) => {
   const root = fixture(t, { scripts });
-  writeFileSync(join(root, "apps", "example", "README.md"), "## Configuration\n");
+  writeFileSync(join(root, "platform", "README.md"), "## Configuration\n");
   assert.equal(checkAppScripts(root).length, 3);
 });

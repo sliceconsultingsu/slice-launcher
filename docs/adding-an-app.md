@@ -12,9 +12,9 @@ pnpm app:create alumni "Alumni directory"
 pnpm dev
 ```
 
-The command creates `apps/launcher/src/apps/alumni/server.tsx`, registers public metadata in `src/platform/catalog.json`, and updates the generated server registry. The app is served at `/apps/alumni`; its optional API is `/api/apps/alumni/...`. All URLs stay on the platform origin and use the existing sign-in session. The catalog in this release is empty; creating this starter does not implement an alumni database.
+The command creates `platform/apps/alumni/server.tsx`, creates its `app.json` settings and README, and updates the generated catalog and server registry. The app is served at `/apps/alumni`; its optional API is `/api/apps/alumni/...`. All URLs stay on the platform origin and use the existing sign-in session. The catalog in this release is empty; creating this starter does not implement an alumni database.
 
-Build the UI in the module's `Page` and any API in `api`. Import `AppModule` and context types from `../../platform/contracts`. Client components can be colocated; keep data reads and writes in guarded server handlers. The host owns routing and the page shell. Don't add server actions or unguarded Next route handlers for a module.
+Build the UI in the module's `Page` and any API in `api`. Import `AppModule` and context types from `../../src/platform/contracts`. Client components can be colocated; keep data reads and writes in guarded server handlers. The host owns routing and the page shell. Don't add server actions or unguarded Next route handlers for a module.
 
 ## Permissions
 
@@ -22,7 +22,7 @@ Registration automatically adds `app.alumni.open` to the existing permission edi
 
 Both page and API dispatch verify the Access token, load current membership from D1, and enforce the app capability before calling module code. Pending/suspended members are denied, including with an old valid session. Context exposes only the current member's ID/name/email and app-scoped permissions; it does not expose the membership database or other members.
 
-Declare additional actions in the catalog:
+Declare additional actions in that app's `app.json`:
 
 ```json
 {
@@ -33,7 +33,7 @@ Declare additional actions in the catalog:
 }
 ```
 
-Run `pnpm apps:sync` after catalog changes. In a write handler, call `context.requirePermission("records.edit")` before changing records. This checks the full permission `app.alumni.records.edit`. Unknown or ungranted actions fail closed. Each app must also validate business inputs and enforce resource ownership; the platform cannot infer those rules.
+Run `pnpm apps:sync` after app settings changes. In a write handler, call `context.requirePermission("records.edit")` before changing records. This checks the full permission `app.alumni.records.edit`. Unknown or ungranted actions fail closed. Each app must also validate business inputs and enforce resource ownership; the platform cannot infer those rules.
 
 ## API contract
 

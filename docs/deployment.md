@@ -69,9 +69,9 @@ Use **Actions → Roll back launcher → Run workflow**, select `main`, supply t
 
 The workflow validates run metadata before downloading any artifact. It downloads the exact named provenance artifact into an isolated runner temporary directory, never over the trusted checkout. It then accepts only the three expected bounded ordinary JSON files, rejects symlinks and extra entries, and cross-checks their source and deployed version. It rejects failed/in-progress runs, other workflows, non-main branches, PR events, source mismatches, unverified records, malformed digests, and invalid Worker/deployment IDs. No arbitrary Worker version input is accepted. It invokes `wrangler rollback <verified-version> --name slice-launcher --message <reason>`, verifies the original source SHA and security checks again, and confirms that version has 100 percent traffic. Successful recovery evidence is retained for 90 days.
 
-There is no automatic rollback. A failed rollback verification remains failed and requires investigation. Artifact expiration/deletion or Cloudflare version/resource limitations can prevent rollback. Keep a suitable verified record before retiring old releases; do not forge a record for a pre-pipeline version. Until the first release under this pipeline passes, this workflow has no eligible target.
+There is no automatic rollback. A failed rollback verification remains failed and requires investigation. Artifact expiration/deletion or Cloudflare version/resource limitations can prevent rollback. Keep a suitable verified record before retiring old releases; do not forge a record for a pre-pipeline version. Successful shared releases were verified on 2026-10-15, including PR #21. Rollback eligibility still depends on the selected release record and retained Worker version.
 
-Worker rollback does **not** restore D1 data or undo migrations. Follow [the migration policy](migrations.md). Rollback mechanics are tested with local artifact and API-response fixtures; an actual Cloudflare deployment and recovery exercise requires approval and has not been run by this implementation.
+Worker rollback does **not** restore D1 data or undo migrations. Follow [the migration policy](migrations.md). Rollback mechanics are tested with local artifact and API-response fixtures; shared production deployment has succeeded, but a live rollback exercise has not been verified.
 
 Official command references: [Wrangler Worker commands](https://developers.cloudflare.com/workers/wrangler/commands/workers/) and [rollback limitations](https://developers.cloudflare.com/workers/versions-and-deployments/rollbacks/). Command flags and deployment JSON shape were checked against this repository's installed Wrangler.
 
@@ -81,8 +81,12 @@ When Slice takes ownership, migrate repository/environment administration, accou
 
 ## Inherited app deployment
 
-Apps under `apps/launcher/src/apps` are compiled into `apps/launcher/dist` by the existing build. `check:platform` runs before both lint and build: no additional Worker configuration, cloud token, hostname, workflow or upload step is needed. The verified release artifact and rollback contain all modules. The deployment switch, concurrency, main-revision guard, protected environment, and post-deploy smoke remain shared. Rollback affects every app together and does not revert database contents.
+Apps under `platform/apps` are compiled into `platform/dist` by the existing build. `check:platform` runs before both lint and build: no additional Worker configuration, cloud token, hostname, workflow or upload step is needed. The verified release artifact and rollback contain all modules. The deployment switch, concurrency, main-revision guard, protected environment, and post-deploy smoke remain shared. Rollback affects every app together and does not revert database contents.
 
 ## Remote MCP sign-in
 
 The platform owns `/mcp` and shares its deployment and security checks with all modules. Remote human clients require managed OAuth on the existing Access application; enabling it is a separate authorized configuration change. Follow [MCP activation and rollback](mcp.md#activate-remote-sign-in), preserving the existing audience, identity provider, policies and CI service rule. Worker rollback does not restore Access configuration. Release smoke checks the perimeter and service denial; it does not establish that a human client can finish OAuth.
+
+## Repository layout changes
+
+The deployable package is now in `platform/` (previously `apps/launcher/`); its pnpm name stays `@slice/launcher`. Validation, artifact upload/download, deployment, smoke checks and browser diagnostics all use the current path. This is a source-layout change, not a new Worker, database, hostname or Access audience. Older verified rollback targets use their recorded Worker version and do not depend on the old source folder.

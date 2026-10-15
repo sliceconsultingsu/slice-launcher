@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Audit, Command, Member, View } from "./contracts";
 import { AddMember, LevelEditor, MemberEditor, ProfileEditor } from "./editors";
+import { organizationRole } from "./access-summary";
 
 type Tab = "profile" | "members" | "levels" | "history";
 async function readResponse(response: Response) {
@@ -180,13 +181,16 @@ export function MembershipWorkspace() {
                 </span>
                 <h2>{view.me.name || "Your profile"}</h2>
                 <p>{view.me.title || "Slice Consulting"}</p>
+                <strong aria-label="Your organization role">
+                  {organizationRole(view.me, view.permissions)}
+                </strong>
                 <span className={`status-badge status-${view.me.status}`}>
                   {view.me.status === "pending" ? "Pending approval" : view.me.status}
                 </span>
                 <p className="field-note">
-                  {view.me.owner
-                    ? "Organization owner"
-                    : "Your access is managed by the organization."}
+                  {view.me.owner && view.me.status === "active"
+                    ? "As an owner, you have full administrative access, regardless of your base access level."
+                    : "Your access comes from your assigned level and any individual permissions."}
                 </p>
                 <a className="text-button" href="/cdn-cgi/access/logout">
                   Sign out

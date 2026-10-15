@@ -25,12 +25,12 @@ The adapter creates a fresh server per request and stores no session identity or
 
 ## Register an app tool
 
-First declare an action such as `records.read` in the app's catalog entry and run `pnpm apps:sync`. In `apps/launcher/src/apps/<id>/server.tsx`, add `tools` to the existing module:
+First declare an action such as `records.read` in the app's catalog entry and run `pnpm apps:sync`. In `platform/apps/<id>/server.tsx`, add `tools` to the existing module:
 
 ```tsx
 import { z } from "zod";
-import type { AppModule } from "../../platform/contracts";
-import { defineAppTool } from "../../platform/mcp-tool";
+import type { AppModule } from "../../src/platform/contracts";
+import { defineAppTool } from "../../src/platform/mcp-tool";
 import { searchVisibleRecords } from "./records";
 
 export default {

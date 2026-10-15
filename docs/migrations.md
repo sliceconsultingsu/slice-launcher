@@ -1,6 +1,6 @@
 # Membership migration policy
 
-Migration files live in `apps/launcher/migrations` and apply in ordered, zero-padded sequence. Never rewrite an applied migration. Add a new migration and include the schema, application behavior, and recovery impact in the PR.
+Migration files live in `platform/migrations` and apply in ordered, zero-padded sequence. Never rewrite an applied migration. Add a new migration and include the schema, application behavior, and recovery impact in the PR.
 
 `pnpm test:migrations` exercises both an empty disposable local D1 database and the representative prior schema supplied by the test suite. Reviewers must confirm the fixture still represents the supported upgrade path. These tests do not use production records or establish that a live migration is safe.
 

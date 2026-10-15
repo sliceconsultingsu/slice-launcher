@@ -1,56 +1,70 @@
-# Slice Launcher
+# Slice Consulting platform
 
-The public monorepo for Slice Consulting’s internal application platform. All apps inherit one login, centrally enforced permissions, and one deployment. The launcher includes an application catalog and membership administration. Cloudflare Access verifies Google identities at the approved email domain; the app enforces current membership, access levels, and individual permissions using private D1 storage. New members await approval. See [membership administration](docs/membership.md).
+One home for Slice Consulting's internal tools. Consultants sign in once; each tool uses the same account, permissions and release process.
 
-## Workspace
+**Building an app? Start in [platform/apps/](platform/apps/README.md).** Each app gets its own folder there. The shared login, launcher and administration live elsewhere in `platform/`.
 
-- `apps/launcher`: Next.js platform on Cloudflare Workers using vinext.
-- `apps/launcher/src/apps`: application modules served through shared protected routes.
-- `apps/launcher/src/platform`: catalog, module contract, and guarded dispatch.
-- `packages/ui`: shared app tiles and future UI components.
-- `packages/config`: shared TypeScript, ESLint, and Prettier settings.
-- `docs`: contributor, data, and deployment guidance.
+## Start here
 
-Applications run at `/apps/<id>` with APIs at `/api/apps/<id>`. They ship in the same validated Worker artifact. Run `pnpm app:create alumni "Alumni directory"` to scaffold an application, then implement its screens and business logic. An administrator grants `app.alumni.open` through the existing membership UI. The checked-in catalog is empty; the alumni product itself is not implemented.
+| I want to…                             | Go to…                                                                                             |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Use the platform                       | [Open Slice](https://slice-launcher.ivan27chen.workers.dev) and sign in with your approved account |
+| Understand the folders                 | [Repository map](docs/repository-map.md)                                                           |
+| Build or change an app                 | [Contributing](CONTRIBUTING.md), then [add an app](docs/adding-an-app.md)                          |
+| Work with an AI coding agent           | Ask it to read [AGENTS.md](AGENTS.md) first                                                        |
+| Understand roles and access            | [Membership guide](docs/membership.md)                                                             |
+| Connect an approved AI client          | [MCP setup](docs/mcp.md)                                                                           |
+| Find technical or operational guidance | [Documentation index](docs/README.md)                                                              |
 
-Apps can also register tools on the shared `/mcp` endpoint. Consultants sign in as themselves through Cloudflare Access managed OAuth, and tools inherit current app/action permissions. Production OAuth activation and a live client check are required separately; see [MCP integration and rollout](docs/mcp.md).
+## What is ready?
 
-## Agent-assisted contributions
+The launcher, member approval, access levels, activity history, shared app routes, shared MCP adapter and CI/deployment pipeline are implemented. **There are no business apps yet**; the alumni directory is planned, not built.
 
-Consultants and their AI agents should start with [AGENTS.md](AGENTS.md). It defines project goals, inherited platform boundaries, security rules, verification, and delivery expectations. See [contributing](CONTRIBUTING.md) for how to load it into your agent.
+An ordinary Member can view the member directory by default. Admin permissions come from ownership or explicitly assigned permissions. Owners have full admin access even if their **base access level** is called Member. The account screen distinguishes the effective organization role from that base level. See [how access works](docs/membership.md).
 
-## Local development
+Remote MCP clients use consultants' own identities and permissions. Live client use requires Cloudflare managed OAuth activation and a real sign-in check; a successful code deployment does not prove that setup is complete.
 
-Use Node.js 22.13 or newer within the 22.x line, or Node.js 24.x, and pnpm 10.17.1. CI uses Node.js 22. From the repository root:
+## Where things go
+
+```text
+platform/
+  apps/             Your apps: one folder per tool, with app.json, server.tsx and README.md
+  app/              Shared web routes; maintained by the platform team
+  src/              Shared login, permissions, launcher and MCP code
+  migrations/       Database changes reviewed by a maintainer
+packages/
+  ui/               Reusable visual components
+  config/           Shared code-formatting and checking rules
+scripts/            Scaffolding, repository checks and release tooling
+docs/               Current guides, plus clearly marked historical reports
+.github/            Automated checks and deployment workflows
+```
+
+`platform/app/` (singular) is the framework's routing folder. **Your app belongs in `platform/apps/` (plural).** App metadata and permissions live in each app's `app.json`; imports and the launcher catalog are generated for you.
+
+## Run locally
+
+Install Node.js **22.13+ within 22.x**, or **24.x**, and **pnpm 10.17.1**. From the repository folder:
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open the local URL printed by vinext. Run the full gate before opening a pull request:
+Open the local address printed in the terminal. This starts the launcher; local development does not bypass sign-in or give you production member data. Automated browser tests use disposable accounts. See [testing](docs/testing.md) and [membership configuration](docs/membership.md) when working on protected screens.
+
+To create an app:
 
 ```sh
-pnpm format:check
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm test:coverage
-pnpm test:migrations
-pnpm --filter @slice/launcher exec playwright install chromium
-pnpm test:e2e
-pnpm build
-pnpm smoke:launcher
+pnpm app:create alumni "Alumni directory"
 ```
 
-Use `pnpm format` to apply the repository style. See [adding an app](docs/adding-an-app.md), [data boundaries](docs/data-boundary.md), and [deployment](docs/deployment.md).
+This creates `platform/apps/alumni/` and registers `/apps/alumni`. It creates a starter, not a finished directory. Follow [the app guide](docs/adding-an-app.md) to add features and grant access.
 
-## Changes
+## Before submitting work
 
-Open a pull request into `main`. The stable `validate` check requires shared quality validation and security scanning. It covers app contracts, import boundaries, formatting, lint, types, behavioral tests, critical-module coverage, migration and browser tests, the production build, CodeQL, dependency review, and local Worker smoke. See [contributing](CONTRIBUTING.md) and [security review](docs/security-review.md). Ivan reviews contributions from others; his own pull requests need no other approval. Ivan is currently the sole maintainer with write access. Protected production deployment uses Wrangler and GitHub production secrets, including a Slice-only Access service credential for release checks.
+Use a branch and a pull request. The [contribution guide](CONTRIBUTING.md) walks through the process and lists the checks. Required CI must pass; the AI reviewer is advisory and can report an incomplete review. Merging into `main` runs the shared release pipeline for all apps. Maintainers handle production settings and database changes.
 
-Licensed under MIT; copyright Slice Consulting.
+This repository is public. Keep member records, client data and credentials out of code, screenshots, issues and AI prompts. Read [data boundaries](docs/data-boundary.md).
 
-## Advisory model review
-
-The proposed trusted-base GPT reviewer and optional TypeSafe Jev judgments supplement deterministic checks. They cannot approve, merge, deploy, or waive required checks. See [AI review](docs/ai-review.md) for activation, limits, costs and evaluation. Model API credits are separate from ChatGPT/Codex subscriptions. Never paste keys into chat or commit them.
+Code is licensed under [MIT](LICENSE). See [brand assets](docs/brand-assets.md) for asset provenance.

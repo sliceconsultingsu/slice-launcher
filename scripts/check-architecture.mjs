@@ -29,35 +29,44 @@ function files(dir) {
   );
 }
 function owner(root, file) {
-  return relative(root, file).split("/").slice(0, 2).join("/");
+  const path = relative(root, file);
+  return path.startsWith("platform/") ? "platform" : path.split("/").slice(0, 2).join("/");
 }
 export function checkArchitecture(root) {
   root = resolve(ts.sys.realpath ? ts.sys.realpath(root) : root);
   const errors = [];
   const graph = new Map();
   const workspaces = new Map();
+  const directories = [join(root, "platform")];
   for (const kind of ["apps", "packages"]) {
     const directory = join(root, kind);
-    if (!existsSync(directory)) continue;
-    for (const name of readdirSync(directory)) {
-      const path = join(directory, name);
-      const manifest = join(path, "package.json");
-      if (!existsSync(manifest)) continue;
-      const pkg = JSON.parse(readFileSync(manifest, "utf8"));
-      workspaces.set(pkg.name, { path, pkg });
-      for (const dependency of Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })) {
-        const target = [...readdirSync(join(root, "apps"))].find((app) => {
-          const manifest = join(root, "apps", app, "package.json");
-          return (
-            existsSync(manifest) && JSON.parse(readFileSync(manifest, "utf8")).name === dependency
-          );
-        });
-        if (target && path !== join(root, "apps", target))
-          errors.push(`${relative(root, manifest)}: cannot depend on app ${dependency}`);
-      }
+    if (existsSync(directory))
+      directories.push(...readdirSync(directory).map((name) => join(directory, name)));
+  }
+  for (const path of directories) {
+    const manifest = join(path, "package.json");
+    if (!existsSync(manifest)) continue;
+    const pkg = JSON.parse(readFileSync(manifest, "utf8"));
+    workspaces.set(pkg.name, { path, pkg });
+  }
+  for (const { path, pkg } of workspaces.values()) {
+    for (const dependency of Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })) {
+      const target = workspaces.get(dependency)?.path;
+      if (
+        target &&
+        target !== path &&
+        (owner(root, target) === "platform" || relative(root, target).startsWith("apps/"))
+      )
+        errors.push(
+          `${relative(root, join(path, "package.json"))}: cannot depend on app ${dependency}`,
+        );
     }
   }
-  const sources = [...files(join(root, "apps")), ...files(join(root, "packages"))];
+  const sources = [
+    ...files(join(root, "platform")),
+    ...files(join(root, "apps")),
+    ...files(join(root, "packages")),
+  ];
   for (const file of sources) {
     const source = ts.createSourceFile(
       file,
@@ -118,7 +127,7 @@ export function checkArchitecture(root) {
         (ref) => ref === "server-only" || ref === "cloudflare:workers" || ref.startsWith("node:"),
       ) ||
       /\/membership\/(auth|api|repository)\.ts$/.test(file) ||
-      /\/src\/apps\/[^/]+\/server\.tsx$|\/src\/platform\/(runtime|dispatch|access|mcp|mcp-tool|registry\.generated)\.ts$/.test(
+      /\/(?:src\/apps|platform\/apps)\/[^/]+\/server\.tsx$|\/src\/platform\/(runtime|dispatch|access|mcp|mcp-tool|registry\.generated)\.ts$/.test(
         file,
       ) ||
       secretEnv;
@@ -153,7 +162,7 @@ export function checkArchitecture(root) {
       target = resolve(ts.sys.realpath ? ts.sys.realpath(target) : target);
       const fromOwner = owner(root, file),
         toOwner = owner(root, target);
-      if (toOwner.startsWith("apps/") && fromOwner !== toOwner)
+      if ((toOwner === "platform" || toOwner.startsWith("apps/")) && fromOwner !== toOwner)
         errors.push(`${relative(root, file)}: cannot import another app's internals (${ref})`);
       if (target.includes("/tests/") || /\.test\.[cm]?[jt]sx?$/.test(target))
         errors.push(

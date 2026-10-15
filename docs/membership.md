@@ -14,6 +14,14 @@ Cloudflare Access proves who signed in. The launcher's private D1 database deter
 - Delegated administrators cannot grant permissions they do not hold or modify members whose effective access exceeds their own. They cannot edit their own base access level.
 - **Activity** records membership and level changes. Only members with `audit.read` may see these records, which contain personal information.
 
+## Organization role versus base access level
+
+The account shows the effective **organization role**, separate from the **base access level** in the member editor. An active owner appears as **Admin (owner)**. Ownership grants all permissions, regardless of whether the base level is named Member. The initial owner was intentionally bootstrapped with that base level; that name never limited owner authority.
+
+An ordinary active Member has only `members.read` by default: they can browse the limited directory, but cannot manage members, change levels or see activity. Explicit permissions can grant additional access. A member with `members.manage` or `levels.manage` appears as **Admin**, while an audit-only delegate appears as **Activity reviewer**. The label describes effective access; it does not grant it. Custom level names are not security roles, and renaming a level does not change its permissions. Pending/suspended members have no organization access.
+
+If an account unexpectedly has administrative access, inspect its ownership flag, base level permissions and individual Allow/Revoke settings. Do not infer authority from the level name alone. Server checks remain authoritative; hiding a button is insufficient. Changing these labels does not promote accounts or modify production membership data.
+
 ## Production activation checklist
 
 Production uses a Slice-specific Worker Access application, Google sign-in, and the exact `g.syr.edu` email domain. Other verified users of that domain start pending unless invited. The initial owner is configured privately in D1. The issuer and audience are pinned in Wrangler; missing configuration fails closed. Complete these steps for a new environment or account transfer.
@@ -36,7 +44,7 @@ For local Wrangler storage, run `pnpm --filter @slice/launcher exec wrangler d1 
 
 ## Future apps and recovery
 
-Registering a module in `src/platform/catalog.json` creates an `app.<id>.open` capability plus its declared action permissions. The platform verifies identity, loads current D1 membership, and checks that capability before invoking either an app page or API. Apps use the existing Access session, origin, membership administration and deployment. Action-specific rules use `context.requirePermission("records.edit")` for declared actions. Membership is reloaded on every request; pages are dynamic and API responses are private/no-store. Applications must still validate their own domain data and enforce resource ownership.
+Registering a module in `platform/apps/<id>/app.json` creates an `app.<id>.open` capability plus its declared action permissions. The platform verifies identity, loads current D1 membership, and checks that capability before invoking either an app page or API. Apps use the existing Access session, origin, membership administration and deployment. Action-specific rules use `context.requirePermission("records.edit")` for declared actions. Membership is reloaded on every request; pages are dynamic and API responses are private/no-store. Applications must still validate their own domain data and enforce resource ownership.
 
 New apps are not automatically accessible to ordinary members: an owner or authorized administrator grants access through a level or individual permission. Active owners receive all registered capabilities. Pending and suspended members cannot enter apps. The alumni application has not yet been implemented.
 
