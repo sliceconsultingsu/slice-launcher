@@ -13,16 +13,18 @@ async function serve(
 ) {
   const server = createServer((request, response) => {
     observe(request);
-    const routes = {
-      "/api/health": ["application/json", '{"status":"ok"}'],
-      "/": [
-        "text/html",
-        '<h1>App Launcher</h1><link rel="stylesheet" href="/app.css"><script src="/app.js"></script>',
-      ],
-      "/app.css": ["text/css", "body { color: black; }"],
-      "/app.js": ["text/javascript", "void 0;"],
-    };
-    const route = routes[request.url];
+    const routes = new Map(
+      Object.entries({
+        "/api/health": ["application/json", '{"status":"ok"}'],
+        "/": [
+          "text/html",
+          '<h1>App Launcher</h1><link rel="stylesheet" href="/app.css"><script src="/app.js"></script>',
+        ],
+        "/app.css": ["text/css", "body { color: black; }"],
+        "/app.js": ["text/javascript", "void 0;"],
+      }),
+    );
+    const route = routes.get(request.url);
     if (!route || (missingAsset && request.url === "/app.js")) {
       response.writeHead(404);
       response.end("Not found");

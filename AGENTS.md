@@ -36,7 +36,7 @@ Do keep modules small and named by responsibility, TypeScript strict, schemas ex
 
 Do not suppress failing checks, weaken coverage or security gates to make a PR green, add blanket lint disables or unchecked casts, swallow errors, commit secrets/private exports, or run contributor code with production/model credentials. Do not fabricate passing tests or treat mocks as live integration evidence. Investigate dependency changes and commit the lockfile; keep executable Actions pinned to reviewed commit SHAs.
 
-Do explain tradeoffs and surprising behavior near the relevant code. Update user/developer documentation when behavior or operations change. Avoid speculative abstractions and unrelated cleanup. If a requirement cannot be met, report the concrete blocker and preserve useful work.
+Do challenge unsupported assumptions and identify failure modes that could change the design. Separate verified facts from assumptions; propose concrete checks when evidence is missing. Do explain tradeoffs and surprising behavior near the relevant code. Update user/developer documentation when behavior or operations change. Avoid speculative abstractions and unrelated cleanup. If a requirement cannot be met, report the concrete blocker and preserve useful work.
 
 ## Verify before handoff
 

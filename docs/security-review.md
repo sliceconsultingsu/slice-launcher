@@ -44,3 +44,13 @@ The outbound-request alert traced to the GitHub event file's PR number used in a
 GitHub API path, not a credential file. That field is now explicitly converted to
 a number and validated as a positive safe integer before publishing. No scanner
 rule was disabled or finding suppressed to pass these checks.
+
+## PR 11 medium-severity conversation triage — 2026-10-15
+
+Reviewed the remaining CodeQL conversations against the final source, separately from the required high-severity gate. No rule, severity threshold, or alert was suppressed or dismissed.
+
+- `js/prototype-polluting-assignment` in `scripts/check-launcher.test.mjs`: the fixture selected a route from an ordinary object using a request URL and later changed its body for an uppercase-tag test. Replaced the lookup with a `Map`, so prototype properties cannot resolve as routes. Existing smoke tests verify the route fixture still behaves correctly. This is defense-in-depth test-server hardening, not a demonstrated production exploit; the production router is unaffected.
+- `js/file-access-to-http` in `scripts/ai-review/github.mjs`: the source is GitHub's event file, not a credential file. PR numbers are converted to positive safe integers, refs are validated 40-character SHAs, and the repository is validated before API calls. The endpoint is fixed to `api.github.com`, redirects are forbidden, and request count/body/time are bounded. Sending those identifiers and validated advisory findings to this repository's GitHub API is intended functionality.
+- `js/file-access-to-http` in `scripts/ai-review/core.mjs` from `evaluate-jev.mjs`: the source is the checked-in synthetic fixture corpus explicitly submitted for optional evaluation. Provider endpoints are fixed, account IDs are validated, credentials are injected separately, and the corpus does not contain private records or keys. Sending those public synthetic source examples is intentional. The PR review workflow does not enable Jev or inject its credential.
+
+These two outbound-data conversations are resolved by tracing the intended data flow and its boundaries, not by claiming CodeQL found no data flow. The scanner and ordinary review continue to apply to future changes.
