@@ -153,7 +153,7 @@ test("unauthenticated requests must reach the configured Access login", async (t
     response.end();
   });
   await checkAccessBoundary(url, "https://fixture.cloudflareaccess.com");
-  assert.equal(requests.length, 2);
+  assert.equal(requests.length, 3);
   assert.ok(requests.every((request) => !request.headers["cf-access-client-secret"]));
   await assert.rejects(checkAccessBoundary(url, "https://wrong.cloudflareaccess.com"), /origin/);
 });
@@ -202,4 +202,60 @@ test("an auth failure during rollout is not retried", async (t) => {
 test("smoke checks inspect uppercase HTML asset tags", async (t) => {
   await checkLauncher(await serve(t, false, () => {}, false, true));
   await assert.rejects(checkLauncher(await serve(t, true, () => {}, false, true)), /Asset failed/);
+});
+
+test("managed OAuth challenges require same-origin bounded metadata and the pinned Access issuer", async (t) => {
+  const { checkAccessBoundary } = await import("./check-launcher.mjs");
+  let mode = "valid";
+  const url = await probeServer(t, (request, response) => {
+    if (request.url.startsWith("/.well-known/")) {
+      response.setHeader("Content-Type", "application/json");
+      response.end(
+        mode === "oversized"
+          ? "x".repeat(17000)
+          : JSON.stringify({
+              resource: url,
+              authorization_servers: [
+                mode === "wrong-issuer"
+                  ? "https://wrong.cloudflareaccess.com"
+                  : "https://fixture.cloudflareaccess.com",
+              ],
+            }),
+      );
+      return;
+    }
+    response.writeHead(401, {
+      "WWW-Authenticate":
+        mode === "plain"
+          ? "Basic"
+          : `Bearer resource_metadata="${mode === "external" ? "https://evil.invalid" : url}/.well-known/cloudflare-access-protected-resource/mcp"`,
+    });
+    response.end();
+  });
+  await checkAccessBoundary(url, "https://fixture.cloudflareaccess.com");
+  for (const value of ["wrong-issuer", "external", "plain", "oversized"]) {
+    mode = value;
+    await assert.rejects(checkAccessBoundary(url, "https://fixture.cloudflareaccess.com"));
+  }
+});
+
+test("MCP release checks require the route to reject CI service credentials", async (t) => {
+  const { checkMcpDenied } = await import("./check-launcher.mjs");
+  let status = 401;
+  const url = await probeServer(t, (request, response) => {
+    assert.equal(request.url, "/mcp");
+    assert.equal(request.method, "POST");
+    assert.equal(request.headers["cf-access-client-id"], "synthetic");
+    response.writeHead(status, {
+      "Content-Type": "application/json",
+      "Cache-Control": "private, no-store",
+    });
+    response.end(JSON.stringify({ error: "Sign in required" }));
+  });
+  const options = { access: { id: "synthetic", secret: "synthetic" }, timeoutMs: 0 };
+  await checkMcpDenied(url, options);
+  for (const code of [200, 404, 302]) {
+    status = code;
+    await assert.rejects(checkMcpDenied(url, options));
+  }
 });

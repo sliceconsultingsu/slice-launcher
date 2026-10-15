@@ -41,3 +41,7 @@ Registering a module in `src/platform/catalog.json` creates an `app.<id>.open` c
 New apps are not automatically accessible to ordinary members: an owner or authorized administrator grants access through a level or individual permission. Active owners receive all registered capabilities. Pending and suspended members cannot enter apps. The alumni application has not yet been implemented.
 
 Email/identity changes and loss of the last owner's sign-in require an operator recovery procedure with verified identity and an audit record. The normal UI does not let members rebind their identities. Changes use a global revision: if someone else saves first, reload and reapply your intended edit. This prevents a stale screen from overwriting a newer suspension or access change.
+
+## Remote MCP clients
+
+Consultants using the shared `/mcp` endpoint sign in as themselves through Access managed OAuth. The platform reuses signed human identity verification and current D1 membership; no separate MCP role database or shared service login exists. Tools require app access plus their declared action, and calls recheck permissions immediately before dispatch. MCP does not enroll a new member; use the browser account/approval flow first. See [MCP setup and tool contracts](mcp.md).

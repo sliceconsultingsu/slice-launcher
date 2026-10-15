@@ -9,7 +9,7 @@ export default defineConfig({
       provider: "v8",
       include: [
         "src/membership/{auth,api,domain,repository,contracts}.ts",
-        "src/platform/{access,dispatch}.ts",
+        "src/platform/{access,dispatch,mcp,mcp-tool}.ts",
       ],
       reporter: ["text", "json-summary", "html"],
       // Per-module floors from measured authorization scenarios; see docs/testing.md.

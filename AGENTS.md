@@ -18,6 +18,7 @@ This is a public repository. Source, documentation, fixtures, PRs, and build art
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | App modules, routes, UI, shared packages             | [Architecture](docs/architecture.md), [adding an app](docs/adding-an-app.md)                                         |
 | Login, permissions, membership, private data         | [Membership](docs/membership.md), [data boundary](docs/data-boundary.md), [security review](docs/security-review.md) |
+| MCP tools, remote clients, OAuth activation          | [Shared MCP contract and rollout](docs/mcp.md)                                                                       |
 | CI, releases, secrets, rollback, database migrations | [Deployment](docs/deployment.md), [security review](docs/security-review.md)                                         |
 | AI review or evaluation                              | [AI review](docs/ai-review.md); preserve trusted-base execution, strict evidence validation, and bounded cost        |
 
@@ -27,6 +28,7 @@ This is a public repository. Source, documentation, fixtures, PRs, and build art
 - Use platform-owned `/apps/<id>` and `/api/apps/<id>` routes and the module contract. Do not add app-specific Workers, OAuth clients, deployment jobs, credentials, shadow routes, or server actions that bypass guarded dispatch. A transport the contract cannot support requires a reviewed platform extension.
 - The host verifies signed Access identity, reloads current membership, and checks `app.<id>.open` on every protected request. A valid sign-in alone does not grant access. Never trust client-provided roles or cached permissions.
 - Declare app actions and call `context.requirePermission("action.id")` before restricted operations. Apps must also validate inputs, enforce record-level access, and test denial paths. Never mutate on GET/HEAD. Retain same-origin bounded JSON writes and private/no-store responses.
+- Register MCP tools through `defineAppTool` and the module's `tools` array. The host owns `/mcp`, human identity and action checks; apps own bounded schemas, record-level rules and safe results. Use the existing permission catalog and shared business functions. MCP client consent and read-only annotations do not grant authority. Test denied/revoked calls and disclose only data approved for the selected client/provider.
 - Modules share a trusted runtime and origin; they are not sandboxes. Keep server code out of client imports and private data out of public metadata, HTML caches, bundles, logs, and artifacts. Use parameterized queries and atomic changes with audit history where required.
 - Reuse `packages/ui` and `packages/config`. Shared packages must not import host internals. Preserve approved Slice branding and accessible controls, labels, focus, contrast, and keyboard behavior.
 

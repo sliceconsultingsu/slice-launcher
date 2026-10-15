@@ -9,3 +9,5 @@ This repository is public. Application code, schemas, migrations, and synthetic 
 - If a secret is committed, rotate it and remove it from Git history before continuing; deleting it from the latest commit is insufficient.
 
 The platform uses private D1 storage for membership. All application modules inherit verified identity and current membership checks through platform routes. Keep app records in server-side controlled storage; the public catalog contains names, descriptions and declared permission labels only. All modules are trusted code in one Worker, not a sandbox for untrusted contributors.
+
+MCP tool results go to the consultant's selected client and potentially its model provider. Existing app permissions determine what the member may access; they do not by themselves approve sending all accessible data to every provider. Use approved clients, return only necessary fields, enforce record-level rules and avoid including credentials or unrelated member data. The platform does not persist client transcripts or automatically audit app operations. See [the MCP contract](mcp.md).

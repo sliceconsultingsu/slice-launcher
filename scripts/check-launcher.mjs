@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { setTimeout as delay } from "node:timers/promises";
 import process from "node:process";
 import console from "node:console";
@@ -89,16 +90,29 @@ export async function checkLauncher(
   );
 }
 
-export async function checkMembershipDenied(
+async function checkServiceDenied(
   baseUrl,
+  path,
   { access, retryDelayMs = 1000, timeoutMs = 30000 },
 ) {
   const deadline = Date.now() + timeoutMs;
   while (true) {
-    const response = await fetch(new URL("/api/membership", baseUrl), {
+    const response = await fetch(new URL(path, baseUrl), {
       redirect: "error",
       signal: AbortSignal.timeout(5000),
-      headers: { "CF-Access-Client-Id": access.id, "CF-Access-Client-Secret": access.secret },
+      headers: {
+        "CF-Access-Client-Id": access.id,
+        "CF-Access-Client-Secret": access.secret,
+        ...(path === "/mcp"
+          ? { "Content-Type": "application/json", Accept: "application/json, text/event-stream" }
+          : {}),
+      },
+      ...(path === "/mcp"
+        ? {
+            method: "POST",
+            body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+          }
+        : {}),
     });
     // The previous Worker version has no membership route during initial propagation.
     // Retry only that 404; successful data access or any other auth result fails immediately.
@@ -111,21 +125,71 @@ export async function checkMembershipDenied(
     assert.match(response.headers.get("content-type") ?? "", /application\/json/);
     assert.match(response.headers.get("cache-control") ?? "", /no-store/);
     await response.body?.cancel();
-    console.log("Membership API rejects the CI service identity.");
+    console.log("Protected API rejects the CI service identity: " + path);
     return;
   }
+}
+
+export function checkMembershipDenied(baseUrl, options) {
+  return checkServiceDenied(baseUrl, "/api/membership", options);
+}
+export function checkMcpDenied(baseUrl, options) {
+  return checkServiceDenied(baseUrl, "/mcp", options);
 }
 
 export async function checkAccessBoundary(baseUrl, accessDomain) {
   const domain = new URL(accessDomain);
   assert.equal(domain.protocol, "https:");
   assert.ok(domain.hostname.endsWith(".cloudflareaccess.com"));
-  for (const path of ["/", "/api/membership"]) {
+  for (const path of ["/", "/api/membership", "/mcp"]) {
     const response = await fetch(new URL(path, baseUrl), {
       redirect: "manual",
       signal: AbortSignal.timeout(5000),
     });
     await response.body?.cancel();
+    if (response.status === 401) {
+      // Managed OAuth uses a challenge instead of a browser redirect. Verify its pinned issuer.
+      assert.match(response.headers.get("www-authenticate") || "", /^Bearer\s/i);
+      const metadata = /resource_metadata="([^"]+)"/i.exec(
+        response.headers.get("www-authenticate") || "",
+      )?.[1];
+      assert.ok(metadata, "Access OAuth challenge must advertise resource metadata");
+      const target = new URL(metadata);
+      assert.equal(
+        target.origin,
+        new URL(baseUrl).origin,
+        "OAuth metadata must stay on the protected origin",
+      );
+      assert.ok(target.pathname.startsWith("/.well-known/cloudflare-access-protected-resource/"));
+      const info = await fetch(target, { redirect: "error", signal: AbortSignal.timeout(5000) });
+      assert.equal(info.status, 200, "Access OAuth metadata must be available");
+      const reader = info.body.getReader();
+      const chunks = [];
+      let bytes = 0;
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          bytes += value.byteLength;
+          assert.ok(bytes <= 16384, "OAuth metadata exceeds bound");
+          chunks.push(Buffer.from(value));
+        }
+      } finally {
+        await reader.cancel();
+      }
+      const data = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      assert.deepEqual(
+        data.authorization_servers,
+        [domain.origin],
+        "Unexpected OAuth authorization server",
+      );
+      assert.equal(
+        new URL(data.resource).origin,
+        new URL(baseUrl).origin,
+        "Unexpected OAuth resource",
+      );
+      continue;
+    }
     assert.ok(
       [302, 303, 307].includes(response.status),
       "Unauthenticated request must be redirected to Access",
@@ -150,5 +214,11 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     access: id && secret ? { id, secret } : undefined,
     expectedRelease: process.env.EXPECTED_RELEASE_SHA,
   });
-  if (id && secret) await checkMembershipDenied(process.argv[2], { access: { id, secret } });
+  if (id && secret) {
+    await checkMembershipDenied(process.argv[2], { access: { id, secret } });
+    // Forward releases must expose MCP behind the same human-only identity check.
+    // Older verified rollback targets predate this route and retain their original checks.
+    if (process.env.SLICE_MCP_REQUIRED === "true")
+      await checkMcpDenied(process.argv[2], { access: { id, secret } });
+  }
 }

@@ -13,6 +13,8 @@ The public monorepo for Slice Consulting’s internal application platform. All 
 
 Applications run at `/apps/<id>` with APIs at `/api/apps/<id>`. They ship in the same validated Worker artifact. Run `pnpm app:create alumni "Alumni directory"` to scaffold an application, then implement its screens and business logic. An administrator grants `app.alumni.open` through the existing membership UI. The checked-in catalog is empty; the alumni product itself is not implemented.
 
+Apps can also register tools on the shared `/mcp` endpoint. Consultants sign in as themselves through Cloudflare Access managed OAuth, and tools inherit current app/action permissions. Production OAuth activation and a live client check are required separately; see [MCP integration and rollout](docs/mcp.md).
+
 ## Agent-assisted contributions
 
 Consultants and their AI agents should start with [AGENTS.md](AGENTS.md). It defines project goals, inherited platform boundaries, security rules, verification, and delivery expectations. See [contributing](CONTRIBUTING.md) for how to load it into your agent.

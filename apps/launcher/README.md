@@ -15,3 +15,7 @@ Wrangler deploys the validated build artifact through the protected production w
 ## Testing
 
 Vitest exercises authorization/domain/API and D1 persistence. Playwright exercises actual membership UI against signed synthetic identities and isolated data. Shared CI runs coverage, migrations, and Worker smoke; browser tests do not prove real Google/Cloudflare authentication.
+
+## MCP
+
+The host serves `/mcp`; app modules register typed tools through `src/platform/mcp-tool.ts` and inherit the same verified human identity and current app/action permissions. SDK integration tests cover permission filtering and revocation; a separate workerd test verifies runtime compatibility. See [MCP integration and production OAuth activation](../../docs/mcp.md). Live remote client sign-in is a separate operator check.
