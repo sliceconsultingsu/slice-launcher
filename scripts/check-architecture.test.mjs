@@ -122,3 +122,18 @@ test("client imports cannot reach shared MCP dispatch or tool handlers", (t) => 
     assert.match(checkArchitecture(root).join("\n"), /client reaches server-only/);
   }
 });
+
+test("the platform layout preserves server isolation and shared-package independence", (t) => {
+  const root = fixture(t, {
+    "platform/package.json": '{"name":"@slice/launcher"}',
+    "packages/ui/package.json":
+      '{"name":"@slice/ui","dependencies":{"@slice/launcher":"workspace:*"}}',
+    "platform/apps/alumni/server.tsx": "export const secret = 1;",
+    "platform/apps/alumni/client.tsx": '"use client"; import {secret} from "./server";',
+    "packages/ui/index.ts": 'import {secret} from "../../platform/apps/alumni/server";',
+  });
+  const errors = checkArchitecture(root).join("\n");
+  assert.match(errors, /client reaches server-only/);
+  assert.match(errors, /cannot depend on app/);
+  assert.match(errors, /cannot import another app/);
+});

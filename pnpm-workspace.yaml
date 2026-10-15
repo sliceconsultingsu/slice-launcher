@@ -1,5 +1,5 @@
 packages:
-  - "apps/*"
+  - "platform"
   - "packages/*"
 
 # satori pins an affected fflate version; use the patched compatible release.

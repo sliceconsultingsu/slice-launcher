@@ -1,4 +1,4 @@
-import catalog from "../platform/catalog.json";
+import catalog from "../platform/catalog.generated.json";
 import type { AppDescriptor } from "../platform/contracts";
 
 export const apps: readonly AppDescriptor[] = catalog;

@@ -57,7 +57,7 @@ jobs:
       - run: pnpm smoke:launcher
       - name: Fingerprint and inspect deployable files
         id: fingerprint
-        run: node scripts/release-artifact.mjs create apps/launcher/dist release-manifest.json "$GITHUB_SHA"
+        run: node scripts/release-artifact.mjs create platform/dist release-manifest.json "$GITHUB_SHA"
       - name: Upload immutable release
         if: inputs.release
         id: upload
@@ -65,7 +65,7 @@ jobs:
         with:
           name: launcher-release
           path: |
-            apps/launcher/dist/
+            platform/dist/
             release-manifest.json
           include-hidden-files: true
           if-no-files-found: error
@@ -76,7 +76,7 @@ jobs:
         with:
           name: browser-diagnostics
           path: |
-            apps/launcher/playwright-report/
-            apps/launcher/test-results/
+            platform/playwright-report/
+            platform/test-results/
           retention-days: 7
           if-no-files-found: ignore

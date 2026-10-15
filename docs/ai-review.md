@@ -1,6 +1,6 @@
 # Advisory AI review
 
-GPT-6 Sol through Cloudflare is the primary reviewer. The PR workflow fixes `AI_JEV_ENABLED=false` and receives no Jev credential; Jev remains available only in explicitly invoked experiments. Neither changes the required `validate` gate, approves a PR, merges, deploys, or edits code. AI review can miss bugs. The original 2026-10-04 implementation used mocks only. The current primary route is Cloudflare GPT-6 Sol (2026-10-06). The dedicated GitHub inference secret and main-only environment were verified present on 2026-10-15; execution in this repository still awaits the protected-base merge and post-merge smoke check.
+GPT-6 Sol through Cloudflare is the primary reviewer. The PR workflow fixes `AI_JEV_ENABLED=false` and receives no Jev credential; Jev remains available only in explicitly invoked experiments. Neither changes the required `validate` gate, approves a PR, merges, deploys, or edits code. AI review can miss bugs. The original 2026-10-04 implementation used mocks only. The current primary route is Cloudflare GPT-6 Sol (2026-10-06). The foundation merged in PR #11 on 2026-10-15. Hosted runs now publish a top-level comment in each eligible PR conversation. PR #21 verified comment publication but exceeded the bounded input scope, so that run was explicitly incomplete and made no provider call. A successful workflow job is not necessarily a completed model review.
 
 ## Trust boundary
 
@@ -129,7 +129,7 @@ See [the experiment report](experiments/2026-10-06-jev-architecture-results.md) 
 
 Ivan accepted the experiment-based recommendation: required deterministic checks for standards and known invariants; GPT-6 Sol via Cloudflare for advisory source-grounded review; Jev restricted to opt-in experiments. Jev cannot skip code, waive checks or authorize changes. Future model-proposed fixes must pass independent regression tests and ordinary project checks before human review. No automatic correction or merge is enabled.
 
-The PR workflow now explicitly disables Jev and removes its credential/configuration injection. Experimental commands remain available for future held-out evaluations. Activation still requires the dedicated Cloudflare inference credential and approval to merge the foundation PR.
+The PR workflow now explicitly disables Jev and removes its credential/configuration injection. Experimental commands remain available for future held-out evaluations. The foundation is merged and the dedicated inference environment is configured. Check the visible comment status and reviewed SHA on each PR; large changes and renames can still produce incomplete review.
 
 ## Source-location follow-up — 2026-10-15
 

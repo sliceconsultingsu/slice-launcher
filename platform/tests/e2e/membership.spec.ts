@@ -47,7 +47,7 @@ test("onboarding, approval, persistent profile, permission changes, revocation a
       ).status(),
     ).toBe(403);
     await member.getByLabel("Name", { exact: true }).fill("Synthetic Member");
-    await member.getByLabel("Title or role").fill("Consultant");
+    await member.getByLabel("Job title").fill("Consultant");
     await member.getByRole("button", { name: "Save profile" }).click();
     await expect(member.getByRole("status")).toHaveText("Changes saved.");
     await member.reload();
@@ -56,15 +56,42 @@ test("onboarding, approval, persistent profile, permission changes, revocation a
     await accessible(member);
 
     await owner.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(owner.getByLabel("Your organization role")).toHaveText("Admin (owner)");
+    await accessible(owner);
+    await owner.screenshot({ path: test.info().outputPath("owner-desktop.png"), fullPage: true });
+    await owner.setViewportSize({ width: 390, height: 844 });
+    await accessible(owner);
+    await owner.screenshot({ path: test.info().outputPath("owner-mobile.png"), fullPage: true });
+    await owner.setViewportSize({ width: 1280, height: 720 });
     await owner.getByRole("button", { name: "Members", exact: true }).click();
     await owner.getByRole("button", { name: /Synthetic Member member@example.test/ }).click();
     await owner.getByRole("combobox", { name: /^Status/ }).selectOption("active");
-    await owner.getByRole("combobox", { name: /^Access level/ }).selectOption("member");
+    await owner.getByRole("combobox", { name: /^Base access level/ }).selectOption("member");
     await accessible(owner);
     await saveAccess(owner);
     await member.getByRole("button", { name: "Refresh", exact: true }).click();
     await expect(member.getByText("active", { exact: true })).toBeVisible();
+    await expect(member.getByLabel("Your organization role")).toHaveText("Member");
+    await member.screenshot({ path: test.info().outputPath("member-desktop.png"), fullPage: true });
+    await expect(member.getByRole("button", { name: "Access levels", exact: true })).toHaveCount(0);
+    await expect(member.getByRole("button", { name: "Activity", exact: true })).toHaveCount(0);
+    const ordinary = await (await memberContext.request.get("/api/membership")).json();
+    for (const command of [
+      { type: "level.save", name: "Escalation", permissions: ["members.manage"] },
+      { type: "member.add", email: "forbidden@example.test", name: "Forbidden", levelId: "member" },
+    ]) {
+      expect(
+        (
+          await memberContext.request.post("/api/membership", {
+            headers: { origin: "http://127.0.0.1:4173" },
+            data: { revision: ordinary.revision, command },
+          })
+        ).status(),
+      ).toBe(403);
+    }
+    expect((await memberContext.request.get("/api/membership?view=history")).status()).toBe(403);
     await member.getByRole("button", { name: "Members", exact: true }).click();
+    await expect(member.getByRole("button", { name: "Add member", exact: true })).toHaveCount(0);
     await expect(member.getByText("Synthetic Member", { exact: true })).toBeVisible();
     expect(
       (await (await memberContext.request.get("/api/membership")).json()).members.every(
@@ -82,7 +109,7 @@ test("onboarding, approval, persistent profile, permission changes, revocation a
     await owner.getByRole("button", { name: "Members", exact: true }).click();
     await owner.getByRole("button", { name: /Synthetic Member member@example.test/ }).click();
     await owner
-      .getByRole("combobox", { name: /^Access level/ })
+      .getByRole("combobox", { name: /^Base access level/ })
       .selectOption({ label: "History reader" });
     await saveAccess(owner);
     expect((await memberContext.request.get("/api/membership?view=history")).status()).toBe(200);

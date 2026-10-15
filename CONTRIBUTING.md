@@ -1,20 +1,73 @@
-# Contributing
+# Contributing to Slice
 
-## Working with an AI agent
+You do not need to understand the whole platform to contribute an app. Start with a small, agreed task and work in that app's folder. You are responsible for the changes you submit, including work produced by an AI agent.
 
-Start with [AGENTS.md](AGENTS.md), the shared contributor contract. Agents that discover this filename should load it from the repository root; Claude also has a `CLAUDE.md` pointer. For other tools, explicitly include it in the task context:
+## 1. Find the right place
 
-> Read AGENTS.md and the applicable linked references. Implement this task within those rules, verify the result, and report the PR, checks, and remaining work.
+- **App features:** `platform/apps/<app-name>/`. Start with [the apps folder](platform/apps/README.md).
+- **Login, permissions, shared MCP or launcher behavior:** `platform/src/` and `platform/app/`.
+- **Shared visual components:** `packages/ui/`.
+- **Shared development rules:** `packages/config/`.
+- **Guides:** `docs/`.
 
-Review the agent's plan and diff yourself. You own the contribution, including authorization, data handling, tests, and claims in its PR. Do not paste private records or credentials into prompts.
+See the [repository map](docs/repository-map.md) for the configuration files and who owns them. Ask the maintainer when a task changes access rules, private data or production infrastructure.
 
-## Contribution workflow
+## 2. Prepare your workspace
 
-Use the Node/pnpm versions in package.json and install with `pnpm install --frozen-lockfile`.
-Keep changes focused. See [architecture standards](docs/architecture.md), [security review](docs/security-review.md), [adding an app](docs/adding-an-app.md), and [release operations](docs/deployment.md).
+Use the Node/pnpm versions in [README.md](README.md), then run:
 
-Before requesting review run formatting, lint, typecheck, tests, coverage, migration tests, browser tests, build, and Worker smoke as listed in the shared validation workflow. Browser tests use disposable synthetic identities and data; never use production credentials or members in tests.
+```sh
+pnpm install --frozen-lockfile
+pnpm dev
+```
 
-Open a PR. Explain the behavior, meaningful tests, and migration/deployment effects. Include desktop/mobile screenshots for visible changes. Ivan reviews other contributors' PRs; his own need no independent approval. Required checks and resolved conversations apply to everyone. Currently Ivan is the sole write maintainer. Zero required approvals do not mechanically enforce the identity of a reviewer: adding maintainers requires revisiting merge policy. AI findings are advisory and may be wrong or incomplete.
+Create a feature branch before editing. Keep other contributors' changes. If you need a new app, run this from the repository root:
 
-Do not commit customer data, real member exports, tokens, or `.env` files. Report vulnerabilities through GitHub's private vulnerability reporting when available; otherwise contact the maintainer privately before publishing exploit details.
+```sh
+pnpm app:create alumni "Alumni directory"
+```
+
+The command creates its folder, app settings, starter screen and README. Follow [adding an app](docs/adding-an-app.md). Edit that app's `app.json` to change its public name or declared permissions, then run `pnpm apps:sync`. Generated catalog/import files are not edited by hand. Every app inherits the platform's sign-in, permission checks, MCP adapter and deployment.
+
+## 3. If you use an AI agent
+
+Have it read [AGENTS.md](AGENTS.md) and the guides linked for your task. Claude can discover the [CLAUDE.md](CLAUDE.md) pointer; other agents may need this instruction pasted into their task:
+
+> Read AGENTS.md and its relevant references. Implement this task within those rules, test the result, and explain the changes, remaining limitations and PR status.
+
+Review the plan and diff yourself. Never give an agent production credentials or private member/client data. A passing test or AI review does not replace your responsibility to understand what changed.
+
+## 4. Implement and check
+
+Keep app-specific code, settings, tests and documentation together. Use the shared module contract; validate inputs and enforce record-level access. Declare restricted actions and test that unauthorized users cannot perform them. See [architecture](docs/architecture.md), [membership](docs/membership.md), [MCP tools](docs/mcp.md) and [data boundaries](docs/data-boundary.md) as applicable.
+
+Run these from the repository root before requesting review:
+
+```sh
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:coverage
+pnpm test:migrations
+pnpm --filter @slice/launcher exec playwright install chromium
+pnpm test:e2e
+pnpm build
+pnpm smoke:launcher
+```
+
+These check formatting, code rules/types, behavior and permissions, database changes, browser flows, and the actual Worker build. Use `pnpm format` to fix formatting. If a check fails, fix the cause; do not disable it. Explain any check you could not run. For visible changes, test desktop/mobile and accessibility, and include screenshots containing synthetic data only.
+
+Update the app README and affected current guides when behavior changes. Use the [documentation index](docs/README.md); historical plans and experiment reports are evidence, not setup instructions.
+
+## 5. Submit a pull request
+
+Push your branch and open a PR into `main`. Explain the problem, what now happens, tests actually run, remaining limitations and deployment effects. Include app permissions or data changes so the reviewer knows what to check.
+
+Ivan reviews other contributors' PRs; his own need no independent approval. Required CI and resolved review conversations apply to everyone. The [AI reviewer](docs/ai-review.md) posts in the PR conversation, but cannot approve or merge. Incomplete or unavailable review is not a clean review.
+
+After an authorized merge, all apps build and release together. Follow [deployment guidance](docs/deployment.md) for production settings, migrations and rollback. Report pushed, merged and deployed as separate states.
+
+## Reporting a problem
+
+For an ordinary bug, open a GitHub issue with what you expected, what happened and steps to reproduce; use synthetic examples. For a vulnerability, use GitHub private vulnerability reporting when available, or contact the maintainer privately before publishing details. Never put credentials, private exports or real client records in an issue or PR.

@@ -49,7 +49,7 @@ jobs:
           EXPECTED_CONTENT_DIGEST: ${{ needs.checks.outputs.content-digest }}
         run: |
           test -n "$EXPECTED_CONTENT_DIGEST"
-          node scripts/release-artifact.mjs verify apps/launcher/dist release-manifest.json "$GITHUB_SHA"
+          node scripts/release-artifact.mjs verify platform/dist release-manifest.json "$GITHUB_SHA"
       - name: Skip superseded commits
         id: revision
         run: |

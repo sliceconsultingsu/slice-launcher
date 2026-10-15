@@ -231,6 +231,38 @@ test("collects exact base/head source as data, with check identity", async () =>
   assert.equal(collected.checks[0].sha, head);
 });
 
+test("includes platform context after the launcher directory move", async () => {
+  const { api, responses } = apiFixture();
+  const path = "platform/src/membership/example.ts";
+  responses["/compare/" + base + "..." + head].files[0].filename = path;
+  for (const ref of [base, head])
+    responses["/git/trees/" + ref + "?recursive=1"].tree[0].path = path;
+  const surrounding = "export const context = true;";
+  responses["/git/trees/" + head + "?recursive=1"].tree.push({
+    path: "platform/src/membership/helper.ts",
+    type: "blob",
+    mode: "100644",
+    sha: "e".repeat(40),
+    size: surrounding.length,
+  });
+  responses["/git/blobs/" + "e".repeat(40)] = {
+    content: Buffer.from(surrounding).toString("base64"),
+    size: Buffer.byteLength(surrounding),
+    encoding: "base64",
+  };
+  const collected = await collectContext(
+    api,
+    { pr: 12, base, head, repository: "owner/repo" },
+    "standards",
+  );
+  assert.equal(collected.complete, true);
+  assert.ok(
+    collected.surrounding.some(
+      (file) => file.path === "platform/src/membership/helper.ts" && file.content === surrounding,
+    ),
+  );
+});
+
 test("collection refuses changed heads, truncated patches, symlinks and stale base", async () => {
   for (const change of [
     (r) => {

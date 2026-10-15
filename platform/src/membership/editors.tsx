@@ -1,6 +1,7 @@
 "use client";
 import type { FormEvent } from "react";
 import type { Command, Level, Member, View } from "./contracts";
+import { organizationRole } from "./access-summary";
 export type Save = (command: Command) => Promise<void>;
 function data(event: FormEvent<HTMLFormElement>) {
   event.preventDefault();
@@ -32,7 +33,7 @@ export function ProfileEditor({ view, save, busy }: { view: View; save: Save; bu
           />
         </label>
         <label>
-          Title or role
+          Job title
           <input
             name="title"
             autoComplete="organization-title"
@@ -40,6 +41,9 @@ export function ProfileEditor({ view, save, busy }: { view: View; save: Save; bu
             maxLength={100}
           />
         </label>
+        <p className="field-note">
+          Your job title describes your work; it does not change your permissions.
+        </p>
         <label>
           Email
           <input value={view.me.email} readOnly />
@@ -107,7 +111,7 @@ export function AddMember({ view, save, busy }: { view: View; save: Save; busy: 
           <input name="email" type="email" required maxLength={254} />
         </label>
         <label>
-          Access level
+          Base access level
           <select name="levelId" required>
             <option value="">Select a level</option>
             {view.levels.map((level) => (
@@ -168,6 +172,9 @@ export function MemberEditor({
       <fieldset disabled={busy || locked}>
         <legend>{member.name || member.email}</legend>
         <p className="field-note">{member.email}</p>
+        <p>
+          Organization role: <strong>{organizationRole(member, effective)}</strong>
+        </p>
         {locked && <p className="notice">An owner must make changes to this member.</p>}
         <label>
           Status
@@ -182,7 +189,7 @@ export function MemberEditor({
           </select>
         </label>
         <label>
-          Access level
+          Base access level
           <select name="levelId" defaultValue={member.levelId ?? ""}>
             <option value="">No level assigned</option>
             {view.levels.map((item) => (
@@ -200,7 +207,8 @@ export function MemberEditor({
         )}
         {member.owner ? (
           <p className="field-note">
-            Owners have all permissions. At least one active owner must remain.
+            Owners have full admin access. The base level and individual overrides do not limit an
+            active owner. At least one active owner must remain.
           </p>
         ) : (
           <>
