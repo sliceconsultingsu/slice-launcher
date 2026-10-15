@@ -36,6 +36,8 @@ For local Wrangler storage, run `pnpm --filter @slice/launcher exec wrangler d1 
 
 ## Future apps and recovery
 
-Adding an app to the catalog creates an `app.<id>.open` capability. Every separately deployed app must validate identity and enforce current membership and its required capability on its own server before serving private data. Launcher link visibility alone is not authorization. This release does not yet connect the alumni database or synchronize access with other apps.
+Registering a module in `src/platform/catalog.json` creates an `app.<id>.open` capability plus its declared action permissions. The platform verifies identity, loads current D1 membership, and checks that capability before invoking either an app page or API. Apps use the existing Access session, origin, membership administration and deployment. Action-specific rules use `context.requirePermission("records.edit")` for declared actions. Membership is reloaded on every request; pages are dynamic and API responses are private/no-store. Applications must still validate their own domain data and enforce resource ownership.
+
+New apps are not automatically accessible to ordinary members: an owner or authorized administrator grants access through a level or individual permission. Active owners receive all registered capabilities. Pending and suspended members cannot enter apps. The alumni application has not yet been implemented.
 
 Email/identity changes and loss of the last owner's sign-in require an operator recovery procedure with verified identity and an audit record. The normal UI does not let members rebind their identities. Changes use a global revision: if someone else saves first, reload and reapply your intended edit. This prevents a stale screen from overwriting a newer suspension or access change.

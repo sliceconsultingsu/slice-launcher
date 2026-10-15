@@ -7,7 +7,10 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["src/membership/{auth,api,domain,repository,contracts}.ts"],
+      include: [
+        "src/membership/{auth,api,domain,repository,contracts}.ts",
+        "src/platform/{access,dispatch}.ts",
+      ],
       reporter: ["text", "json-summary", "html"],
       // Per-module floors from measured authorization scenarios; see docs/testing.md.
       thresholds: {

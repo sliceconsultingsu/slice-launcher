@@ -1,15 +1,17 @@
 # Slice Launcher
 
-The public monorepo for Slice Consulting’s app launcher and future independently deployed apps. The launcher includes an application catalog and membership administration. Cloudflare Access verifies Google identities at the approved email domain; the app enforces current membership, access levels, and individual permissions using private D1 storage. New members await approval. See [membership administration](docs/membership.md).
+The public monorepo for Slice Consulting’s internal application platform. All apps inherit one login, centrally enforced permissions, and one deployment. The launcher includes an application catalog and membership administration. Cloudflare Access verifies Google identities at the approved email domain; the app enforces current membership, access levels, and individual permissions using private D1 storage. New members await approval. See [membership administration](docs/membership.md).
 
 ## Workspace
 
-- `apps/launcher`: Next.js launcher on Cloudflare Workers using vinext.
+- `apps/launcher`: Next.js platform on Cloudflare Workers using vinext.
+- `apps/launcher/src/apps`: application modules served through shared protected routes.
+- `apps/launcher/src/platform`: catalog, module contract, and guarded dispatch.
 - `packages/ui`: shared app tiles and future UI components.
 - `packages/config`: shared TypeScript, ESLint, and Prettier settings.
 - `docs`: contributor, data, and deployment guidance.
 
-An app can use workspace packages and its own dependencies. Each app keeps its own deployment configuration and can release independently. Add a launcher entry when its production URL is ready.
+Applications run at `/apps/<id>` with APIs at `/api/apps/<id>`. They ship in the same validated Worker artifact. Run `pnpm app:create alumni "Alumni directory"` to scaffold an application, then implement its screens and business logic. An administrator grants `app.alumni.open` through the existing membership UI. The checked-in catalog is empty; the alumni product itself is not implemented.
 
 ## Local development
 

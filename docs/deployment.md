@@ -1,6 +1,6 @@
 # Launcher releases and recovery
 
-The launcher is a Cloudflare Worker built with vinext. The current configured Worker is `slice-launcher`, with membership data in D1. Cloudflare Access verifies identity at the perimeter; application authorization remains responsible for current membership and permissions.
+The launcher and every registered app module ship together as one Cloudflare Worker built with vinext. The current configured Worker is `slice-launcher`, with membership data in D1. Cloudflare Access verifies identity at the perimeter; application authorization remains responsible for current membership and permissions.
 
 ## Pipeline
 
@@ -78,3 +78,7 @@ Official command references: [Wrangler Worker commands](https://developers.cloud
 ## Ownership transition
 
 When Slice takes ownership, migrate repository/environment administration, account-scoped credentials, target Worker/D1 bindings, hostname, and Access policy together. Verify identity, current membership authorization, and rollback eligibility before enabling automated releases in the new account. Account membership is not application membership.
+
+## Inherited app deployment
+
+Apps under `apps/launcher/src/apps` are compiled into `apps/launcher/dist` by the existing build. `check:platform` runs before both lint and build: no additional Worker configuration, cloud token, hostname, workflow or upload step is needed. The verified release artifact and rollback contain all modules. The deployment switch, concurrency, main-revision guard, protected environment, and post-deploy smoke remain shared. Rollback affects every app together and does not revert database contents.

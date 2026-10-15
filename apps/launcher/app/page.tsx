@@ -1,6 +1,6 @@
 import { AccountNav } from "../src/membership/account-nav";
 import { AppTile } from "@slice/ui";
-import { apps, getPublicAppUrl } from "../src/lib/apps";
+import { apps, getAppUrl } from "../src/lib/apps";
 
 function GridIcon() {
   return (
@@ -57,7 +57,7 @@ export default function Home() {
                   key={app.id}
                   name={app.name}
                   description={app.description}
-                  href={getPublicAppUrl(app)}
+                  href={getAppUrl(app)}
                 />
               ))}
             </div>

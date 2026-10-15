@@ -10,7 +10,7 @@ Cloudflare authenticates human identities. The membership API checks active memb
 
 ## Deployment
 
-Wrangler deploys the validated build artifact through the protected production workflow. See ../../docs/deployment.md for provenance, verification, rollback and migration ordering. Independent future apps require their own authorization and deployment configuration.
+Wrangler deploys the validated build artifact through the protected production workflow. See ../../docs/deployment.md for provenance, verification, rollback and migration ordering. All app modules are included in this one Worker artifact and inherit its login, guarded dispatch, deployment credentials, release checks, and code rollback.
 
 ## Testing
 
