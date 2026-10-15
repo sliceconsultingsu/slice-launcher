@@ -4,17 +4,18 @@ A **repository** is the project's shared folder and change history. A **pull req
 
 ## Choose your starting point
 
-| Location                                                | Purpose                                         | Usually edited by                    |
-| ------------------------------------------------------- | ----------------------------------------------- | ------------------------------------ |
-| [platform/apps/](../platform/apps/README.md)            | Business tools; one folder per app              | App contributors                     |
-| [platform/app/](../platform/app/)                       | Shared page/API routes                          | Platform maintainers                 |
-| [platform/src/membership/](../platform/src/membership/) | Accounts, approval, roles and permission checks | Platform maintainers                 |
-| [platform/src/platform/](../platform/src/platform/)     | Shared app contract, dispatch and MCP           | Platform maintainers                 |
-| [packages/ui/](../packages/ui/)                         | Reusable UI                                     | Contributors changing shared visuals |
-| [packages/config/](../packages/config/README.md)        | Shared formatting, lint and TypeScript defaults | Platform maintainers                 |
-| [scripts/](../scripts/README.md)                        | App scaffolding, CI checks and release tools    | Platform maintainers                 |
-| [docs/](README.md)                                      | Current guides and historical evidence          | Everyone                             |
-| [.github/workflows/](../.github/workflows/)             | Automated validation, reviews and releases      | Platform maintainers                 |
+| Location                                                | Purpose                                                | Usually edited by                    |
+| ------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------ |
+| [platform/apps/](../platform/apps/README.md)            | Business tools; one folder per app                     | App contributors                     |
+| [platform/app/](../platform/app/)                       | Shared page/API routes                                 | Platform maintainers                 |
+| [platform/src/membership/](../platform/src/membership/) | Accounts, approval, roles and permission checks        | Platform maintainers                 |
+| [platform/src/platform/](../platform/src/platform/)     | Shared app contract, dispatch and MCP                  | Platform maintainers                 |
+| [packages/ui/](../packages/ui/)                         | Reusable UI                                            | Contributors changing shared visuals |
+| [packages/config/](../packages/config/README.md)        | Shared formatting, lint and TypeScript defaults        | Platform maintainers                 |
+| [skills/](../skills/README.md)                          | Agent work guides and setup, starting with Superpowers | Contributors using AI agents         |
+| [scripts/](../scripts/README.md)                        | App scaffolding, CI checks and release tools           | Platform maintainers                 |
+| [docs/](README.md)                                      | Current guides and historical evidence                 | Everyone                             |
+| [.github/workflows/](../.github/workflows/)             | Automated validation, reviews and releases             | Platform maintainers                 |
 
 The platform is one deployable application. Business apps are modules within it, not separate servers or deployments. The package name `@slice/launcher` is retained so existing pnpm commands still work; its files now live under `platform/`.
 
