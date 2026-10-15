@@ -107,8 +107,34 @@ export async function checkApps(root) {
     (await registrySource(catalog))
   )
     throw new Error("App registry is stale. Run pnpm apps:sync");
-  if (existsSync(join(root, "apps")) && readdirSync(join(root, "apps")).length)
-    throw new Error("Slice apps belong in platform/apps and inherit one platform deployment");
+  if (existsSync(join(root, "apps"))) {
+    // Git moves tracked source, but leaves ignored local dependencies/settings behind.
+    // Inspect names only: never read, move or delete an operator's private configuration.
+    const leftovers = new Set([
+      "node_modules",
+      "dist",
+      ".wrangler",
+      ".vinext",
+      ".next",
+      ".e2e",
+      "coverage",
+      "test-results",
+      "playwright-report",
+      "tsconfig.tsbuildinfo",
+      "next-env.d.ts",
+    ]);
+    for (const entry of readdirSync(join(root, "apps"), { withFileTypes: true })) {
+      if (
+        entry.name !== "launcher" ||
+        !entry.isDirectory() ||
+        entry.isSymbolicLink() ||
+        readdirSync(join(root, "apps/launcher")).some(
+          (name) => !leftovers.has(name) && !/^\.(?:env|dev\.vars)(?:\.|$)/.test(name),
+        )
+      )
+        throw new Error("Slice apps belong in platform/apps and inherit one platform deployment");
+    }
+  }
   for (const [routeRoot, expected] of [
     ["platform/app/apps", "[appId]/[[...path]]/page.tsx"],
     ["platform/app/api/apps", "[appId]/[[...path]]/route.ts"],

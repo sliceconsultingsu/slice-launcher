@@ -119,3 +119,14 @@ test("app settings reject symlinks and oversized files before parsing", async (t
   writeFileSync(file, " ".repeat(65537));
   await assert.rejects(syncApps(root), /size limit/);
 });
+
+test("layout migration tolerates old ignored caches without admitting old app source", async (t) => {
+  const root = await fixture(t);
+  const old = join(root, "apps/launcher");
+  mkdirSync(join(old, "node_modules"), { recursive: true });
+  writeFileSync(join(old, ".dev.vars"), "SYNTHETIC_SETTING=fixture\n");
+  await checkApps(root);
+  assert.equal(readFileSync(join(old, ".dev.vars"), "utf8"), "SYNTHETIC_SETTING=fixture\n");
+  writeFileSync(join(old, "package.json"), "{}");
+  await assert.rejects(checkApps(root), /one platform deployment/);
+});

@@ -42,3 +42,9 @@ The root ESLint and Prettier files are small entry points importing `packages/co
 ## Looking for older work?
 
 Use the [documentation index](README.md). Plans and experiment reports keep their original paths/results as historical evidence. Current guides describe today's structure. Before this layout, the platform lived at `apps/launcher/`, and app modules lived at `apps/launcher/src/apps/`.
+
+## Updating an existing local checkout
+
+After pulling the folder move, run `pnpm install --frozen-lockfile` from the root. Git moves tracked source, but old ignored caches can remain under `apps/launcher/`; the checks tolerate those leftovers. Keep new source under `platform/`.
+
+If you had private `.dev.vars` or `.env` settings in the old folder, transfer the needed settings privately to the corresponding file in `platform/`, checking for an existing destination first. They are not automatically copied or deleted. Preserve uncommitted source changes and private settings before removing old caches; do not delete the old folder wholesale.
