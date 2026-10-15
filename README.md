@@ -16,6 +16,10 @@ One home for Slice Consulting's internal tools. Consultants sign in once; each t
 | Connect an approved AI client          | [MCP setup](docs/mcp.md)                                                                           |
 | Find technical or operational guidance | [Documentation index](docs/README.md)                                                              |
 
+## Skills for your AI agent
+
+Your agent should explain work in clear business language and help you learn as you go. [AGENTS.md](AGENTS.md) sets that standard. The [skills section](skills/README.md) gives your agent reusable work guides, starting with **Superpowers** for planning, solving problems and checking results. Follow its setup guide; adding a link does not install skills in your tool.
+
 ## What is ready?
 
 The launcher, member approval, access levels, activity history, shared app routes, shared MCP adapter and CI/deployment pipeline are implemented. **There are no business apps yet**; the alumni directory is planned, not built.
@@ -35,6 +39,7 @@ platform/
 packages/
   ui/               Reusable visual components
   config/           Shared code-formatting and checking rules
+skills/             Work guides for consultants’ AI agents; start with Superpowers
 scripts/            Scaffolding, repository checks and release tooling
 docs/               Current guides, plus clearly marked historical reports
 .github/            Automated checks and deployment workflows

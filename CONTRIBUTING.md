@@ -33,7 +33,9 @@ The command creates its folder, app settings, starter screen and README. Follow 
 
 Have it read [AGENTS.md](AGENTS.md) and the guides linked for your task. Claude can discover the [CLAUDE.md](CLAUDE.md) pointer; other agents may need this instruction pasted into their task:
 
-> Read AGENTS.md and its relevant references. Implement this task within those rules, test the result, and explain the changes, remaining limitations and PR status.
+> Read AGENTS.md and the skills guide. Explain the business outcome first and teach me any technical concepts in simple language, using small examples. Implement this task within the repository rules, test the result, and explain what changed, what remains uncertain and whether it is live.
+
+Your agent should work like a patient teacher: explain why a change matters, introduce one idea at a time and help you make informed decisions. You can ask it to explain more simply or show an example. Start with [agent skills](skills/README.md); the first collection is [Superpowers](skills/superpowers/README.md), which helps an agent plan, investigate problems and check its work.
 
 Review the plan and diff yourself. Never give an agent production credentials or private member/client data. A passing test or AI review does not replace your responsibility to understand what changed.
 
