@@ -102,3 +102,12 @@ test("allows erased named import/export specifiers but rejects mixed value impor
   });
   assert.match(checkArchitecture(mixed).join("\n"), /client reaches server-only/);
 });
+
+test("client code cannot import a platform app server entry point", (t) => {
+  const root = fixture(t, {
+    ...manifests,
+    "apps/a/src/apps/alumni/server.tsx": "export default {Page() { return null; }};",
+    "apps/a/src/apps/alumni/client.tsx": '"use client"; import app from "./server";',
+  });
+  assert.match(checkArchitecture(root).join("\n"), /client reaches server-only/);
+});

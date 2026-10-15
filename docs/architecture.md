@@ -2,9 +2,9 @@
 
 ## Boundaries
 
-Apps deploy independently. An app may import shared packages through their published exports and its own dependencies. Apps cannot depend on another app or import its internal files. Shared packages cannot import apps. `scripts/check-architecture.mjs` parses TypeScript/JavaScript imports and re-exports, resolves aliases, checks workspace dependencies, and walks client import graphs. It rejects client paths reaching server-only modules, Cloudflare/Node server bindings, environment access, and nonliteral dynamic imports. Type-only contracts are allowed. Keep server modules marked with `server-only`; membership auth/API/repository are also recognized explicitly. This check supplements review and bundler isolation; it cannot prove arbitrary runtime code safe.
+Apps are modules in `apps/launcher/src/apps/<id>`, bundled into one platform Worker. They inherit its Access session, permission enforcement, release artifact, credentials and rollback. Public metadata lives in `src/platform/catalog.json`; a generated static server registry connects modules to guarded catch-all routes. Shared packages cannot import the host application. `scripts/check-architecture.mjs` parses TypeScript/JavaScript imports and re-exports, resolves aliases, checks workspace dependencies, and walks client import graphs. It rejects client paths reaching server-only modules, Cloudflare/Node server bindings, environment access, and nonliteral dynamic imports. Type-only contracts are allowed. Keep server modules marked with `server-only`; membership auth/API/repository are also recognized explicitly. This check supplements review and bundler isolation; it cannot prove arbitrary runtime code safe.
 
-Common components and design tokens belong in `packages/ui`. Preserve Slice's approved logo, typography, colors, and accessible form conventions. App-specific libraries belong in that app's manifest. Avoid copy-pasting a design system into new apps.
+Common components and design tokens belong in `packages/ui`. Preserve Slice's approved logo, typography, colors, and accessible form conventions. App libraries belong in the host manifest; reusable libraries can become workspace packages. Avoid copy-pasting a design system into new apps.
 
 ## Server and data contracts
 
@@ -14,4 +14,23 @@ Validate external input at the boundary with explicit schemas and bounded payloa
 
 Keep TypeScript strict; do not hide errors with blanket lint disables, any, unchecked casts, or catch-and-ignore. Explain unusual assumptions near the code. Keep modules focused by behavior. Tests should prove user-visible behavior or a security/reliability invariant, including rejection paths. A named test script is a minimum contract, not useful coverage by itself.
 
-Every app must declare lint/typecheck/test/build commands and include a README describing configuration, permissions, deployment, and testing. CI checks the script and README contract; reviewers judge whether the descriptions and tests are meaningful. Add shared checks to the reusable validation workflow to keep PR and release validation aligned.
+The host declares lint/typecheck/test/build commands and operational documentation for all modules. New app tests live beside their module and run in the host suite. `check:platform` verifies the catalog/registry and rejects per-app deployment configs and server actions that bypass guarded dispatch. Module endpoints must use the platform page/API contract; add action authorization and domain validation inside those handlers. Add shared checks to the reusable validation workflow to keep PR and release validation aligned.
+
+## One platform request path
+
+```mermaid
+flowchart TD
+  Browser --> Access[Cloudflare Access / Google sign-in]
+  Access --> Host[Slice platform Worker]
+  Host --> Gate[Verify signed identity and current D1 membership]
+  Gate --> Capability[Require app.id.open]
+  Capability --> Page[App page module]
+  Capability --> API[App API module]
+  API --> Action[Declared action permission and domain rules]
+  D1[(Private membership D1)] --> Gate
+  CI[Shared CI and release artifact] --> Host
+```
+
+`/apps/<id>/...` and `/api/apps/<id>/...` are platform-owned routes. App pages are dynamic; APIs always return private/no-store. Mutations require same-origin JSON bounded to 16 KiB before app code runs. Unknown apps do not resolve to external URLs. There are no app-owned OAuth clients, Workers, deployment secrets or release jobs. A release and code rollback affect the whole platform; data migrations remain a separate operator responsibility.
+
+Modules share a trusted runtime and origin. This architecture does not sandbox malicious code, isolate an XSS vulnerability between apps, or replace app-specific record-level authorization. Review module changes accordingly.

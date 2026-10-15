@@ -8,4 +8,4 @@ This repository is public. Application code, schemas, migrations, and synthetic 
 - Review new dependencies, logs, and error handling for accidental exposure before merging.
 - If a secret is committed, rotate it and remove it from Git history before continuing; deleting it from the latest commit is insufficient.
 
-The current launcher has no database connection, alumni records, or in-app sign-in. Keep private content out until server-side authentication and authorization are implemented and tested.
+The platform uses private D1 storage for membership. All application modules inherit verified identity and current membership checks through platform routes. Keep app records in server-side controlled storage; the public catalog contains names, descriptions and declared permission labels only. All modules are trusted code in one Worker, not a sandbox for untrusted contributors.
