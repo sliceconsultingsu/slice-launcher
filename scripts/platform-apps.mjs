@@ -1,38 +1,41 @@
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import process from "node:process";
 import console from "node:console";
 import { format } from "prettier";
 import ts from "typescript";
+import { readReleaseFile } from "./read-release-file.mjs";
 
 const base = "platform/src";
 const idPattern = /^[a-z][a-z0-9-]{0,39}$/;
 const actionPattern = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)*$/;
-export function readCatalog(root) {
+export async function readCatalog(root) {
   const directory = join(root, "platform/apps");
   const entries = existsSync(directory) ? readdirSync(directory, { withFileTypes: true }) : [];
-  const catalog = entries
-    .filter((entry) => entry.name !== "README.md")
-    .map((entry) => {
-      if (!entry.isDirectory() || entry.isSymbolicLink())
-        throw new Error("Apps must be ordinary directories");
-      const manifest = join(directory, entry.name, "app.json");
-      if (!existsSync(manifest)) throw new Error(`${entry.name}: missing app.json`);
-      if (!lstatSync(manifest).isFile() || lstatSync(manifest).isSymbolicLink())
-        throw new Error(`${entry.name}: app.json must be an ordinary file`);
-      const app = JSON.parse(readFileSync(manifest, "utf8"));
-      if (app?.id !== entry.name) throw new Error(`${entry.name}: app ID must match its directory`);
-      return app;
-    })
-    .sort((a, b) => a.id.localeCompare(b.id));
+  const catalog = await Promise.all(
+    entries
+      .filter((entry) => entry.name !== "README.md")
+      .map(async (entry) => {
+        if (!entry.isDirectory() || entry.isSymbolicLink())
+          throw new Error("Apps must be ordinary directories");
+        const manifest = join(directory, entry.name, "app.json");
+        let content;
+        try {
+          // Use the existing bounded reader: inspect and read the same no-follow file handle.
+          content = await readReleaseFile(manifest, 65536);
+        } catch (error) {
+          if (error.code === "ENOENT")
+            throw new Error(`${entry.name}: missing app.json`, { cause: error });
+          throw error;
+        }
+        const app = JSON.parse(content.toString("utf8"));
+        if (app?.id !== entry.name)
+          throw new Error(`${entry.name}: app ID must match its directory`);
+        return app;
+      }),
+  );
+  catalog.sort((a, b) => a.id.localeCompare(b.id));
   const ids = new Set();
   let permissionCount = 4;
   for (const app of catalog) {
@@ -83,7 +86,7 @@ export async function registrySource(catalog) {
   );
 }
 export async function syncApps(root) {
-  const catalog = readCatalog(root);
+  const catalog = await readCatalog(root);
   writeFileSync(join(root, base, "platform/registry.generated.ts"), await registrySource(catalog));
   writeFileSync(
     join(root, base, "platform/catalog.generated.json"),
@@ -98,7 +101,7 @@ function walk(directory) {
   });
 }
 export async function checkApps(root) {
-  const catalog = readCatalog(root);
+  const catalog = await readCatalog(root);
   if (
     readFileSync(join(root, base, "platform/registry.generated.ts"), "utf8") !==
     (await registrySource(catalog))
@@ -186,7 +189,7 @@ export async function createApp(root, id, name = id) {
   if (!idPattern.test(id)) throw new Error("Use a lowercase app ID, e.g. alumni");
   if (typeof name !== "string" || !name.trim() || name.length > 80)
     throw new Error("Use an app name of 1–80 characters");
-  const catalog = readCatalog(root);
+  const catalog = await readCatalog(root);
   const directory = join(root, "platform/apps", id);
   if (catalog.some((app) => app.id === id) || existsSync(directory))
     throw new Error(`App ${id} already exists`);

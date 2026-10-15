@@ -33,7 +33,7 @@ Declare additional actions in that app's `app.json`:
 }
 ```
 
-Run `pnpm apps:sync` after app settings changes. In a write handler, call `context.requirePermission("records.edit")` before changing records. This checks the full permission `app.alumni.records.edit`. Unknown or ungranted actions fail closed. Each app must also validate business inputs and enforce resource ownership; the platform cannot infer those rules.
+Keep `app.json` as an ordinary file of at most 64 KiB; symbolic links are rejected. Run `pnpm apps:sync` after app settings changes. In a write handler, call `context.requirePermission("records.edit")` before changing records. This checks the full permission `app.alumni.records.edit`. Unknown or ungranted actions fail closed. Each app must also validate business inputs and enforce resource ownership; the platform cannot infer those rules.
 
 ## API contract
 

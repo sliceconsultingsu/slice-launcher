@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createApp, syncApps, checkApps } from "./platform-apps.mjs";
@@ -104,4 +104,18 @@ test("apps inherit the MCP adapter instead of creating their own servers or tran
   mkdirSync(rogue, { recursive: true });
   writeFileSync(join(rogue, "route.ts"), "export const POST = () => new Response();");
   await assert.rejects(checkApps(root), /direct routes can bypass/);
+});
+
+test("app settings reject symlinks and oversized files before parsing", async (t) => {
+  const root = await fixture(t);
+  await createApp(root, "notes");
+  const file = join(root, "platform/apps/notes/app.json");
+  const target = join(root, "outside.json");
+  writeFileSync(target, readFileSync(file));
+  rmSync(file);
+  symlinkSync(target, file);
+  await assert.rejects(syncApps(root));
+  rmSync(file);
+  writeFileSync(file, " ".repeat(65537));
+  await assert.rejects(syncApps(root), /size limit/);
 });
