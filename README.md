@@ -16,6 +16,10 @@ One home for Slice Consulting's internal tools. Consultants sign in once; each t
 | Connect an approved AI client          | [MCP setup](docs/mcp.md)                                                                           |
 | Find technical or operational guidance | [Documentation index](docs/README.md)                                                              |
 
+## Recommended AI models
+
+Use **Claude Opus 5.5** or **GPT-6 Astra**, with **High** reasoning for planning and **Medium** for implementation. Avoid weaker models for code changes to help reduce the risk of breaking existing features. Every change still needs tests and review. See [the shared model guidance](AGENTS.md#recommended-models-and-reasoning-settings), including what to do if a model is unavailable.
+
 ## Skills for your AI agent
 
 Your agent should explain work in clear business language and help you learn as you go. [AGENTS.md](AGENTS.md) sets that standard. The [skills section](skills/README.md) gives your agent reusable work guides, starting with **Superpowers** for planning, solving problems and checking results. Follow its setup guide; adding a link does not install skills in your tool.

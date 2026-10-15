@@ -31,6 +31,8 @@ The command creates its folder, app settings, starter screen and README. Follow 
 
 ## 3. If you use an AI agent
 
+Choose **Claude Opus 5.5** or **GPT-6 Astra**. Set reasoning to **High** while planning, then **Medium** while implementing the agreed work. Prefer these over weaker models for code changes; the aim is to reduce mistakes that break existing features. Model choice does not replace tests or your review. See [the model guidance](AGENTS.md#recommended-models-and-reasoning-settings) for exceptions and difficult tasks.
+
 Have it read [AGENTS.md](AGENTS.md) and the guides linked for your task. Claude can discover the [CLAUDE.md](CLAUDE.md) pointer; other agents may need this instruction pasted into their task:
 
 > Read AGENTS.md and the skills guide. Explain the business outcome first and teach me any technical concepts in simple language, using small examples. Implement this task within the repository rules, test the result, and explain what changed, what remains uncertain and whether it is live.

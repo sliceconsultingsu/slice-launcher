@@ -6,6 +6,8 @@ These skills support consultants building Slice. They are not apps in the launch
 
 ## Start here
 
+Before starting, use [the recommended model and reasoning settings](../AGENTS.md#recommended-models-and-reasoning-settings). A skill guides the work; it does not select a model for you.
+
 1. Ask your agent to read [AGENTS.md](../AGENTS.md), which sets Slice's rules and teaching style.
 2. Choose a collection below. Ask the agent to read its guide and the instructions relevant to your task.
 3. Have the agent explain which routine it is using and why, in ordinary business language.
