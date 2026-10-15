@@ -4,16 +4,18 @@ import { Repository } from "../membership/repository";
 import { apps } from "../lib/apps";
 import { modules } from "./registry.generated";
 import { createPlatform } from "./dispatch";
+import { createMcpAdapter } from "./mcp";
 
 export function platform() {
-  return createPlatform({
+  const dependencies = {
     catalog: apps,
     modules,
-    verify: (request) =>
+    verify: (request: Request) =>
       verifyIdentity(request, {
         issuer: env.ACCESS_TEAM_DOMAIN,
         audience: env.ACCESS_AUD,
       }),
     loadState: () => new Repository(env.MEMBERSHIP_DB).load(),
-  });
+  };
+  return { ...createPlatform(dependencies), mcp: createMcpAdapter(dependencies) };
 }

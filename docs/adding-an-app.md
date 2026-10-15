@@ -41,6 +41,10 @@ Run `pnpm apps:sync` after catalog changes. In a write handler, call `context.re
 
 Do not mutate on GET/HEAD. Large uploads, webhooks and other special transports need a separately reviewed platform extension. Public metadata and client assets must contain no private records or secrets.
 
+## MCP tools
+
+Add optional `tools` to the same server module using `defineAppTool`. Each tool declares its schema and an action from the app catalog; the platform owns `/mcp` and verifies the consultant's current membership, app access and action before dispatch. Use the same business functions and record-level authorization as the app's API. Follow the [MCP recipe and constraints](mcp.md); app modules do not import the MCP SDK or create their own server/authentication flow.
+
 ## Validation and release
 
 Add meaningful `*.test.ts` tests beside module code; the host's suite discovers them. Run:

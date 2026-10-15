@@ -86,6 +86,7 @@ export async function checkApps(root) {
   for (const [routeRoot, expected] of [
     ["apps/launcher/app/apps", "[appId]/[[...path]]/page.tsx"],
     ["apps/launcher/app/api/apps", "[appId]/[[...path]]/route.ts"],
+    ["apps/launcher/app/mcp", "route.ts"],
   ]) {
     const directory = join(root, routeRoot);
     if (existsSync(directory) && walk(directory).some((file) => file !== join(directory, expected)))
@@ -119,6 +120,22 @@ export async function checkApps(root) {
         true,
       );
       const visit = (node) => {
+        const specifier =
+          ts.isImportDeclaration(node) || ts.isExportDeclaration(node)
+            ? node.moduleSpecifier
+            : ts.isCallExpression(node) &&
+                (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+                  (ts.isIdentifier(node.expression) && node.expression.text === "require"))
+              ? node.arguments[0]
+              : undefined;
+        if (
+          specifier &&
+          ts.isStringLiteral(specifier) &&
+          specifier.text.startsWith("@modelcontextprotocol/")
+        )
+          throw new Error(
+            `${app.id}: MCP servers and transports belong to the platform; use defineAppTool`,
+          );
         if (
           ts.isExpressionStatement(node) &&
           ts.isStringLiteral(node.expression) &&

@@ -68,3 +68,22 @@ test("CI rejects app routes shadowing the central permission guard", async (t) =
   writeFileSync(join(directory, "page.tsx"), "export default () => 'private';");
   await assert.rejects(checkApps(root), /direct routes can bypass/);
 });
+
+test("apps inherit the MCP adapter instead of creating their own servers or transports", async (t) => {
+  const root = await fixture(t);
+  await createApp(root, "notes");
+  const file = join(root, "apps/launcher/src/apps/notes/mcp.ts");
+  for (const source of [
+    'import {McpServer} from "@modelcontextprotocol/server";',
+    'export {McpServer} from "@modelcontextprotocol/server";',
+    'const sdk = await import("@modelcontextprotocol/server");',
+  ]) {
+    writeFileSync(file, source);
+    await assert.rejects(checkApps(root), /MCP servers and transports belong to the platform/);
+  }
+  rmSync(file);
+  const rogue = join(root, "apps/launcher/app/mcp/notes");
+  mkdirSync(rogue, { recursive: true });
+  writeFileSync(join(rogue, "route.ts"), "export const POST = () => new Response();");
+  await assert.rejects(checkApps(root), /direct routes can bypass/);
+});

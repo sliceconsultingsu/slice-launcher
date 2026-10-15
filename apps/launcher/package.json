@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@modelcontextprotocol/server": "2.3.1",
     "@slice/ui": "workspace:*",
     "@vinext/cloudflare": "1.0.1",
     "jose": "^6.2.12",
@@ -15,6 +16,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@cloudflare/vite-plugin": "1.62.5",
+    "@modelcontextprotocol/client": "2.3.1",
     "@playwright/test": "^1.63.0",
     "@slice/config": "workspace:*",
     "@tailwindcss/postcss": "4.3.3",

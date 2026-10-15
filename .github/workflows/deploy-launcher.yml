@@ -70,6 +70,7 @@ jobs:
           SLICE_LAUNCHER_URL: ${{ vars.SLICE_LAUNCHER_URL }}
           ACCESS_TEAM_DOMAIN: https://snowy-voice-36a1.cloudflareaccess.com
           EXPECTED_RELEASE_SHA: ${{ github.sha }}
+          SLICE_MCP_REQUIRED: "true"
           RELEASE_ARTIFACT_ID: ${{ needs.checks.outputs.artifact-id }}
           RELEASE_ARTIFACT_DIGEST: ${{ needs.checks.outputs.artifact-digest }}
           WRANGLER_OUTPUT_FILE_PATH: ${{ github.workspace }}/wrangler-output.ndjson

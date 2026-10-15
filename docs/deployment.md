@@ -15,7 +15,7 @@ flowchart LR
   ReleaseChecks --> Artifact[Immutable artifact plus content digest]
   Artifact --> Production[Serialized production job]
   ReleaseSecurity --> Production
-  Production --> Smoke[Access, release SHA, HTML, assets, membership denial]
+  Production --> Smoke[Access, release SHA, HTML, assets, membership/MCP denial]
   Smoke --> Provenance[Verified release record]
   Provenance --> Manual[Explicit rollback workflow]
 ```
@@ -44,12 +44,12 @@ Dependencies install without lifecycle scripts in production jobs. Production cr
 
 Health returns `{ "status": "ok", "release": "<40-character source SHA>" }` with `Cache-Control: no-store`. Local development defaults to `development`. Production verification requires:
 
-1. Requests without credentials to the launcher and membership API redirect to the configured Cloudflare Access login.
-2. The CI service credential receives HTTP 401 and JSON with no-store from membership, both before and after checking the intended release.
+1. Requests without credentials to the launcher, membership API and `/mcp` must either redirect to the pinned Access login, or return a Bearer challenge whose bounded same-origin protected-resource metadata identifies the pinned Access authorization server. A plain HTTP 401 is insufficient.
+2. The CI service credential receives HTTP 401 and JSON with no-store from membership, both before and after checking the intended release. Forward deployments also require this denial from `/mcp` after the expected release is live (`SLICE_MCP_REQUIRED=true`). Rollback omits that extra route requirement so verified pre-MCP releases remain eligible.
 3. Health serves the intended source SHA, and the launcher HTML and its CSS/JavaScript assets load from the same origin.
 4. Wrangler reports the uploaded Worker version serving 100 percent of traffic.
 
-Only explicit transient health statuses (404/502/503/504), local startup connection refusal, and an old health release identity retry for up to 30 seconds. PR #10's bounded membership-route 404 propagation retry remains. Other authentication responses, exposed membership data, malformed responses, bad assets, or an absent Access boundary fail immediately. Credentials never follow redirects or leave the launcher origin.
+Only explicit transient health statuses (404/502/503/504), local startup connection refusal, and an old health release identity retry for up to 30 seconds. Protected membership/MCP route probes allow the same bounded 404 propagation retry. Other authentication responses, exposed membership data, malformed responses, bad assets, or an absent Access boundary fail immediately. Credentials never follow redirects or leave the launcher origin.
 
 After all verification succeeds, the workflow stores `verified-release.json`, the manifest, and deployment status for 90 days. Together they link source SHA, GitHub run, immutable artifact ID/service digest, content digest, Worker version, deployment ID, and verification time. Failed smoke checks remain failed runs and cannot create verified provenance. GitHub Actions job failures are the notification mechanism; no external messaging integration is used.
 
@@ -82,3 +82,7 @@ When Slice takes ownership, migrate repository/environment administration, accou
 ## Inherited app deployment
 
 Apps under `apps/launcher/src/apps` are compiled into `apps/launcher/dist` by the existing build. `check:platform` runs before both lint and build: no additional Worker configuration, cloud token, hostname, workflow or upload step is needed. The verified release artifact and rollback contain all modules. The deployment switch, concurrency, main-revision guard, protected environment, and post-deploy smoke remain shared. Rollback affects every app together and does not revert database contents.
+
+## Remote MCP sign-in
+
+The platform owns `/mcp` and shares its deployment and security checks with all modules. Remote human clients require managed OAuth on the existing Access application; enabling it is a separate authorized configuration change. Follow [MCP activation and rollback](mcp.md#activate-remote-sign-in), preserving the existing audience, identity provider, policies and CI service rule. Worker rollback does not restore Access configuration. Release smoke checks the perimeter and service denial; it does not establish that a human client can finish OAuth.

@@ -111,3 +111,14 @@ test("client code cannot import a platform app server entry point", (t) => {
   });
   assert.match(checkArchitecture(root).join("\n"), /client reaches server-only/);
 });
+
+test("client imports cannot reach shared MCP dispatch or tool handlers", (t) => {
+  for (const name of ["mcp", "mcp-tool"]) {
+    const root = fixture(t, {
+      ...manifests,
+      [`apps/a/src/platform/${name}.ts`]: "export const value=1;",
+      "apps/a/page.tsx": `"use client"; import {value} from "./src/platform/${name}";`,
+    });
+    assert.match(checkArchitecture(root).join("\n"), /client reaches server-only/);
+  }
+});
