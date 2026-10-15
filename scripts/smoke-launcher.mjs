@@ -63,7 +63,10 @@ function signalWorkerGroup(signal) {
 }
 
 try {
-  await checkLauncher(`http://127.0.0.1:${port}`, { signal: controller.signal });
+  await checkLauncher(`http://127.0.0.1:${port}`, {
+    signal: controller.signal,
+    expectedRelease: process.env.SLICE_RELEASE_SHA,
+  });
 } catch (error) {
   console.error(logs);
   throw error;

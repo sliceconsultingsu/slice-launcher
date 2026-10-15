@@ -78,3 +78,67 @@ it("rejects cross-origin mutations and oversized or malformed JSON", async () =>
     command: { type: "join" },
   });
 });
+
+it("rejects wrong issuer, invalid claims, unsupported algorithms and oversized assertions", async () => {
+  for (const payload of [
+    { type: "service" },
+    { sub: "" },
+    { sub: "x".repeat(257) },
+    { email: "invalid" },
+    { common_name: "service", email: "person@example.test" },
+    { type: undefined },
+  ]) {
+    await expect(
+      verifyIdentity(request(await token(payload)), config, resolver),
+    ).rejects.toMatchObject({ status: 401 });
+  }
+  await expect(
+    verifyIdentity(
+      request(await token()),
+      { ...config, issuer: "https://other.cloudflareaccess.com" },
+      resolver,
+    ),
+  ).rejects.toMatchObject({ status: 401 });
+  await expect(verifyIdentity(request("x".repeat(16385)), config, resolver)).rejects.toMatchObject({
+    status: 401,
+  });
+  const hmac = await new SignJWT({ email: "person@example.test", sub: "person", type: "app" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuer(config.issuer)
+    .setAudience(config.audience)
+    .setIssuedAt()
+    .setExpirationTime("5m")
+    .sign(new TextEncoder().encode("synthetic-test-key-only-32-characters"));
+  await expect(verifyIdentity(request(hmac), config, resolver)).rejects.toMatchObject({
+    status: 401,
+  });
+});
+it("rejects missing bodies, wrong media types and missing origins", async () => {
+  const url = "https://slice.example/api/membership";
+  await expect(
+    readCommand(
+      new Request(url, {
+        method: "POST",
+        headers: { origin: "https://slice.example", "content-type": "application/json" },
+      }),
+    ),
+  ).rejects.toMatchObject({ status: 400 });
+  await expect(
+    readCommand(
+      new Request(url, {
+        method: "POST",
+        headers: { origin: "https://slice.example", "content-type": "text/plain" },
+        body: "{}",
+      }),
+    ),
+  ).rejects.toMatchObject({ status: 415 });
+  await expect(
+    readCommand(
+      new Request(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      }),
+    ),
+  ).rejects.toMatchObject({ status: 403 });
+});

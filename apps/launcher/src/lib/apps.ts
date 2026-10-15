@@ -1,19 +1,9 @@
-export interface AppEntry {
-  id: string;
-  name: string;
-  description: string;
-  url?: string;
-}
+import catalog from "../platform/catalog.json";
+import type { AppDescriptor } from "../platform/contracts";
 
-export const apps: AppEntry[] = [];
+export const apps: readonly AppDescriptor[] = catalog;
 
-export function getPublicAppUrl(entry: AppEntry): string | null {
-  if (!entry.url?.trim()) return null;
-  try {
-    const url = new URL(entry.url);
-    if (url.protocol !== "https:" || !url.hostname || url.username || url.password) return null;
-    return url.href;
-  } catch {
-    return null;
-  }
+export function getAppUrl(app: Pick<AppDescriptor, "id">): string {
+  if (!/^[a-z][a-z0-9-]{0,39}$/.test(app.id)) throw new Error("Invalid application ID");
+  return `/apps/${app.id}`;
 }

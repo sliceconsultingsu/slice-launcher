@@ -169,3 +169,92 @@ describe("membership authorization", () => {
     expect(view.levels).toEqual([]);
   });
 });
+
+describe("membership mutation rejection invariants", () => {
+  it("rejects invalid profiles, duplicate names and unknown targets without changing state", () => {
+    const s = setup();
+    const before = structuredClone(s);
+    const member = {
+      type: "member.update",
+      id: "missing",
+      status: "active",
+      levelId: "member",
+      allow: [],
+      deny: [],
+      owner: false,
+    };
+    const cases: [unknown, number][] = [
+      [{ type: "profile.update", name: "", title: "" }, 400],
+      [{ type: "profile.update", name: "x".repeat(81), title: "" }, 400],
+      [{ type: "profile.update", name: "Valid", title: "x".repeat(101) }, 400],
+      [{ type: "profile.update", name: "Valid", title: "", email: "other@example.test" }, 400],
+      [{ type: "level.save", name: "member", permissions: [] }, 409],
+      [{ type: "level.save", id: "unknown", name: "New", permissions: [] }, 400],
+      [{ type: "level.save", name: "New", permissions: ["unknown"] }, 400],
+      [
+        { type: "member.add", name: "Duplicate", email: ownerIdentity.email, levelId: "member" },
+        409,
+      ],
+      [{ type: "member.add", name: "New", email: person.email, levelId: "unknown" }, 400],
+      [member, 404],
+    ];
+    for (const [command, status] of cases) {
+      expect(() => run(s, command)).toThrowError(expect.objectContaining({ status }));
+      expect(s).toEqual(before);
+    }
+    expect(() =>
+      run(s, { type: "profile.update", name: "Name", title: "" }, "missing-subject"),
+    ).toThrowError(expect.objectContaining({ status: 403 }));
+  });
+  it("requires a verified identity before activation and prevents invalid status transitions", () => {
+    const s = run(setup(), {
+      type: "member.add",
+      name: "Invited",
+      email: person.email,
+      levelId: "member",
+    });
+    const target = s.members.find((entry) => entry.email === person.email)!;
+    const update = {
+      type: "member.update",
+      id: target.id,
+      status: "active",
+      levelId: "member",
+      allow: [],
+      deny: [],
+      owner: false,
+    };
+    expect(() => run(s, update)).toThrow(/until this person signs in/);
+    expect(() => run(s, { ...update, levelId: null })).toThrow(/Assign an access level/);
+    const joined = enroll(s, person, meta).state;
+    expect(() => run(joined, { ...update, status: "invited" })).toThrow(/already signed in/);
+    expect(() => run(joined, { ...update, status: "pending", owner: true })).toThrow(
+      /owner must be active/,
+    );
+    expect(() => enroll(s, { email: "invalid", subject: "person" }, meta)).toThrowError(
+      expect.objectContaining({ status: 401 }),
+    );
+  });
+  it("applies role permission removal immediately and retains deny precedence over an explicit allow", () => {
+    let s = run(setup(), {
+      type: "member.add",
+      name: "Person",
+      email: person.email,
+      levelId: "member",
+    });
+    s = enroll(s, person, meta).state;
+    expect(memberView(s, person.subject).permissions).toContain("members.read");
+    s = run(s, { type: "level.save", id: "member", name: "Member", permissions: [] });
+    expect(memberView(s, person.subject).members).toEqual([]);
+    const target = s.members.find((entry) => entry.subject === person.subject)!;
+    s = run(s, {
+      type: "member.update",
+      id: target.id,
+      status: "active",
+      levelId: "member",
+      allow: ["audit.read"],
+      deny: ["audit.read"],
+      owner: false,
+    });
+    expect(memberView(s, person.subject).permissions).toEqual([]);
+  });
+});

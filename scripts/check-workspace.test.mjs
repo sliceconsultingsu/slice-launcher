@@ -14,6 +14,10 @@ function fixture(t, manifest) {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, "apps", "example"), { recursive: true });
   writeFileSync(join(root, "apps", "example", "package.json"), JSON.stringify(manifest));
+  writeFileSync(
+    join(root, "apps", "example", "README.md"),
+    "## Configuration\n## Permissions\n## Deployment\n## Testing\n",
+  );
   return root;
 }
 
@@ -32,4 +36,10 @@ test("rejects an app that silently omits tests or type checking", (t) => {
 
 test("rejects blank commands instead of treating them as checks", (t) => {
   assert.equal(checkAppScripts(fixture(t, { scripts: { ...scripts, test: " " } })).length, 1);
+});
+
+test("requires operational documentation for a new app", (t) => {
+  const root = fixture(t, { scripts });
+  writeFileSync(join(root, "apps", "example", "README.md"), "## Configuration\n");
+  assert.equal(checkAppScripts(root).length, 3);
 });

@@ -10,3 +10,5 @@ dist/
 .wrangler/
 .DS_Store
 *.tsbuildinfo
+
+ai-review-output/

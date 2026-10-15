@@ -4,7 +4,12 @@ import process from "node:process";
 import console from "node:console";
 import { pathToFileURL } from "node:url";
 
-export async function checkLauncher(baseUrl, { signal, access } = {}) {
+class RolloutPending extends Error {}
+
+export async function checkLauncher(
+  baseUrl,
+  { signal, access, expectedRelease, timeoutMs = 30000, retryDelayMs = 500 } = {},
+) {
   const base = new URL(baseUrl);
   const request = (path) => {
     const target = new URL(path, base);
@@ -21,16 +26,34 @@ export async function checkLauncher(baseUrl, { signal, access } = {}) {
     });
   };
 
-  const deadline = Date.now() + 30000;
+  const deadline = Date.now() + timeoutMs;
   while (true) {
     try {
       const health = await request("/api/health");
+      if ([404, 502, 503, 504].includes(health.status)) {
+        await health.body?.cancel();
+        throw new RolloutPending("Health route is propagating");
+      }
       assert.equal(health.status, 200, "Health endpoint must return 200");
-      assert.deepEqual(await health.json(), { status: "ok" });
+      const body = await health.json();
+      assert.equal(body.status, "ok");
+      if (expectedRelease && body.release !== expectedRelease) {
+        throw new RolloutPending("Intended release is not serving yet");
+      }
       break;
     } catch (error) {
-      if (signal?.aborted || Date.now() >= deadline) throw error;
-      await delay(500, undefined, { signal });
+      // Startup connection failures and an explicitly old/transient route are retryable.
+      // Authentication, malformed JSON, and unexpected responses fail immediately.
+      if (
+        signal?.aborted ||
+        Date.now() >= deadline ||
+        !(
+          error instanceof RolloutPending ||
+          (error instanceof TypeError && error.cause?.code === "ECONNREFUSED")
+        )
+      )
+        throw error;
+      await delay(retryDelayMs, undefined, { signal });
     }
   }
 
@@ -41,11 +64,14 @@ export async function checkLauncher(baseUrl, { signal, access } = {}) {
   assert.match(html, /App Launcher/);
 
   const assets = new Map();
-  for (const tag of html.matchAll(/<(?:link|script)\b[^>]*>/g)) {
-    const url = tag[0].match(/(?:href|src)="([^"]+)"/)?.[1];
+  for (const tag of html.matchAll(/<(?:link|script)\b[^>]*>/gi)) {
+    const url = tag[0].match(/(?:href|src)="([^"]+)"/i)?.[1];
+    const normalizedTag = tag[0].toLowerCase();
     if (!url || !url.startsWith("/") || url.startsWith("//")) continue;
-    if (tag[0].startsWith("<link") && /rel="stylesheet"/.test(tag[0])) assets.set(url, "text/css");
-    if (tag[0].startsWith("<script") && /\bsrc=/.test(tag[0])) assets.set(url, "javascript");
+    if (normalizedTag.startsWith("<link") && /rel="stylesheet"/i.test(tag[0]))
+      assets.set(url, "text/css");
+    if (normalizedTag.startsWith("<script") && /\bsrc=/i.test(tag[0]))
+      assets.set(url, "javascript");
   }
   assert.ok([...assets.values()].includes("text/css"), "Page must reference a stylesheet");
   assert.ok([...assets.values()].includes("javascript"), "Page must reference its JavaScript");
@@ -90,11 +116,39 @@ export async function checkMembershipDenied(
   }
 }
 
+export async function checkAccessBoundary(baseUrl, accessDomain) {
+  const domain = new URL(accessDomain);
+  assert.equal(domain.protocol, "https:");
+  assert.ok(domain.hostname.endsWith(".cloudflareaccess.com"));
+  for (const path of ["/", "/api/membership"]) {
+    const response = await fetch(new URL(path, baseUrl), {
+      redirect: "manual",
+      signal: AbortSignal.timeout(5000),
+    });
+    await response.body?.cancel();
+    assert.ok(
+      [302, 303, 307].includes(response.status),
+      "Unauthenticated request must be redirected to Access",
+    );
+    const target = new URL(response.headers.get("location"));
+    assert.equal(target.origin, domain.origin, "Unexpected Access login origin");
+    assert.ok(target.pathname.startsWith("/cdn-cgi/access/login"), "Expected Access login");
+  }
+}
+
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   assert.ok(process.argv[2], "Usage: node scripts/check-launcher.mjs <base-url>");
   const id = process.env.CF_ACCESS_CLIENT_ID;
   const secret = process.env.CF_ACCESS_CLIENT_SECRET;
   assert.equal(Boolean(id), Boolean(secret), "Both Access service credentials are required");
-  await checkLauncher(process.argv[2], { access: id && secret ? { id, secret } : undefined });
+  if (id && secret) {
+    assert.ok(process.env.ACCESS_TEAM_DOMAIN, "Expected Access team domain is required");
+    await checkAccessBoundary(process.argv[2], process.env.ACCESS_TEAM_DOMAIN);
+    await checkMembershipDenied(process.argv[2], { access: { id, secret } });
+  }
+  await checkLauncher(process.argv[2], {
+    access: id && secret ? { id, secret } : undefined,
+    expectedRelease: process.env.EXPECTED_RELEASE_SHA,
+  });
   if (id && secret) await checkMembershipDenied(process.argv[2], { access: { id, secret } });
 }

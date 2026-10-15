@@ -8,14 +8,20 @@
   },
   "scripts": {
     "dev": "pnpm --filter @slice/launcher dev",
-    "build": "pnpm -r --if-present build",
-    "lint": "pnpm check:workspace && eslint . && pnpm -r --if-present lint",
+    "build": "pnpm check:platform && pnpm -r --if-present build",
+    "lint": "pnpm check:platform && pnpm check:workspace && node scripts/check-architecture.mjs && eslint . && pnpm -r --if-present lint",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "node --test scripts/*.test.mjs && pnpm -r --if-present test",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
     "check:workspace": "node scripts/check-workspace.mjs",
-    "smoke:launcher": "node scripts/smoke-launcher.mjs"
+    "smoke:launcher": "node scripts/smoke-launcher.mjs",
+    "test:e2e": "pnpm --filter @slice/launcher test:e2e",
+    "test:coverage": "pnpm --filter @slice/launcher test:coverage",
+    "test:migrations": "pnpm --filter @slice/launcher test:migrations",
+    "app:create": "node scripts/platform-apps.mjs create",
+    "apps:sync": "node scripts/platform-apps.mjs sync",
+    "check:platform": "node scripts/platform-apps.mjs check"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

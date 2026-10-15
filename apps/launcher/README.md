@@ -1,10 +1,17 @@
-# vinext app
+# Launcher
 
-This project was created with create-vinext-app.
+## Configuration
 
-## Scripts
+Cloudflare Access issuer/audience and D1 binding live in Wrangler config. Runtime credentials are secrets; never expose them to the client. Local test identities and data are disposable. See ../../docs/membership.md.
 
-- `pnpm run dev` starts the vinext dev server.
-- `pnpm run build` builds the Cloudflare Worker output.
-- `pnpm run start` starts the built Worker locally with Wrangler.
-- `pnpm run deploy` deploys the Cloudflare Worker.
+## Permissions
+
+Cloudflare authenticates human identities. The membership API checks active membership, access levels, and individual overrides on each request. Unknown members remain pending. CI service identities cannot read membership data.
+
+## Deployment
+
+Wrangler deploys the validated build artifact through the protected production workflow. See ../../docs/deployment.md for provenance, verification, rollback and migration ordering. All app modules are included in this one Worker artifact and inherit its login, guarded dispatch, deployment credentials, release checks, and code rollback.
+
+## Testing
+
+Vitest exercises authorization/domain/API and D1 persistence. Playwright exercises actual membership UI against signed synthetic identities and isolated data. Shared CI runs coverage, migrations, and Worker smoke; browser tests do not prove real Google/Cloudflare authentication.

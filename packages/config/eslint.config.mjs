@@ -5,6 +5,11 @@ export default [
   {
     ignores: [
       "**/node_modules/**",
+      "**/coverage/**",
+      "ai-review-output/**",
+      "**/test-results/**",
+      "**/playwright-report/**",
+      "**/.e2e/**",
       "**/dist/**",
       "**/.vinext/**",
       "**/.next/**",
@@ -20,6 +25,8 @@ export default [
         AbortSignal: "readonly",
         AbortController: "readonly",
         fetch: "readonly",
+        Response: "readonly",
+        structuredClone: "readonly",
       },
     },
   },

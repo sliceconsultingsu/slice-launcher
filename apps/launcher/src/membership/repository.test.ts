@@ -1,36 +1,20 @@
-import { afterEach, expect, it } from "vitest";
-import { readFile } from "node:fs/promises";
-import { Miniflare, convertV4MiniflareOptions } from "miniflare";
+import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
+import { database, migrate, reset } from "../../tests/database";
 import { Repository } from "./repository";
 import { applyCommand, enroll } from "./domain";
-const instances: Miniflare[] = [];
-afterEach(async () => {
-  await Promise.all(instances.splice(0).map((m) => m.dispose()));
+let fixture: Awaited<ReturnType<typeof database>>;
+beforeAll(async () => {
+  fixture = await database();
+  await migrate(fixture.db);
+}, 30_000);
+beforeEach(async () => {
+  await reset(fixture.db);
+});
+afterAll(async () => {
+  await fixture?.runtime.dispose();
 });
 async function setup() {
-  const mf = new Miniflare(
-    convertV4MiniflareOptions({
-      modules: true,
-      script: "export default { fetch() { return new Response('ok') } }",
-      compatibilityDate: "2026-10-02",
-      d1Databases: ["DB"],
-    }),
-  );
-  instances.push(mf);
-  const db = await mf.getD1Database("DB");
-  const sql = await readFile(
-    new URL("../../migrations/0001_membership.sql", import.meta.url),
-    "utf8",
-  );
-  for (const stmt of sql
-    .split(";")
-    .map((s) => s.trim())
-    .filter(Boolean))
-    await db.prepare(stmt).run();
-  await db
-    .prepare("UPDATE organization SET owner_email = ? WHERE id = 'slice'")
-    .bind("owner@example.test")
-    .run();
+  const { db } = fixture;
   const repo = new Repository(db);
   const initial = await repo.load();
   const first = enroll(
@@ -69,4 +53,19 @@ it("rejects stale mutations and rolls back every write and audit", async () => {
   expect((await repo.load()).levels.map((r) => r.name)).toEqual(["Member", "One"]);
   expect(await repo.history()).toHaveLength(2);
   expect(await db.prepare("SELECT COUNT(*) as count FROM mutation_guard").first("count")).toBe(0);
+});
+
+it("rolls back earlier writes when an audit insert fails later in the transaction", async () => {
+  const { repo } = await setup();
+  const before = await repo.load();
+  const history = await repo.history();
+  const change = applyCommand(
+    before,
+    "owner",
+    { type: "profile.update", name: "Should roll back", title: "" },
+    { id: history[0].id, now: "now" },
+  );
+  await expect(repo.commit(before, change)).rejects.toThrow();
+  expect(await repo.load()).toEqual(before);
+  expect(await repo.history()).toEqual(history);
 });

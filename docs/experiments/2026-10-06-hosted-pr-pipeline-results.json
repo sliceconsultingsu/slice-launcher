@@ -1,0 +1,285 @@
+[
+  {
+    "pr": 2,
+    "url": "https://github.com/ichen27/slice-launcher-pipeline-lab/pull/2",
+    "head": "74d4cd6770670aa3810370e3e607339931bedc68",
+    "aiRun": 37538774313,
+    "ciRun": 37538776233,
+    "aiStatus": "completed",
+    "ciConclusion": "success",
+    "aiElapsedSeconds": 45.0,
+    "ciElapsedSeconds": 87.0,
+    "commentId": 6026288702,
+    "commentCount": 1,
+    "report": {
+      "version": 1,
+      "reservedUsd": 0.20096,
+      "base": "c58df9acb1666c23ac33a20980d145dff8307839",
+      "head": "74d4cd6770670aa3810370e3e607339931bedc68",
+      "status": "completed",
+      "reason": "",
+      "findings": [],
+      "gpt": {
+        "status": "completed",
+        "model": "openai/gpt-6-sol",
+        "inputTokens": 5599,
+        "outputTokens": 39,
+        "estimatedUsd": 0.011588,
+        "latencyMs": 3627
+      },
+      "jev": {
+        "status": "disabled",
+        "model": "",
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "estimatedUsd": null,
+        "latencyMs": 0
+      }
+    },
+    "ciJobs": [
+      {
+        "name": "security / dependency-review",
+        "conclusion": "success"
+      },
+      {
+        "name": "checks / Quality, browser tests, and production build",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / codeql (javascript-typescript)",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / codeql (actions)",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / severity-gate",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / security",
+        "conclusion": "success"
+      },
+      {
+        "name": "validate",
+        "conclusion": "success"
+      }
+    ]
+  },
+  {
+    "pr": 3,
+    "url": "https://github.com/ichen27/slice-launcher-pipeline-lab/pull/3",
+    "head": "45b9d0b0e11aca8079fa7b18a8324e09057838fd",
+    "aiRun": 37538775375,
+    "ciRun": 37538778227,
+    "aiStatus": "failed",
+    "ciConclusion": "success",
+    "aiElapsedSeconds": 82.0,
+    "ciElapsedSeconds": 116.0,
+    "commentId": 6026288867,
+    "commentCount": 1,
+    "report": {
+      "version": 1,
+      "reservedUsd": 0.19482,
+      "base": "c58df9acb1666c23ac33a20980d145dff8307839",
+      "head": "45b9d0b0e11aca8079fa7b18a8324e09057838fd",
+      "status": "failed",
+      "reason": "GPT request or strict output/evidence validation failed; no findings published.",
+      "findings": [],
+      "gpt": {
+        "status": "failed",
+        "model": "openai/gpt-6-sol",
+        "inputTokens": 5614,
+        "outputTokens": 205,
+        "estimatedUsd": 0.013278,
+        "latencyMs": 4578
+      },
+      "jev": {
+        "status": "disabled",
+        "model": "",
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "estimatedUsd": null,
+        "latencyMs": 0
+      }
+    },
+    "ciJobs": [
+      {
+        "name": "security / dependency-review",
+        "conclusion": "success"
+      },
+      {
+        "name": "checks / Quality, browser tests, and production build",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / codeql (actions)",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / codeql (javascript-typescript)",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / severity-gate",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / security",
+        "conclusion": "success"
+      },
+      {
+        "name": "validate",
+        "conclusion": "success"
+      }
+    ]
+  },
+  {
+    "pr": 4,
+    "url": "https://github.com/ichen27/slice-launcher-pipeline-lab/pull/4",
+    "head": "6ab01ca13c2f0899b5b8f1aab87a1421959034a7",
+    "aiRun": 37538776746,
+    "ciRun": 37538780935,
+    "aiStatus": "completed",
+    "ciConclusion": "failure",
+    "aiElapsedSeconds": 71.0,
+    "ciElapsedSeconds": 90.0,
+    "commentId": 6026289837,
+    "commentCount": 1,
+    "report": {
+      "version": 1,
+      "reservedUsd": 0.850025,
+      "base": "c58df9acb1666c23ac33a20980d145dff8307839",
+      "head": "6ab01ca13c2f0899b5b8f1aab87a1421959034a7",
+      "status": "completed",
+      "reason": "",
+      "findings": [
+        {
+          "path": "apps/launcher/src/membership/domain.ts",
+          "side": "RIGHT",
+          "start": 22,
+          "end": 22,
+          "severity": "high",
+          "title": "Restore deny precedence when calculating effective permissions",
+          "explanation": "An active non-owner now receives catalog permissions from their access level or individual allows even when those permissions are in their deny list. For example, denying `audit.read` no longer blocks the history API, which authorizes requests using `effectivePermissions`. The same calculation controls member and level management and delegation checks. Keep the catalog check, but also exclude denied permissions. The existing domain and browser tests that expect deny overrides should catch this regression.",
+          "evidence": ".filter((p) => permissionCatalog.some((item) => item.id === p))"
+        }
+      ],
+      "gpt": {
+        "status": "completed",
+        "model": "openai/gpt-6-sol",
+        "inputTokens": 42532,
+        "outputTokens": 218,
+        "estimatedUsd": 0.087244,
+        "latencyMs": 6226
+      },
+      "jev": {
+        "status": "disabled",
+        "model": "",
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "estimatedUsd": null,
+        "latencyMs": 0
+      }
+    },
+    "ciJobs": [
+      {
+        "name": "checks / Quality, browser tests, and production build",
+        "conclusion": "failure"
+      },
+      {
+        "name": "security / dependency-review",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / codeql (javascript-typescript)",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / codeql (actions)",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / severity-gate",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / security",
+        "conclusion": "success"
+      },
+      {
+        "name": "validate",
+        "conclusion": "failure"
+      }
+    ]
+  },
+  {
+    "pr": 5,
+    "url": "https://github.com/ichen27/slice-launcher-pipeline-lab/pull/5",
+    "head": "bdfc48911cd18adb3b6e16cde76058f1775ba4ab",
+    "aiRun": 37538779578,
+    "ciRun": 37538781921,
+    "aiStatus": "incomplete",
+    "ciConclusion": "success",
+    "aiElapsedSeconds": 43.0,
+    "ciElapsedSeconds": 104.0,
+    "commentId": 6026291741,
+    "commentCount": 1,
+    "report": {
+      "version": 1,
+      "reservedUsd": 0,
+      "base": "c58df9acb1666c23ac33a20980d145dff8307839",
+      "head": "bdfc48911cd18adb3b6e16cde76058f1775ba4ab",
+      "status": "incomplete",
+      "reason": "Input omitted, unsupported or over the bounded review scope; no provider called.",
+      "findings": [],
+      "gpt": {
+        "status": "unavailable",
+        "model": "",
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "estimatedUsd": null,
+        "latencyMs": 0
+      },
+      "jev": {
+        "status": "disabled",
+        "model": "",
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "estimatedUsd": null,
+        "latencyMs": 0
+      }
+    },
+    "ciJobs": [
+      {
+        "name": "checks / Quality, browser tests, and production build",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / codeql (actions)",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / dependency-review",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / codeql (javascript-typescript)",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / severity-gate",
+        "conclusion": "success"
+      },
+      {
+        "name": "security / security",
+        "conclusion": "success"
+      },
+      {
+        "name": "validate",
+        "conclusion": "success"
+      }
+    ]
+  }
+]

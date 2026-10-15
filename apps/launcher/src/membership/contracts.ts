@@ -6,7 +6,13 @@ export const permissionCatalog = [
   { id: "members.manage", label: "Add and manage members" },
   { id: "levels.manage", label: "Create and edit access levels" },
   { id: "audit.read", label: "View access history" },
-  ...apps.map((app) => ({ id: `app.${app.id}.open`, label: `Open ${app.name}` })),
+  ...apps.flatMap((app) => [
+    { id: `app.${app.id}.open`, label: `Open ${app.name}` },
+    ...app.permissions.map((permission) => ({
+      id: `app.${app.id}.${permission.id}`,
+      label: `${app.name}: ${permission.label}`,
+    })),
+  ]),
 ];
 export interface Identity {
   subject: string;

@@ -21,6 +21,16 @@ export function checkAppScripts(root) {
         errors.push(`${manifestPath}: requires a nonempty ${command} script`);
       }
     }
+    const readmePath = join(root, "apps", app.name, "README.md");
+    try {
+      const readme = readFileSync(readmePath, "utf8");
+      for (const heading of ["Configuration", "Permissions", "Deployment", "Testing"]) {
+        if (!new RegExp(`^## ${heading}\\s*$`, "m").test(readme))
+          errors.push(`${readmePath}: requires a ${heading} section`);
+      }
+    } catch {
+      errors.push(`${readmePath}: required app documentation is missing`);
+    }
   }
   return errors;
 }

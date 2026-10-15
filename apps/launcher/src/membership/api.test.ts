@@ -1,34 +1,21 @@
-import { afterEach, expect, it } from "vitest";
-import { readFile } from "node:fs/promises";
-import { Miniflare, convertV4MiniflareOptions } from "miniflare";
+import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
+import { database, migrate, reset } from "../../tests/database";
 import { Repository } from "./repository";
 import { membershipRequest, errorResponse } from "./api";
 import type { View, Member } from "./contracts";
-const instances: Miniflare[] = [];
-afterEach(async () => {
-  await Promise.all(instances.splice(0).map((m) => m.dispose()));
+let fixture: Awaited<ReturnType<typeof database>>;
+beforeAll(async () => {
+  fixture = await database();
+  await migrate(fixture.db);
+}, 30_000);
+beforeEach(async () => {
+  await reset(fixture.db);
+});
+afterAll(async () => {
+  await fixture?.runtime.dispose();
 });
 it("runs onboarding, approval, privacy checks and revocation against D1", async () => {
-  const mf = new Miniflare(
-    convertV4MiniflareOptions({
-      modules: true,
-      script: "export default { fetch() { return new Response('ok') } }",
-      compatibilityDate: "2026-10-02",
-      d1Databases: ["DB"],
-    }),
-  );
-  instances.push(mf);
-  const db = await mf.getD1Database("DB");
-  for (const statement of (
-    await readFile(new URL("../../migrations/0001_membership.sql", import.meta.url), "utf8")
-  )
-    .split(";")
-    .map((s) => s.trim())
-    .filter(Boolean))
-    await db.prepare(statement).run();
-  await db
-    .prepare("UPDATE organization SET owner_email = 'owner@example.test' WHERE id = 'slice'")
-    .run();
+  const { db } = fixture;
   const repo = new Repository(db);
   const owner = { subject: "owner", email: "owner@example.test" };
   const person = { subject: "person", email: "person@example.test" };
@@ -100,4 +87,83 @@ it("runs onboarding, approval, privacy checks and revocation against D1", async 
   expect(await (await call({ ...person, email: "other@example.test" })).json()).toHaveProperty(
     "error",
   );
+});
+
+it("rejects invalid envelopes and unrecognized methods without mutating D1", async () => {
+  const repo = new Repository(fixture.db);
+  const before = await repo.load();
+  const identity = { subject: "unknown", email: "unknown@example.test" };
+  const invoke = async (method: string, body?: unknown) => {
+    const request = new Request("https://slice.example/api/membership", {
+      method,
+      headers: { origin: "https://slice.example", "content-type": "application/json" },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+    try {
+      return await membershipRequest(request, identity, repo);
+    } catch (error) {
+      return errorResponse(error);
+    }
+  };
+  expect((await invoke("DELETE")).status).toBe(405);
+  for (const body of [
+    { command: { type: "join" }, privilege: "owner" },
+    { revision: -1, command: { type: "join" } },
+    [],
+  ]) {
+    expect((await invoke("POST", body)).status).toBe(400);
+  }
+  expect(
+    (
+      await invoke("POST", {
+        revision: 0,
+        command: { type: "profile.update", name: "Unauthorized", title: "" },
+      })
+    ).status,
+  ).toBe(403);
+  expect(await repo.load()).toEqual(before);
+  expect(await repo.history()).toEqual([]);
+});
+it("keeps duplicate enrollment idempotent and protects invitations from another identity", async () => {
+  const repo = new Repository(fixture.db);
+  const owner = { subject: "owner", email: "owner@example.test" };
+  const member = { subject: "invited", email: "invited@example.test" };
+  const call = async (identity: typeof owner, command: unknown) => {
+    const { revision } = await repo.load();
+    const request = new Request("https://slice.example/api/membership", {
+      method: "POST",
+      headers: { origin: "https://slice.example", "content-type": "application/json" },
+      body: JSON.stringify({ revision, command }),
+    });
+    try {
+      return await membershipRequest(request, identity, repo);
+    } catch (error) {
+      return errorResponse(error);
+    }
+  };
+  await call(owner, { type: "join" });
+  await call(owner, {
+    type: "member.add",
+    email: member.email,
+    name: "Invited",
+    levelId: "member",
+  });
+  await call({ subject: "other", email: "other@example.test" }, { type: "join" });
+  expect(
+    (await repo.load()).members.find((entry) => entry.email === member.email)?.subject,
+  ).toBeNull();
+  const joined = await call(member, { type: "join" });
+  expect(((await joined.json()) as View).me.status).toBe("active");
+  const before = await repo.load();
+  const history = await repo.history();
+  expect((await call(member, { type: "join" })).status).toBe(200);
+  expect(await repo.load()).toEqual(before);
+  expect(await repo.history()).toEqual(history);
+  expect((await call({ ...member, subject: "forged-identity" }, { type: "join" })).status).toBe(
+    403,
+  );
+  expect(
+    (await call({ ...member, email: "different@example.test" }, { type: "join" })).status,
+  ).toBe(403);
+  expect(await repo.load()).toEqual(before);
 });

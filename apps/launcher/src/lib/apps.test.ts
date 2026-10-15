@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AppTile } from "@slice/ui";
-import { getPublicAppUrl } from "./apps";
+import { getAppUrl } from "./apps";
 
 const entry = {
   id: "alumni",
@@ -10,24 +10,16 @@ const entry = {
   description: "Browse approved alumni records",
 };
 
-describe("getPublicAppUrl", () => {
-  it("returns a valid HTTPS app URL", () => {
-    expect(getPublicAppUrl({ ...entry, url: "https://alumni.example.org" })).toBe(
-      "https://alumni.example.org/",
-    );
+describe("getAppUrl", () => {
+  it("uses the platform origin and shared app route", () => {
+    expect(getAppUrl(entry)).toBe("/apps/alumni");
   });
-
-  it.each([
-    undefined,
-    "",
-    "http://alumni.example.org",
-    "javascript:alert(1)",
-    "data:text/html,hi",
-    "not a URL",
-    "https://user:pass@alumni.example.org",
-  ])("rejects an unavailable or unsafe URL: %s", (url) => {
-    expect(getPublicAppUrl({ ...entry, url })).toBeNull();
-  });
+  it.each(["../account", "https://external.test", "alumni/other", "", "constructor?"])(
+    "rejects invalid ID %s",
+    (id) => {
+      expect(() => getAppUrl({ id })).toThrow("Invalid application ID");
+    },
+  );
 });
 
 describe("AppTile", () => {
@@ -36,10 +28,10 @@ describe("AppTile", () => {
       createElement(AppTile, {
         name: entry.name,
         description: entry.description,
-        href: "https://alumni.example.org/",
+        href: "/apps/alumni",
       }),
     );
-    expect(html).toContain('href="https://alumni.example.org/"');
+    expect(html).toContain('href="/apps/alumni"');
     expect(html).toContain("Alumni Database");
   });
 
