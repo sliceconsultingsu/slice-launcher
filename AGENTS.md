@@ -19,7 +19,7 @@ Use the main README as the tone model. Assume the consultant understands the bus
 - Challenge a mistaken assumption plainly and explain the practical consequence. Separate what is confirmed, what is assumed and what remains untested. Simple language must retain important limits, risks and tradeoffs.
 - Before sending a message, check that a new consultant can identify the outcome, the reason and any next step. In handoffs, explain what was checked and whether the work is proposed, merged or live.
 
-For example: “The server rejects unauthorized mutations with HTTP 403” becomes “Members cannot change someone else's access. The app checks every request and refuses changes from people without permission.” If the status code helps with troubleshooting, add: “The refusal uses HTTP 403, which means permission denied.”
+For example: “The server rejects unauthorized mutations with HTTP 403” becomes “Only people with the required permission can change someone else's access. The app checks every request and refuses changes from everyone else.” If the status code helps with troubleshooting, add: “The refusal uses HTTP 403, which means permission denied.”
 
 ## Agent skills
 
