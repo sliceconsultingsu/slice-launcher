@@ -1,5 +1,15 @@
 # Contributing
 
+## Working with an AI agent
+
+Start with [AGENTS.md](AGENTS.md), the shared contributor contract. Agents that discover this filename should load it from the repository root; Claude also has a `CLAUDE.md` pointer. For other tools, explicitly include it in the task context:
+
+> Read AGENTS.md and the applicable linked references. Implement this task within those rules, verify the result, and report the PR, checks, and remaining work.
+
+Review the agent's plan and diff yourself. You own the contribution, including authorization, data handling, tests, and claims in its PR. Do not paste private records or credentials into prompts.
+
+## Contribution workflow
+
 Use the Node/pnpm versions in package.json and install with `pnpm install --frozen-lockfile`.
 Keep changes focused. See [architecture standards](docs/architecture.md), [security review](docs/security-review.md), [adding an app](docs/adding-an-app.md), and [release operations](docs/deployment.md).
 

@@ -1,6 +1,6 @@
 # Advisory AI review
 
-GPT-6 Sol through Cloudflare is the primary reviewer. The PR workflow fixes `AI_JEV_ENABLED=false` and receives no Jev credential; Jev remains available only in explicitly invoked experiments. Neither changes the required `validate` gate, approves a PR, merges, deploys, or edits code. AI review can miss bugs. The original 2026-10-04 implementation used mocks only. The current primary route is Cloudflare GPT-6 Sol (2026-10-06); GitHub activation remains pending.
+GPT-6 Sol through Cloudflare is the primary reviewer. The PR workflow fixes `AI_JEV_ENABLED=false` and receives no Jev credential; Jev remains available only in explicitly invoked experiments. Neither changes the required `validate` gate, approves a PR, merges, deploys, or edits code. AI review can miss bugs. The original 2026-10-04 implementation used mocks only. The current primary route is Cloudflare GPT-6 Sol (2026-10-06). The dedicated GitHub inference secret and main-only environment were verified present on 2026-10-15; execution in this repository still awaits the protected-base merge and post-merge smoke check.
 
 ## Trust boundary
 
@@ -14,24 +14,30 @@ New commits replace the summary with pending status and make earlier findings st
 
 ## Review scope and bounded cost
 
+Trusted standards include the protected-base `AGENTS.md`, contribution, architecture, security and data-boundary documents. The reviewer does not adopt a PR's edited standards as instructions.
+
 Input includes exact base/head commits, changed full source on both sides, complete changed patches, trusted project standards, PR description, head/merge-commit check statuses, and surrounding textual files from touched apps and shared packages. Tooling changes also include tooling context. Check statuses are point-in-time metadata; a pending check is not a pass. Check names and PR text remain untrusted. Use manual dispatch after deterministic checks finish when a later snapshot is useful.
+
+The model receives source as trusted one-based `{line, text}` records on both diff sides and in surrounding files. Blank lines, CRLF and Unicode are preserved. Evidence validation and publication still use the original source and require changed lines plus exact matching text; line numbering never relaxes that gate. Numbering overhead counts toward the input limit and conservative cost reservation.
+
+Failures expose only fixed diagnostic categories: `provider_transport`, `provider_model`, `provider_usage`, `provider_output`, `output_schema`, `location`, `range`, `outside_diff`, or `evidence_mismatch`. Raw error bodies and invalid model text are never published. Measured usage remains available even when evidence fails.
 
 The branch must contain its current base. Changed-file enumeration must agree with GitHub's PR count. Truncated trees/patches, unsupported binary or rename changes, sensitive paths, missing source, or exceeded bounds produce incomplete review without a provider call. The broad surrounding-file scope is deterministic; it is not a guarantee that every runtime dependency was captured. GPT must report incomplete if necessary cross-file evidence is absent.
 
 Hard bounds in trusted code:
 
-| Bound                        | Limit                                                 |
-| ---------------------------- | ----------------------------------------------------- |
-| Changed files / source blobs | 40 / 80                                               |
-| Full serialized context      | 180,000 UTF-8 bytes                                   |
-| Provider calls               | At most one GPT and one Jev; zero retries             |
-| Timeout                      | 90 seconds per provider                               |
-| GPT output                   | 4,096 tokens, including reasoning                     |
-| Provider response body       | 80,000 bytes                                          |
-| Jev request                  | 26,000 UTF-8 bytes; otherwise Jev alone is incomplete |
-| GitHub requests              | 220, each with a 15-second timeout and bounded body   |
-| Per-review reserved cost     | At most $1; configurable downward                     |
-| Findings / public comment    | 8 / 18,000 bytes                                      |
+| Bound                                           | Limit                                                 |
+| ----------------------------------------------- | ----------------------------------------------------- |
+| Changed files / source blobs                    | 40 / 80                                               |
+| Full serialized context, including line records | 180,000 UTF-8 bytes                                   |
+| Provider calls                                  | At most one GPT and one Jev; zero retries             |
+| Timeout                                         | 90 seconds per provider                               |
+| GPT output                                      | 4,096 tokens, including reasoning                     |
+| Provider response body                          | 80,000 bytes                                          |
+| Jev request                                     | 26,000 UTF-8 bytes; otherwise Jev alone is incomplete |
+| GitHub requests                                 | 220, each with a 15-second timeout and bounded body   |
+| Per-review reserved cost                        | At most $1; configurable downward                     |
+| Findings / public comment                       | 8 / 18,000 bytes                                      |
 
 The preflight reserves both calls before spending, using UTF-8 byte count as a conservative token upper bound, framing/schema reserves, configured input rates, and the full GPT output allowance. The rates must match current provider billing. Network failures can still incur provider charges; missing usage is **unknown** (`estimatedUsd: null`), not free. Job timeouts and provider project spending limits provide additional limits. Frequent PR events/reruns multiply spend, so set provider-level monthly limits. No per-run cap substitutes for a monthly project limit.
 
@@ -124,3 +130,15 @@ See [the experiment report](experiments/2026-10-06-jev-architecture-results.md) 
 Ivan accepted the experiment-based recommendation: required deterministic checks for standards and known invariants; GPT-6 Sol via Cloudflare for advisory source-grounded review; Jev restricted to opt-in experiments. Jev cannot skip code, waive checks or authorize changes. Future model-proposed fixes must pass independent regression tests and ordinary project checks before human review. No automatic correction or merge is enabled.
 
 The PR workflow now explicitly disables Jev and removes its credential/configuration injection. Experimental commands remain available for future held-out evaluations. Activation still requires the dedicated Cloudflare inference credential and approval to merge the foundation PR.
+
+## Source-location follow-up — 2026-10-15
+
+The numbered-source revision passed a new five-case live evaluation (three defects, one clean change, one incomplete input). Every published finding passed the unchanged strict location/evidence checks; incorrect citations remain rejected by regression tests. See [results and limitations](experiments/2026-10-15-reviewer-follow-up.md). These are synthetic source cases, not new hosted PR or production activation tests.
+
+Reproduce with the dedicated inference credential and account injected privately into the environment:
+
+```sh
+AI_EVAL_LIVE=true node scripts/ai-review/evaluate-held-out.mjs
+```
+
+The runner uses GPT alone, at most five fixtures, zero retries, and a conservative $1 total reservation before any call. `AI_EVAL_MAX_USD` can lower that cap. Fixture labels stay in the scorer and are never sent to the provider. Now that these cases are published, future independent evaluations should use new cases. Post-merge same-repository/fork workflow smoke and the first verified release remain operator checks; no production deployment or rollback was performed by this follow-up.

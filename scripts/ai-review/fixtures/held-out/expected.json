@@ -1,0 +1,45 @@
+[
+  {
+    "id": "case-a",
+    "expectedStatus": "completed",
+    "findings": [
+      {
+        "path": "apps/launcher/src/apps/notes/records.ts",
+        "start": 5,
+        "end": 6
+      }
+    ]
+  },
+  {
+    "id": "case-b",
+    "expectedStatus": "completed",
+    "findings": [
+      {
+        "path": "apps/launcher/src/apps/notes/preview.tsx",
+        "start": 8,
+        "end": 8
+      }
+    ]
+  },
+  {
+    "id": "case-c",
+    "expectedStatus": "completed",
+    "findings": [
+      {
+        "path": "apps/launcher/src/apps/notes/handler.ts",
+        "start": 3,
+        "end": 3
+      }
+    ]
+  },
+  {
+    "id": "case-d",
+    "expectedStatus": "completed",
+    "findings": []
+  },
+  {
+    "id": "case-e",
+    "expectedStatus": "incomplete",
+    "findings": []
+  }
+]

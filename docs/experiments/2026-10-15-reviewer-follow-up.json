@@ -1,0 +1,256 @@
+{
+  "mode": "live-held-out",
+  "createdAt": "2026-10-15T22:49:39.672Z",
+  "model": "gpt-6-sol",
+  "provider": "cloudflare",
+  "reservedUpperUsd": 0.49602999999999997,
+  "maxUsd": 1,
+  "interpretation": "Small synthetic source cases held out from the line-format implementation. Candidate matches require semantic review; not hosted PR or general accuracy evidence.",
+  "runs": [
+    {
+      "id": "case-a",
+      "contextSha256": "7e87ea9f5cc7eb76b6cd6d23852a1e04e1c7709ce22830f3c6c3542ea5c95d72",
+      "result": {
+        "version": 1,
+        "reservedUsd": 0.100675,
+        "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "completed",
+        "reason": "",
+        "findings": [
+          {
+            "path": "apps/launcher/src/apps/notes/records.ts",
+            "side": "RIGHT",
+            "start": 5,
+            "end": 6,
+            "severity": "high",
+            "title": "Restore ownership check when updating notes",
+            "explanation": "The update no longer constrains the note to `member.id`. A caller who supplies another user's note ID can overwrite that user's private note. Keep the owner predicate and bind the authenticated member ID.",
+            "evidence": "    \"UPDATE notes SET text = ? WHERE id = ?\"\n  ).bind(text, id).run();"
+          }
+        ],
+        "gpt": {
+          "status": "completed",
+          "model": "openai/gpt-6-sol",
+          "inputTokens": 883,
+          "outputTokens": 125,
+          "estimatedUsd": 0.00629,
+          "latencyMs": 4073
+        },
+        "jev": {
+          "status": "disabled",
+          "model": "",
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "estimatedUsd": null,
+          "latencyMs": 0
+        }
+      },
+      "score": {
+        "statusCorrect": true,
+        "detectedCandidates": 1,
+        "missedCandidates": 0,
+        "falsePositiveCandidates": 0,
+        "candidates": [
+          {
+            "index": 0,
+            "matchedLabel": 0,
+            "actionability": null,
+            "evidenceQuality": null,
+            "humanConfirmedBug": null
+          }
+        ],
+        "humanReviewRequired": true
+      }
+    },
+    {
+      "id": "case-b",
+      "contextSha256": "9456b5843045196a57ffeed2e55b854f318da3f0c7d1c0105bc8e9d361e26389",
+      "result": {
+        "version": 1,
+        "reservedUsd": 0.10022,
+        "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "completed",
+        "reason": "",
+        "findings": [
+          {
+            "path": "apps/launcher/src/apps/notes/preview.tsx",
+            "side": "RIGHT",
+            "start": 8,
+            "end": 8,
+            "severity": "high",
+            "title": "User-authored note body is rendered as raw HTML",
+            "explanation": "The previous JSX text interpolation escaped note.body, but dangerouslySetInnerHTML inserts it as HTML. A note containing event handlers or other active markup can execute script when another user previews it. Keep the escaped rendering, or sanitize HTML before rendering if rich text is required.",
+            "evidence": "      <p dangerouslySetInnerHTML={{ __html: note.body }} />"
+          }
+        ],
+        "gpt": {
+          "status": "completed",
+          "model": "openai/gpt-6-sol",
+          "inputTokens": 878,
+          "outputTokens": 136,
+          "estimatedUsd": 0.00643,
+          "latencyMs": 2805
+        },
+        "jev": {
+          "status": "disabled",
+          "model": "",
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "estimatedUsd": null,
+          "latencyMs": 0
+        }
+      },
+      "score": {
+        "statusCorrect": true,
+        "detectedCandidates": 1,
+        "missedCandidates": 0,
+        "falsePositiveCandidates": 0,
+        "candidates": [
+          {
+            "index": 0,
+            "matchedLabel": 0,
+            "actionability": null,
+            "evidenceQuality": null,
+            "humanConfirmedBug": null
+          }
+        ],
+        "humanReviewRequired": true
+      }
+    },
+    {
+      "id": "case-c",
+      "contextSha256": "0c111a0f7155a3028f449c5e3ee97b6e524f61e5dcd5874a1eaf33446cb82050",
+      "result": {
+        "version": 1,
+        "reservedUsd": 0.10181,
+        "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "completed",
+        "reason": "",
+        "findings": [
+          {
+            "path": "apps/launcher/src/apps/notes/handler.ts",
+            "side": "RIGHT",
+            "start": 3,
+            "end": 3,
+            "severity": "high",
+            "title": "Archiving notes now mutates state through GET",
+            "explanation": "The handler now accepts GET for an operation that archives all notes belonging to the current member. A permitted member can trigger the mutation simply by following a link or through a browser prefetch, without submitting a POST. Keep this state-changing operation on POST.",
+            "evidence": "  if (method !== \"GET\") return new Response(null, { status: 405 });"
+          }
+        ],
+        "gpt": {
+          "status": "completed",
+          "model": "openai/gpt-6-sol",
+          "inputTokens": 896,
+          "outputTokens": 135,
+          "estimatedUsd": 0.006505,
+          "latencyMs": 2848
+        },
+        "jev": {
+          "status": "disabled",
+          "model": "",
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "estimatedUsd": null,
+          "latencyMs": 0
+        }
+      },
+      "score": {
+        "statusCorrect": true,
+        "detectedCandidates": 1,
+        "missedCandidates": 0,
+        "falsePositiveCandidates": 0,
+        "candidates": [
+          {
+            "index": 0,
+            "matchedLabel": 0,
+            "actionability": null,
+            "evidenceQuality": null,
+            "humanConfirmedBug": null
+          }
+        ],
+        "humanReviewRequired": true
+      }
+    },
+    {
+      "id": "case-d",
+      "contextSha256": "91c3fbdbd29eb6ceb795eed02131f5a190d8b89d36e2ff3d4f1cfb15ce184d70",
+      "result": {
+        "version": 1,
+        "reservedUsd": 0.09734,
+        "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "completed",
+        "reason": "",
+        "findings": [],
+        "gpt": {
+          "status": "completed",
+          "model": "openai/gpt-6-sol",
+          "inputTokens": 672,
+          "outputTokens": 17,
+          "estimatedUsd": 0.003615,
+          "latencyMs": 1531
+        },
+        "jev": {
+          "status": "disabled",
+          "model": "",
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "estimatedUsd": null,
+          "latencyMs": 0
+        }
+      },
+      "score": {
+        "statusCorrect": true,
+        "detectedCandidates": 0,
+        "missedCandidates": 0,
+        "falsePositiveCandidates": 0,
+        "candidates": [],
+        "humanReviewRequired": true
+      }
+    },
+    {
+      "id": "case-e",
+      "contextSha256": "aa8b5bc1f2dbf8827939bc0350fec385eb6cdb3b85307d2285da06659d8a3bb7",
+      "result": {
+        "version": 1,
+        "reservedUsd": 0,
+        "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "incomplete",
+        "reason": "Input omitted, unsupported or over the bounded review scope; no provider called.",
+        "findings": [],
+        "gpt": {
+          "status": "unavailable",
+          "model": "",
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "estimatedUsd": null,
+          "latencyMs": 0
+        },
+        "jev": {
+          "status": "disabled",
+          "model": "",
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "estimatedUsd": null,
+          "latencyMs": 0
+        }
+      },
+      "score": {
+        "statusCorrect": true,
+        "detectedCandidates": 0,
+        "missedCandidates": 0,
+        "falsePositiveCandidates": 0,
+        "candidates": [],
+        "humanReviewRequired": true
+      }
+    }
+  ],
+  "implementationSha256": "1a6ae8ff4281a41f9feb6baa64eddb48f6c76b57da13d712d446856bdc5b3625",
+  "inputRateUsdPerMillion": 5,
+  "outputRateUsdPerMillion": 15
+}

@@ -3,6 +3,7 @@ import { text } from "./core.mjs";
 
 export async function loadStandards(read = readFile) {
   const paths = [
+    "AGENTS.md",
     "CONTRIBUTING.md",
     "docs/architecture.md",
     "docs/security-review.md",

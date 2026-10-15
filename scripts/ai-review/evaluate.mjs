@@ -4,7 +4,7 @@ import console from "node:console";
 import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { configFromEnv, review, LIMITS, PROMPT, OUTPUT_SCHEMA } from "./core.mjs";
+import { configFromEnv, review, LIMITS, PROMPT, OUTPUT_SCHEMA, modelContext } from "./core.mjs";
 
 // Independent labels are loaded only by the scorer, never sent to either provider.
 export function scoreRun(result, expected) {
@@ -65,7 +65,9 @@ export async function evaluate({ live = false, env = {}, fetcher = fetch } = {})
     (total, { context }) =>
       total +
       (2 *
-        ((Buffer.byteLength(JSON.stringify(context) + PROMPT + JSON.stringify(OUTPUT_SCHEMA)) +
+        ((Buffer.byteLength(
+          JSON.stringify(modelContext(context)) + PROMPT + JSON.stringify(OUTPUT_SCHEMA),
+        ) +
           4096) *
           cfg.reserveInputRate +
           LIMITS.outputTokens * cfg.reserveOutputRate +
