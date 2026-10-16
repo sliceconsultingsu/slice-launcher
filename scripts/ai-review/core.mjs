@@ -189,7 +189,19 @@ export function validateFindings(value, context) {
 
 export function configFromEnv(env) {
   const gptProvider = env.GPT_PROVIDER || "cloudflare";
-  if (!["cloudflare", "openai"].includes(gptProvider)) throw new Error("Unknown GPT provider");
+  if (!["cloudflare", "openai", "subscription"].includes(gptProvider))
+    throw new Error("Unknown GPT provider");
+  if (gptProvider === "subscription") {
+    if (env.AI_JEV_ENABLED === "true") throw new Error("Subscription review does not use Jev");
+    return {
+      gptProvider,
+      gptModel: "claude/claude-opus-5-5",
+      gptKey: env.SUBSCRIPTION_REVIEW_KEY || "",
+      accessId: env.SUBSCRIPTION_ACCESS_CLIENT_ID || "",
+      accessSecret: env.SUBSCRIPTION_ACCESS_CLIENT_SECRET || "",
+      jevEnabled: false,
+    };
+  }
   const gptAccount = env.GPT_CLOUDFLARE_ACCOUNT_ID || "";
   const gptModel = env.OPENAI_REVIEW_MODEL || "gpt-6-sol";
   const jevModel = env.TYPESAFE_REVIEW_MODEL || "jev-1.13.0";
@@ -329,6 +341,93 @@ export async function callJev(body, cfg, fetcher = fetch) {
   return raw;
 }
 
+// This endpoint and model are fixed in trusted code, never selected by a PR.
+export const SUBSCRIPTION_ENDPOINT = "https://app-subscription-api.chenagent.com/ci/slice/review";
+
+async function subscriptionReview(context, presented, cfg, fetcher) {
+  const report = emptyReport(
+    context,
+    "unavailable",
+    "Subscription review credentials are not configured.",
+  );
+  if (!cfg.gptKey || !cfg.accessId || !cfg.accessSecret) return report;
+  const body = {
+    model: cfg.gptModel,
+    messages: [
+      {
+        role: "system",
+        content:
+          PROMPT + " Return only JSON matching this schema: " + JSON.stringify(OUTPUT_SCHEMA),
+      },
+      { role: "user", content: JSON.stringify({ originalContext: presented }) },
+    ],
+    stream: false,
+  };
+  const serialized = JSON.stringify(body);
+  if (
+    body.messages.reduce((n, m) => n + m.content.length, 0) > 100000 ||
+    Buffer.byteLength(serialized) > 256000
+  )
+    return {
+      ...report,
+      status: "incomplete",
+      reason: "Subscription request exceeds the gateway input limit; no provider called.",
+    };
+  const start = performance.now();
+  report.gpt = metadata("failed", cfg.gptModel);
+  let stage = "provider_transport";
+  try {
+    const raw = await boundedJson(
+      await fetcher(SUBSCRIPTION_ENDPOINT, {
+        method: "POST",
+        redirect: "error",
+        signal: AbortSignal.timeout(LIMITS.timeoutMs),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + cfg.gptKey,
+          "CF-Access-Client-Id": cfg.accessId,
+          "CF-Access-Client-Secret": cfg.accessSecret,
+        },
+        body: serialized,
+      }),
+    );
+    stage = "provider_model";
+    if (raw.model !== cfg.gptModel) throw new Error("Unexpected requested route");
+    stage = "provider_output";
+    if (raw.object !== "chat.completion" || !Array.isArray(raw.choices) || raw.choices.length !== 1)
+      throw new Error("Invalid completion");
+    const choice = raw.choices[0];
+    if (
+      choice.finish_reason !== "stop" ||
+      choice.message?.role !== "assistant" ||
+      choice.message?.tool_calls ||
+      choice.message?.refusal ||
+      typeof choice.message?.content !== "string"
+    )
+      throw new Error("Incomplete or unsupported completion");
+    stage = "output_schema";
+    const valid = validateFindings(JSON.parse(choice.message.content), context);
+    Object.assign(report, valid, {
+      reason:
+        valid.status === "incomplete"
+          ? "Reviewer reported insufficient context."
+          : "Subscription route requested Claude Opus 5.5. Upstream model identity, token usage and cost are not independently reported by the gateway.",
+    });
+    report.gpt.status = valid.status;
+  } catch (error) {
+    const category = error instanceof FindingValidationError ? error.code : stage;
+    Object.assign(report, {
+      status: "failed",
+      reason: "Subscription review failed [" + category + "]; no findings published.",
+      findings: [],
+    });
+  }
+  // No invented token counts or price estimate: zero tokens mean unreported here,
+  // estimatedUsd stays null, and reservedUsd=0 is not a subscription spending cap.
+  report.gpt.latencyMs = Math.round(performance.now() - start);
+  return report;
+}
+
 export async function review(context, cfg, fetcher = fetch) {
   let result = emptyReport(context, "unavailable", "GPT provider credential is not configured.");
   const incomplete = {
@@ -341,6 +440,8 @@ export async function review(context, cfg, fetcher = fetch) {
   const presented = modelContext(context);
   const serialized = JSON.stringify(presented);
   if (Buffer.byteLength(serialized) > LIMITS.inputBytes) return incomplete;
+  if (cfg.gptProvider === "subscription")
+    return subscriptionReview(context, presented, cfg, fetcher);
   if (!cfg.gptKey) return result;
   // Validate the account before either provider can consume budget or receive data.
   if (cfg.gptProvider === "cloudflare" && !/^[a-f0-9]{32}$/.test(cfg.gptAccount))
@@ -514,7 +615,7 @@ export function renderComment(report, currentHead, repository, currentBase = rep
     "Reviewed base `" + report.base + "` → head `" + report.head + "`.",
     "**Status: " + (stale ? "stale" : escape(report.status)) + ".** " + escape(report.reason),
     "Applies only to that head commit. Any later commit makes these results stale. Deterministic checks and human review remain required.",
-    "GPT: " + escape(report.gpt.status) + "; optional Jev: " + escape(report.jev.status) + ".",
+    "Reviewer: " + escape(report.gpt.status) + "; optional Jev: " + escape(report.jev.status) + ".",
   ];
   if (!stale && report.status === "completed" && report.findings.length === 0)
     lines.push(
