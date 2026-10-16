@@ -8,7 +8,7 @@ What changes for users or contributors? Include authorization and error paths.
 
 ## Validation
 
-Commands/results and meaningful coverage. Identify untested paths. For UI changes include screenshots and accessibility checks.
+Commands/results and meaningful coverage. Identify untested paths. For UI changes include screenshots, accessibility checks and the [design profile checklist](../docs/design-profile.md#review-checklist).
 
 ## Deployment and migration impact
 

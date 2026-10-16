@@ -47,7 +47,7 @@ Before planning, building, debugging or reviewing a change, read [the skills sec
 - Declare app actions and call `context.requirePermission("action.id")` before restricted operations. Apps must also validate inputs, enforce record-level access, and test denial paths. Never mutate on GET/HEAD. Retain same-origin bounded JSON writes and private/no-store responses.
 - Register MCP tools through `defineAppTool` and the module's `tools` array. The host owns `/mcp`, human identity and action checks; apps own bounded schemas, record-level rules and safe results. Use the existing permission catalog and shared business functions. MCP client consent and read-only annotations do not grant authority. Test denied/revoked calls and disclose only data approved for the selected client/provider.
 - Modules share a trusted runtime and origin; they are not sandboxes. Keep server code out of client imports and private data out of public metadata, HTML caches, bundles, logs, and artifacts. Use parameterized queries and atomic changes with audit history where required.
-- Reuse `packages/ui` and `packages/config`. Shared packages must not import host internals. Preserve approved Slice branding and accessible controls, labels, focus, contrast, and keyboard behavior.
+- Reuse `packages/ui` and `packages/config`. Shared packages must not import host internals. Follow the [design profile](docs/design-profile.md) for branding, copy and accessible controls, labels, focus, contrast and keyboard behavior.
 
 ## Implementation expectations
 
