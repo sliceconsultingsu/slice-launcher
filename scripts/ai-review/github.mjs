@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
 import { TextDecoder } from "node:util";
+import { posix } from "node:path";
 import {
   LIMITS,
   MARKER,
@@ -7,6 +8,7 @@ import {
   emptyReport,
   exactKeys,
   parsePatch,
+  modelContext,
   renderComment,
   safePath,
   sha,
@@ -75,6 +77,7 @@ export async function collectContext(api, target, standards) {
     omissions: [],
     files: [],
     surrounding: [],
+    scope: { visualAssets: [], supportingFilesOmitted: 0 },
     checks: [],
     standards: text(standards, 30000),
   };
@@ -120,42 +123,45 @@ export async function collectContext(api, target, standards) {
   let bytes = 0,
     loaded = 0;
   const cache = new Map();
-  const source = async (path, ref) => {
+  const source = async (path, ref, required = true) => {
+    const unavailable = (reason) => {
+      if (required) omit(reason);
+    };
     safePath(path);
     if (/(^|\/)\.env(\.|$)|\.(pem|key|p12|pfx)$/i.test(path)) {
-      omit("Sensitive path excluded.");
+      unavailable("Sensitive path excluded.");
       return null;
     }
     const entry = trees[ref].get(path);
     if (!entry) {
-      omit("Expected source missing from tree.");
+      unavailable("Expected source missing from tree.");
       return null;
     }
     if (!["100644", "100755"].includes(entry.mode) || entry.size > 100000) {
-      omit("Unsupported source type or size.");
+      unavailable("Unsupported source type or size.");
       return null;
     }
     if (cache.has(entry.sha)) return cache.get(entry.sha);
     if (++loaded > LIMITS.files) {
-      omit("Source-file budget exceeded.");
+      unavailable("Source-file budget exceeded.");
       return null;
     }
     const blob = await api("/git/blobs/" + sha(entry.sha));
     if (blob.encoding !== "base64" || blob.size > 100000) {
-      omit("Unsupported blob encoding or size.");
+      unavailable("Unsupported blob encoding or size.");
       return null;
     }
     const buffer = Buffer.from(blob.content, "base64");
     bytes += buffer.byteLength;
     if (bytes > LIMITS.inputBytes || buffer.byteLength !== blob.size || buffer.includes(0)) {
-      omit("Source bytes exceed budget, are inconsistent, or binary.");
+      unavailable("Source bytes exceed budget, are inconsistent, or binary.");
       return null;
     }
     let value;
     try {
       value = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
     } catch {
-      omit("Source is not UTF-8.");
+      unavailable("Source is not UTF-8.");
       return null;
     }
     cache.set(entry.sha, value);
@@ -165,6 +171,16 @@ export async function collectContext(api, target, standards) {
     safePath(changed.filename);
     if (changed.status === "renamed") {
       omit("Rename review requires previous-path context; human review required.");
+      continue;
+    }
+    // Raster assets are explicitly outside text review; never hide a missing text patch.
+    if (
+      /\.(png|jpe?g|gif|webp|ico)$/i.test(changed.filename) &&
+      !changed.patch &&
+      changed.additions === 0 &&
+      changed.deletions === 0
+    ) {
+      context.scope.visualAssets.push(changed.filename);
       continue;
     }
     try {
@@ -188,32 +204,74 @@ export async function collectContext(api, target, standards) {
       head: after,
     });
   }
-  // Deliberately broad deterministic scope, no model-selected pruning or contributor code execution.
-  // Include all textual files in touched apps and shared packages, plus tooling for tooling changes.
-  const apps = new Set(
-    context.files.map((file) => /^apps\/([^/]+)\//.exec(file.path)?.[1]).filter(Boolean),
-  );
+  // Changed text is mandatory. Supporting text is a bounded, explicitly disclosed sample.
+  // Reserve room for the prompt/schema within the gateway's 200k-character review conversation cap.
+  const fits = () => Buffer.byteLength(JSON.stringify(modelContext(context))) <= 175000;
+  if (!context.complete) return context;
+  if (!context.files.length) {
+    omit("No reviewable text changes; visual assets require human review.");
+    return context;
+  }
+  if (!fits()) {
+    omit("Changed source and standards exceed the review input budget.");
+    return context;
+  }
+  const changedPaths = new Set(context.files.map((file) => file.path));
+  const folders = new Set(context.files.map((file) => posix.dirname(file.path)));
+  const imports = new Set();
+  // Relative imports are hints for ordering, never executable or a completeness claim.
+  for (const file of context.files) {
+    for (const match of (file.base + "\n" + file.head).matchAll(
+      /(?:from\s*|import\s*\(\s*|import\s*)["'](\.[^"']+)["']/g,
+    )) {
+      const path = posix.normalize(posix.join(posix.dirname(file.path), match[1]));
+      for (const suffix of ["", ".ts", ".tsx", ".js", ".mjs", "/index.ts", "/index.tsx"])
+        imports.add(path + suffix);
+    }
+  }
   const platform = context.files.some((file) => file.path.startsWith("platform/"));
   const tooling = context.files.some((file) => /^(scripts\/|\.github\/)/.test(file.path));
-  const changedPaths = new Set(context.files.map((file) => file.path));
-  for (const path of [...trees[target.head].keys()].sort()) {
-    if (changedPaths.has(path)) continue;
-    const app = /^apps\/([^/]+)\//.exec(path)?.[1];
-    const relevant =
-      apps.has(app) ||
-      (platform && path.startsWith("platform/")) ||
-      path.startsWith("packages/") ||
-      (tooling && /^(scripts\/|\.github\/)/.test(path)) ||
-      ["package.json", "pnpm-workspace.yaml"].includes(path);
+  const candidates = [...trees[target.head].keys()].filter(
+    (path) =>
+      !changedPaths.has(path) &&
+      /\.(?:[cm]?[jt]sx?|jsonc?|ya?ml|sql|md|css)$/.test(path) &&
+      !/(?:worker-configuration\.d\.ts|pnpm-lock\.yaml)$/.test(path) &&
+      (imports.has(path) ||
+        folders.has(posix.dirname(path)) ||
+        (platform && path.startsWith("platform/")) ||
+        path.startsWith("packages/") ||
+        (tooling && /^(scripts\/|\.github\/)/.test(path)) ||
+        ["package.json", "pnpm-workspace.yaml"].includes(path)),
+  );
+  const priority = (path) =>
+    imports.has(path)
+      ? 0
+      : /(?:membership\/(?:auth|domain|contracts)|platform\/(?:dispatch|contracts)|ai-review\/)/.test(
+            path,
+          )
+        ? 1
+        : folders.has(posix.dirname(path))
+          ? 2
+          : 3;
+  candidates.sort((a, b) => priority(a) - priority(b) || a.localeCompare(b, "en"));
+  for (const path of candidates) {
     if (
-      !relevant ||
-      !/\.(?:[cm]?[jt]sx?|jsonc?|ya?ml|sql|md|css)$/.test(path) ||
-      /(?:worker-configuration\.d\.ts|pnpm-lock\.yaml)$/.test(path)
-    )
+      loaded >= LIMITS.files ||
+      bytes + (trees[target.head].get(path).size || 0) > LIMITS.inputBytes
+    ) {
+      context.scope.supportingFilesOmitted++;
       continue;
-    const value = await source(path, target.head);
-    if (value !== null) context.surrounding.push({ path, ref: target.head, content: value });
-    if (loaded > LIMITS.files || bytes > LIMITS.inputBytes) break;
+    }
+    const value = await source(path, target.head, false);
+    if (value === null) {
+      context.scope.supportingFilesOmitted++;
+      continue;
+    }
+    context.surrounding.push({ path, ref: target.head, content: value });
+    if (!fits()) {
+      context.surrounding.pop();
+      context.scope.supportingFilesOmitted++;
+    }
   }
   for (const ref of [...new Set([target.head, pr.merge_commit_sha].filter(Boolean))]) {
     sha(ref);
@@ -228,8 +286,11 @@ export async function collectContext(api, target, standards) {
       })),
     );
   }
-  if (Buffer.byteLength(JSON.stringify(context)) > LIMITS.inputBytes)
-    omit("Serialized context exceeds request budget.");
+  while (context.surrounding.length && !fits()) {
+    context.surrounding.pop();
+    context.scope.supportingFilesOmitted++;
+  }
+  if (!fits()) omit("Changed source and check metadata exceed the review input budget.");
   if (!currentMatches(await api("/pulls/" + target.pr), target))
     omit("PR changed during source collection.");
   return context;
