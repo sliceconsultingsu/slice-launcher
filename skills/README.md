@@ -4,9 +4,11 @@ A **skill** is a reusable set of instructions that helps an agent do a job consi
 
 These skills support consultants building Slice. They are not apps in the launcher, and they do not give an agent access to private records or permission to publish changes.
 
+[How agents should explain and teach](communication.md) describes the standard for working with consultants.
+
 ## Start here
 
-Before starting, use [the recommended model and reasoning settings](../AGENTS.md#recommended-models-and-reasoning-settings). A skill guides the work; it does not select a model for you.
+Before starting, use [the recommended model and reasoning settings](models.md). A skill guides the work; it does not select a model for you.
 
 1. Ask your agent to read [AGENTS.md](../AGENTS.md), which sets Slice's rules and teaching style.
 2. Choose a collection below. Ask the agent to read its guide and the instructions relevant to your task.

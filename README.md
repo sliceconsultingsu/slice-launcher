@@ -18,7 +18,7 @@ One home for Slice Consulting's internal tools. Consultants sign in once; each t
 
 ## Recommended AI models
 
-Use **Claude Opus 5.5** or **GPT-6 Astra**, with **High** reasoning for planning and **Medium** for implementation. Avoid weaker models for code changes to help reduce the risk of breaking existing features. Every change still needs tests and review. See [the shared model guidance](AGENTS.md#recommended-models-and-reasoning-settings), including what to do if a model is unavailable.
+Use **Claude Opus 5.5** or **GPT-6 Astra**, with **High** reasoning for planning and **Medium** for implementation. Avoid weaker models for code changes to help reduce the risk of breaking existing features. Every change still needs tests and review. See [the shared model guidance](skills/models.md), including what to do if a model is unavailable.
 
 ## Skills for your AI agent
 
