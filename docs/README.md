@@ -20,6 +20,8 @@ Start with the [main README](../README.md) and [contribution walkthrough](../CON
 | [AI review](ai-review.md)             | Where are review comments and what do they mean?    |
 | [Brand assets](brand-assets.md)       | Where did the visual assets come from?              |
 
+For consultants and their agents: [Connect your AI](connect-your-ai.md) walks through account approval, client setup, sign-in and a harmless connection check.
+
 ## Historical evidence
 
 [Experiments](experiments/), [original specs/plans](superpowers/), [foundation review](foundation-review-2026-10-03.md), and [platform validation](platform-validation-2026-10-15.md) record what was designed or tested at a particular revision. They may refer to superseded folder names, deployment assumptions or pending work later completed. Do not use them as current setup instructions. Their original results remain intact.

@@ -4,6 +4,8 @@ Slice owns one remote MCP endpoint at `/mcp`. Consultants connect with an OAuth-
 
 The checked-in catalog is empty, so the endpoint initially exposes only `slice_apps`, which returns the apps the current member may open. No membership administration or arbitrary API proxy is exposed. Code availability and production client access are separate: the operator must enable and verify managed OAuth as described below before advertising this endpoint to consultants.
 
+Consultants and their agents should start with [Connect your AI](connect-your-ai.md), also linked from the launcher. That guide explains setup and troubleshooting without granting access.
+
 ## Identity and authorization
 
 ```mermaid

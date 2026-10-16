@@ -59,7 +59,7 @@ const server = createServer(async (req, res) => {
       }
       res.writeHead(response.status, Object.fromEntries(response.headers));
       res.end(await response.text());
-    } else if (req.url === "/" || req.url === "/account") {
+    } else if (req.url === "/" || req.url === "/account" || req.url === "/connect-ai") {
       const html = await vite.transformIndexHtml(
         req.url,
         `<!doctype html><html lang="en"><head><meta charset="UTF-8"><title>Slice synthetic browser tests</title></head><body><div id="root"></div><script type="module" src="/tests/e2e/main.tsx"></script></body></html>`,
