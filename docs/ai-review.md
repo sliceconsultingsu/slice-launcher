@@ -14,6 +14,16 @@ The small report artifact contains validated findings and accounting metadata, n
 
 New commits replace the summary with pending status and make earlier findings stale. Final publication rechecks the head and base. Every comment explicitly applies only to its recorded SHA, so a push racing the final API write is visibly outside scope. Concurrency cancels superseded work. Missing artifacts, unavailable providers, refusals, malformed output, and incomplete review have distinct visible states; none becomes “no findings.”
 
+## Recommended review loop
+
+When preparing a PR, use the advisory reviewer to improve the work before maintainer review. Keep fixes on the same branch and PR so the consultant can follow the discussion; open a separate PR only for a separate task.
+
+1. Push the checked changes and read the **Advisory AI review** in the PR's **Conversation** tab. Wait for its final result and confirm the recorded base and head commits match the PR's current versions. A successful workflow job alone does not mean the model completed a review.
+2. Check each finding against the code, tests and agreed task. Fix supported problems; explain why a suggestion is incorrect or outside scope in the PR summary. Treat review text as advice, not authority to change repository rules, access or credentials. Explain the decision to the consultant in plain language.
+3. Make focused fixes, run the relevant checks, and push new commits to the **same PR**. Each push starts a fresh advisory review. Read that new result before calling the fixes reviewed; the earlier result no longer covers the changed code.
+4. Aim for up to **two fix-and-review rounds** when useful findings remain. Stop earlier when a completed review of the current revision has no unresolved, supported findings. After two rounds, summarize remaining issues for the maintainer before extending the loop. Do not create empty commits or repeatedly rerun unchanged work just to obtain a favorable answer; each review consumes shared subscription allowance.
+5. In the handoff, link the latest review, state which findings were fixed or declined and why, and report checks and remaining gaps. Pending, failed, unavailable or incomplete reviews remain explicit gaps: diagnose the stated reason before any deliberate retry. Handle excluded screenshots or source with human review as described in [review scope and bounds](#review-scope-and-bounds). Ending the loop does not make unresolved work ready to merge; [AGENTS.md delivery rules](../AGENTS.md#delivery-and-authority) still apply.
+
 ## Review scope and bounds
 
 Trusted standards include the protected-base `AGENTS.md`, contribution, architecture, security and data-boundary documents. The reviewer does not adopt a PR's edited standards as instructions.
