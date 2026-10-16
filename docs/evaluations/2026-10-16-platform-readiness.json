@@ -1,0 +1,850 @@
+{
+  "evaluated": "2026-10-16",
+  "commit": "f1f1c4db3da0ba05a5d79315e7417e48e355e019",
+  "report": "2026-10-16-platform-readiness.md",
+  "findings": [
+    {
+      "id": "S1",
+      "severity": "High",
+      "finding": "A Write collaborator can merge their own PR, and merging deploys to production",
+      "affects": "Production, all members",
+      "status": "Confirmed from settings"
+    },
+    {
+      "id": "S2",
+      "severity": "High",
+      "finding": "7 of the last 10 releases failed post-release verification; failed releases stay live",
+      "affects": "Production, all members",
+      "status": "Reproduced (logs)"
+    },
+    {
+      "id": "A1",
+      "severity": "High",
+      "finding": "App code can read the whole membership database; no check notices",
+      "affects": "Member privacy",
+      "status": "Reproduced locally"
+    },
+    {
+      "id": "S3",
+      "severity": "High",
+      "finding": "Creating an app with the documented command makes required tests fail",
+      "affects": "App builders",
+      "status": "Reproduced"
+    },
+    {
+      "id": "G1",
+      "severity": "High",
+      "finding": "Contributors cannot see their app, or any signed-in page, before production",
+      "affects": "App builders",
+      "status": "Reproduced"
+    },
+    {
+      "id": "S8",
+      "severity": "Medium",
+      "finding": "Secret scanning, push protection and private vulnerability reporting are off; the guide says on",
+      "affects": "Public repository",
+      "status": "Confirmed from settings"
+    },
+    {
+      "id": "S9",
+      "severity": "Medium",
+      "finding": "The organization does not require two-factor authentication",
+      "affects": "Accounts with Write access",
+      "status": "Confirmed from settings"
+    },
+    {
+      "id": "S4",
+      "severity": "Medium",
+      "finding": "The advisory reviewer is likely blocked from November 2, 2026 (GitHub `pull_request_target` default policy)",
+      "affects": "Contributors",
+      "status": "Reasoned (GitHub docs and live settings)"
+    },
+    {
+      "id": "S5",
+      "severity": "Medium",
+      "finding": "The advisory review completed on 2 of 8 recent PRs; valid findings can be discarded",
+      "affects": "Contributors",
+      "status": "Reproduced"
+    },
+    {
+      "id": "S6",
+      "severity": "Medium",
+      "finding": "Any GitHub user can spend the owner's review subscription",
+      "affects": "Owner, contributors",
+      "status": "Reasoned"
+    },
+    {
+      "id": "S7",
+      "severity": "Medium",
+      "finding": "A Write collaborator can roll production back without approval",
+      "affects": "Production",
+      "status": "Confirmed from settings"
+    },
+    {
+      "id": "A2",
+      "severity": "Medium",
+      "finding": "A route added outside the guarded folders ships without a membership check",
+      "affects": "Member privacy",
+      "status": "Reproduced locally"
+    },
+    {
+      "id": "A3",
+      "severity": "Medium",
+      "finding": "Test code can alter the release configuration before the build",
+      "affects": "Production",
+      "status": "Reproduced up to the build artifact"
+    },
+    {
+      "id": "A4",
+      "severity": "Medium",
+      "finding": "One invalid AI tool registration breaks AI access for every member",
+      "affects": "AI clients",
+      "status": "Reproduced"
+    },
+    {
+      "id": "D1",
+      "severity": "Medium",
+      "finding": "Stored membership rows are not validated: one bad row can crash membership, a mistyped flag can grant ownership",
+      "affects": "All members; operators",
+      "status": "Reproduced"
+    },
+    {
+      "id": "D2",
+      "severity": "Medium",
+      "finding": "No tested database recovery procedure",
+      "affects": "All members",
+      "status": "Reviewed; local rehearsal passed"
+    },
+    {
+      "id": "S10",
+      "severity": "Medium",
+      "finding": "Changing the Access team (a planned account move) locks out every member, including the owner",
+      "affects": "All members",
+      "status": "Reproduced"
+    },
+    {
+      "id": "C1",
+      "severity": "Medium",
+      "finding": "An expired sign-in or network failure leaves stale data, a technical error and no way back",
+      "affects": "All signed-in people",
+      "status": "Reproduced (harness)"
+    },
+    {
+      "id": "C2",
+      "severity": "Medium",
+      "finding": "Activity can look empty when loading it failed",
+      "affects": "Administrators, auditors",
+      "status": "Reproduced (harness)"
+    },
+    {
+      "id": "C3",
+      "severity": "Medium",
+      "finding": "Allow and Revoke checkboxes have identical accessible names",
+      "affects": "Screen-reader administrators",
+      "status": "Reproduced (harness)"
+    },
+    {
+      "id": "C4",
+      "severity": "Medium",
+      "finding": "Keyboard focus is lost after common actions; phone errors appear off-screen",
+      "affects": "Keyboard, screen-reader and phone users",
+      "status": "Reproduced (harness)"
+    },
+    {
+      "id": "C7",
+      "severity": "Medium",
+      "finding": "One organization-wide revision makes unrelated edits fail and discards typed changes",
+      "affects": "Administrators, members",
+      "status": "Reproduced (harness and data tests)"
+    },
+    {
+      "id": "C5, C6",
+      "severity": "Low",
+      "finding": "Sideways scrolling with long names or at 320 px; raw validation wording; small targets; faint borders",
+      "affects": "Various",
+      "status": "Reproduced (harness)"
+    },
+    {
+      "id": "S12, A5, D3, G2\u2013G4",
+      "severity": "Low",
+      "finding": "Smaller issues listed in each section",
+      "affects": "Various",
+      "status": "Mixed"
+    },
+    {
+      "id": "S11",
+      "severity": "Status",
+      "finding": "Personal AI sign-in not activated in production",
+      "affects": "AI users",
+      "status": "Confirmed"
+    }
+  ],
+  "matrix": [
+    {
+      "area": "A",
+      "scenario": "Unsigned, forged, wrong-audience, expired and service identities rejected (membership, app page/API, MCP)",
+      "result": "Passed",
+      "evidence": "permission matrix and CI tests: 401 everywhere"
+    },
+    {
+      "area": "A",
+      "scenario": "Owner has full authority, labelled Admin (owner)",
+      "result": "Passed",
+      "evidence": "permission matrix"
+    },
+    {
+      "area": "A",
+      "scenario": "Delegated admin cannot exceed or edit its own authority (10 cases)",
+      "result": "Passed",
+      "evidence": "permission matrix: 9 refusals (403), 1 permitted approval"
+    },
+    {
+      "area": "A",
+      "scenario": "Activity reviewer sees history only; Admin label only for manage permissions",
+      "result": "Passed",
+      "evidence": "permission matrix"
+    },
+    {
+      "area": "A",
+      "scenario": "Ordinary member directory hides emails and non-active members",
+      "result": "Passed",
+      "evidence": "permission matrix: fields id, name, title, levelName only"
+    },
+    {
+      "area": "A",
+      "scenario": "Pending, invited, suspended and unknown people cannot use admin, apps or MCP",
+      "result": "Passed",
+      "evidence": "permission matrix, 77 recorded cells, 0 mismatches"
+    },
+    {
+      "area": "A",
+      "scenario": "Suspension and individual Revoke apply to the next request with the same sign-in",
+      "result": "Passed",
+      "evidence": "permission matrix (API, page, MCP)"
+    },
+    {
+      "area": "A",
+      "scenario": "Last active owner cannot be removed or suspended",
+      "result": "Passed",
+      "evidence": "permission matrix"
+    },
+    {
+      "area": "A",
+      "scenario": "Changed email or a second account cannot take over a membership; email case ignored",
+      "result": "Passed",
+      "evidence": "permission matrix"
+    },
+    {
+      "area": "A",
+      "scenario": "Cross-user edits by ordinary members refused",
+      "result": "Passed",
+      "evidence": "permission matrix: 400 or 403"
+    },
+    {
+      "area": "A",
+      "scenario": "Access team change preserves members",
+      "result": "Failed",
+      "evidence": "S10: everyone, including the owner, locked out"
+    },
+    {
+      "area": "A",
+      "scenario": "Permission tests detect injected authorization bugs",
+      "result": "Passed",
+      "evidence": "4 mutants each caught by both CI suite and matrix"
+    },
+    {
+      "area": "A",
+      "scenario": "Real Google sign-in and Access policy in production",
+      "result": "Unverified",
+      "evidence": "no member account; site is Access-protected"
+    },
+    {
+      "area": "A",
+      "scenario": "Isolation between organizations",
+      "result": "Not applicable",
+      "evidence": "one organization by design"
+    },
+    {
+      "area": "B",
+      "scenario": "Required check `validate` on main, strict, pinned to GitHub Actions",
+      "result": "Passed",
+      "evidence": "branch protection API"
+    },
+    {
+      "area": "B",
+      "scenario": "Maintainer review required for Write collaborators",
+      "result": "Failed",
+      "evidence": "S1: 0 approvals, no CODEOWNERS, Write collaborator present"
+    },
+    {
+      "area": "B",
+      "scenario": "PR code cannot read production or model credentials",
+      "result": "Passed",
+      "evidence": "workflows and environment branch policies inspected; not exploit-tested"
+    },
+    {
+      "area": "B",
+      "scenario": "Production credentials limited to protected main",
+      "result": "Passed",
+      "evidence": "environment API: protected branches only"
+    },
+    {
+      "area": "B",
+      "scenario": "Rollback limited to maintainers",
+      "result": "Failed",
+      "evidence": "S7: any Write account can dispatch"
+    },
+    {
+      "area": "B",
+      "scenario": "Exact validated artifact promoted; verified record only on success",
+      "result": "Passed",
+      "evidence": "release tests; verified-release artifact present only on passing run"
+    },
+    {
+      "area": "B",
+      "scenario": "Post-release verification reliable",
+      "result": "Failed",
+      "evidence": "S2: 7 of last 10 failed on asset 404 after upload"
+    },
+    {
+      "area": "B",
+      "scenario": "Failed release leaves production on a verified version",
+      "result": "Failed",
+      "evidence": "S2: no rollback; version 818e63d6 left serving (inferred)"
+    },
+    {
+      "area": "B",
+      "scenario": "Rollback mechanics (isolated fixtures)",
+      "result": "Passed",
+      "evidence": "scripts/release.test.mjs, 8 tests"
+    },
+    {
+      "area": "B",
+      "scenario": "Live rollback",
+      "result": "Unverified",
+      "evidence": "never run successfully; two October 4 attempts failed; not exercised"
+    },
+    {
+      "area": "B",
+      "scenario": "Secret scanning, push protection, private vulnerability reporting",
+      "result": "Failed",
+      "evidence": "S8: all disabled"
+    },
+    {
+      "area": "B",
+      "scenario": "Organization two-factor requirement",
+      "result": "Failed",
+      "evidence": "S9"
+    },
+    {
+      "area": "B",
+      "scenario": "Security scanning gate (CodeQL, dependency review) runs and blocks",
+      "result": "Passed",
+      "evidence": "green on main; 2 medium code-scanning and 2 high Dependabot alerts open (S12)"
+    },
+    {
+      "area": "B",
+      "scenario": "External Actions pinned to commit SHAs",
+      "result": "Passed",
+      "evidence": "by convention; repository setting does not require it"
+    },
+    {
+      "area": "C",
+      "scenario": "Onboarding, pending limits, owner approval, profile persistence",
+      "result": "Passed",
+      "evidence": "C1 journey"
+    },
+    {
+      "area": "C",
+      "scenario": "Pending person: own profile only; history, add and level calls refused; empty directory",
+      "result": "Passed",
+      "evidence": "C1 journey"
+    },
+    {
+      "area": "C",
+      "scenario": "Invite, then invitee sign-in becomes active; custom level; Allow and Revoke take effect",
+      "result": "Passed",
+      "evidence": "C2 journey"
+    },
+    {
+      "area": "C",
+      "scenario": "Delegated administrator meets locked and forbidden actions",
+      "result": "Passed",
+      "evidence": "C5 journey"
+    },
+    {
+      "area": "C",
+      "scenario": "Suspension while the member's page is open",
+      "result": "Passed",
+      "evidence": "C6 journey (server denies at once)"
+    },
+    {
+      "area": "C",
+      "scenario": "Invalid, overlong and duplicate input rejected",
+      "result": "Passed",
+      "evidence": "C3 journey"
+    },
+    {
+      "area": "C",
+      "scenario": "Plain-language validation errors tied to fields",
+      "result": "Failed",
+      "evidence": "C6: raw library wording, no aria-describedby"
+    },
+    {
+      "area": "C",
+      "scenario": "Server, network and expired-session errors",
+      "result": "Failed",
+      "evidence": "C1"
+    },
+    {
+      "area": "C",
+      "scenario": "Activity view after a load error",
+      "result": "Failed",
+      "evidence": "C2: false empty log"
+    },
+    {
+      "area": "C",
+      "scenario": "Stale revision message and recovery",
+      "result": "Failed",
+      "evidence": "C7: unrelated edits fail; typed edit lost"
+    },
+    {
+      "area": "C",
+      "scenario": "Allow/Revoke accessible names",
+      "result": "Failed",
+      "evidence": "C3"
+    },
+    {
+      "area": "C",
+      "scenario": "Keyboard: skip link, every control operable, no trap",
+      "result": "Passed",
+      "evidence": "C8 journey"
+    },
+    {
+      "area": "C",
+      "scenario": "Keyboard focus after save, error and tab load",
+      "result": "Failed",
+      "evidence": "C4"
+    },
+    {
+      "area": "C",
+      "scenario": "Errors visible on phones",
+      "result": "Failed",
+      "evidence": "C4: alert 364 px above viewport"
+    },
+    {
+      "area": "C",
+      "scenario": "No sideways scroll at 1280, 375 and 640 px with typical data",
+      "result": "Passed",
+      "evidence": "C9 journey"
+    },
+    {
+      "area": "C",
+      "scenario": "Long unbroken names; 320 px reflow",
+      "result": "Failed",
+      "evidence": "C5"
+    },
+    {
+      "area": "C",
+      "scenario": "axe WCAG 2.0\u20132.2 A/AA on about 60 states",
+      "result": "Passed",
+      "evidence": "except expanded Activity at <= 640 px (C5)"
+    },
+    {
+      "area": "C",
+      "scenario": "Reduced motion",
+      "result": "Passed",
+      "evidence": "no animations or transitions"
+    },
+    {
+      "area": "C",
+      "scenario": "Input boundary contrast 3:1",
+      "result": "Failed",
+      "evidence": "C6: known gap already documented"
+    },
+    {
+      "area": "C",
+      "scenario": "Sign out",
+      "result": "Unverified",
+      "evidence": "harness has no sign-out route"
+    },
+    {
+      "area": "C",
+      "scenario": "Screen reader announcements; Safari, Firefox and real devices",
+      "result": "Unverified",
+      "evidence": "not available in this evaluation"
+    },
+    {
+      "area": "D",
+      "scenario": "Scaffold creates module and registers catalog",
+      "result": "Passed",
+      "evidence": "`pnpm app:create evalprobe`"
+    },
+    {
+      "area": "D",
+      "scenario": "Full documented gate with an app present",
+      "result": "Failed",
+      "evidence": "S3: page.test.ts fails"
+    },
+    {
+      "area": "D",
+      "scenario": "App inherits login and current membership (deny paths)",
+      "result": "Passed",
+      "evidence": "37 probe tests through real dispatch, MCP adapter and D1"
+    },
+    {
+      "area": "D",
+      "scenario": "Allowed action (GET with app.open) and denied action (POST without records.edit)",
+      "result": "Passed",
+      "evidence": "200 / 403 with no write"
+    },
+    {
+      "area": "D",
+      "scenario": "Immediate revocation of an app action",
+      "result": "Passed",
+      "evidence": "next POST 403"
+    },
+    {
+      "area": "D",
+      "scenario": "App MCP tools filtered and re-checked on call",
+      "result": "Passed",
+      "evidence": "probe MCP tests"
+    },
+    {
+      "area": "D",
+      "scenario": "Compiled Worker denies app page/API and /mcp without valid sign-in",
+      "result": "Passed",
+      "evidence": "307 to /account; 401; 404 for unknown app"
+    },
+    {
+      "area": "D",
+      "scenario": "One shared build and release; no per-app deploy step or credential",
+      "result": "Passed",
+      "evidence": "workflows inspected"
+    },
+    {
+      "area": "D",
+      "scenario": "Guardrail: app reads membership database directly",
+      "result": "Failed",
+      "evidence": "A1: ships"
+    },
+    {
+      "area": "D",
+      "scenario": "Guardrail: route outside guarded folders",
+      "result": "Failed",
+      "evidence": "A2: ships, returns data without sign-in locally"
+    },
+    {
+      "area": "D",
+      "scenario": "Guardrail: test code alters release config",
+      "result": "Failed",
+      "evidence": "A3: change reaches dist"
+    },
+    {
+      "area": "D",
+      "scenario": "Guardrail: undeclared tool permission",
+      "result": "Failed",
+      "evidence": "A4: ships; /mcp 500 for everyone"
+    },
+    {
+      "area": "D",
+      "scenario": "Guardrail: server action, MCP SDK import, client import of server code, wrangler.jsonc/package.json in module",
+      "result": "Passed",
+      "evidence": "caught by check:platform / check-architecture"
+    },
+    {
+      "area": "D",
+      "scenario": "Guardrail: GET that writes, read-only tool that writes, Set-Cookie",
+      "result": "Failed",
+      "evidence": "A5: ship (Low)"
+    },
+    {
+      "area": "D",
+      "scenario": "Undeclared action at runtime fails closed",
+      "result": "Passed",
+      "evidence": "403, including for owners"
+    },
+    {
+      "area": "D",
+      "scenario": "Record-level rules in a real business app",
+      "result": "Not applicable",
+      "evidence": "no business apps exist; the probe used in-memory records"
+    },
+    {
+      "area": "E",
+      "scenario": "Production OAuth discovery (Bearer challenge, protected-resource metadata)",
+      "result": "Failed",
+      "evidence": "S11: 302 to login with Cloudflare-Access header; activation pending, as documented"
+    },
+    {
+      "area": "E",
+      "scenario": "Browser sign-in, initialize, list and permitted call in an approved real client",
+      "result": "Unverified",
+      "evidence": "blocked: managed OAuth not activated"
+    },
+    {
+      "area": "E",
+      "scenario": "Official MCP client connection attempt (unauthenticated)",
+      "result": "Failed",
+      "evidence": "S11: @modelcontextprotocol/client 2.3.1 refuses login redirect"
+    },
+    {
+      "area": "E",
+      "scenario": "Synthetic: initialize, list and call with role-based filtering",
+      "result": "Passed",
+      "evidence": "CI MCP tests and permission matrix"
+    },
+    {
+      "area": "E",
+      "scenario": "Synthetic: denied calls and revocation between list and call",
+      "result": "Passed",
+      "evidence": "permission matrix and probe tests"
+    },
+    {
+      "area": "E",
+      "scenario": "CI service identity rejected at /mcp in production",
+      "result": "Passed",
+      "evidence": "deploy logs of verified release"
+    },
+    {
+      "area": "E",
+      "scenario": "App tools exposed in production",
+      "result": "Not applicable",
+      "evidence": "catalog empty; only slice_apps exists"
+    },
+    {
+      "area": "E",
+      "scenario": "CI reviewer credential separate from personal identity",
+      "result": "Passed",
+      "evidence": "separate Access application and token; application rejects service identities"
+    },
+    {
+      "area": "F",
+      "scenario": "Concurrent edits: one winner, loser 409, audit matches",
+      "result": "Passed",
+      "evidence": "concurrency.test.ts, forced and free-running"
+    },
+    {
+      "area": "F",
+      "scenario": "Stale replay rejected",
+      "result": "Passed",
+      "evidence": "concurrency.test.ts"
+    },
+    {
+      "area": "F",
+      "scenario": "Duplicate sign-ins and invitations",
+      "result": "Passed",
+      "evidence": "duplicates.test.ts"
+    },
+    {
+      "area": "F",
+      "scenario": "Failed writes leave no partial state",
+      "result": "Passed",
+      "evidence": "failures.test.ts, 5 injection points"
+    },
+    {
+      "area": "F",
+      "scenario": "Audit consistency (one row per change, before/after match)",
+      "result": "Passed",
+      "evidence": "audit.test.ts"
+    },
+    {
+      "area": "F",
+      "scenario": "Older audit history reachable",
+      "result": "Failed",
+      "evidence": "D3: latest 50 only"
+    },
+    {
+      "area": "F",
+      "scenario": "Malformed stored rows fail safe",
+      "result": "Failed",
+      "evidence": "D1: crash or ownership"
+    },
+    {
+      "area": "F",
+      "scenario": "Migrations idempotent; ledger compatible with Wrangler",
+      "result": "Passed",
+      "evidence": "migrations.test.ts; test:migrations"
+    },
+    {
+      "area": "F",
+      "scenario": "Upgrade migration that changes the schema",
+      "result": "Not applicable",
+      "evidence": "only migration 0001 exists"
+    },
+    {
+      "area": "F",
+      "scenario": "Local export and restore of synthetic data",
+      "result": "Passed",
+      "evidence": "d1-rehearsal.sh: identical snapshot"
+    },
+    {
+      "area": "F",
+      "scenario": "Stale tab rejected after point-in-time restore",
+      "result": "Failed",
+      "evidence": "D2: revision reuse"
+    },
+    {
+      "area": "F",
+      "scenario": "Documented recovery runbook",
+      "result": "Failed",
+      "evidence": "D2"
+    },
+    {
+      "area": "F",
+      "scenario": "Cloudflare Time Travel restore",
+      "result": "Unverified",
+      "evidence": "remote-only; not authorized"
+    },
+    {
+      "area": "G",
+      "scenario": "Frozen install from a clean clone",
+      "result": "Passed",
+      "evidence": "pnpm install --frozen-lockfile"
+    },
+    {
+      "area": "G",
+      "scenario": "Local dev starts; health works",
+      "result": "Passed",
+      "evidence": "pnpm dev"
+    },
+    {
+      "area": "G",
+      "scenario": "Local sign-in or signed-in preview",
+      "result": "Failed",
+      "evidence": "G1"
+    },
+    {
+      "area": "G",
+      "scenario": "Scaffold, then documented checks",
+      "result": "Failed",
+      "evidence": "S3"
+    },
+    {
+      "area": "G",
+      "scenario": "Contribution guide covers fork/branch, reviewers, required checks",
+      "result": "Failed",
+      "evidence": "G2"
+    },
+    {
+      "area": "G",
+      "scenario": "Relative links and anchors (46 Markdown files)",
+      "result": "Passed",
+      "evidence": "0 broken"
+    },
+    {
+      "area": "G",
+      "scenario": "External links (38)",
+      "result": "Passed",
+      "evidence": "transient rate limits only"
+    },
+    {
+      "area": "G",
+      "scenario": "Current guides match implementation and settings",
+      "result": "Failed",
+      "evidence": "G3"
+    },
+    {
+      "area": "H",
+      "scenario": "Documented gate on main (format, lint, typecheck, tests, coverage, migrations, browser, build, smoke)",
+      "result": "Passed",
+      "evidence": "all green; about 28 s on the Mac mini"
+    },
+    {
+      "area": "H",
+      "scenario": "Local load: 300 requests at 10 concurrent per route",
+      "result": "Passed",
+      "evidence": "p50 8\u201317 ms; expected statuses (one /mcp exception below)"
+    },
+    {
+      "area": "H",
+      "scenario": "Local /mcp under parallel load",
+      "result": "Failed",
+      "evidence": "S12: 5 of 1,500 failed in local proxy; cause not established"
+    },
+    {
+      "area": "H",
+      "scenario": "Membership database unavailable",
+      "result": "Passed",
+      "evidence": "existing tests: generic 500, no data"
+    },
+    {
+      "area": "H",
+      "scenario": "Sign-in key service unavailable",
+      "result": "Failed",
+      "evidence": "S12: tells user to sign in again"
+    },
+    {
+      "area": "H",
+      "scenario": "Missing Access configuration",
+      "result": "Passed",
+      "evidence": "503, fails closed"
+    },
+    {
+      "area": "H",
+      "scenario": "Scaling to 1,000 members",
+      "result": "Passed",
+      "evidence": "264 KB admin view, 7.9 ms local p50; not a near-term risk"
+    },
+    {
+      "area": "H",
+      "scenario": "Advisory review shows honest status (green job is not a completed review)",
+      "result": "Passed",
+      "evidence": "PR #30: green workflow, comment says incomplete"
+    },
+    {
+      "area": "H",
+      "scenario": "Advisory review completes on ordinary PRs",
+      "result": "Failed",
+      "evidence": "S5: 2 of 8 on subscription route"
+    },
+    {
+      "area": "H",
+      "scenario": "Reviewer keeps valid findings when one is invalid",
+      "result": "Failed",
+      "evidence": "S5 probe"
+    },
+    {
+      "area": "H",
+      "scenario": "Reviewer distinguishes busy from unavailable",
+      "result": "Failed",
+      "evidence": "S5 probe"
+    },
+    {
+      "area": "H",
+      "scenario": "New commits make earlier review stale",
+      "result": "Passed",
+      "evidence": "comments record base/head; pending on push"
+    },
+    {
+      "area": "H",
+      "scenario": "Interrupted review finalizes its status",
+      "result": "Failed",
+      "evidence": "S12: PR #23 stuck pending"
+    },
+    {
+      "area": "H",
+      "scenario": "Reviewer usage limited to trusted authors",
+      "result": "Failed",
+      "evidence": "S6"
+    },
+    {
+      "area": "H",
+      "scenario": "Reviewer keeps running after November 2, 2026",
+      "result": "Failed",
+      "evidence": "S4 (reasoned)"
+    },
+    {
+      "area": "H",
+      "scenario": "Reviewer detection on new known-defect and clean cases (live)",
+      "result": "Unverified",
+      "evidence": "credential access blocked; six cases prepared"
+    }
+  ],
+  "totals": {
+    "Passed": 59,
+    "Failed": 40,
+    "Unverified": 7,
+    "Not applicable": 4
+  }
+}
