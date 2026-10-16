@@ -15,7 +15,7 @@ The request URL and `claude/claude-opus-5-5` route are fixed in trusted code. PR
 
 Use a dedicated **Service Auth** Access application for the exact hostname/path above, accepting only the Slice review service token. Preserve the existing owner-only dashboard application. In the local Cloudflare Tunnel configuration, put an exact-host, anchored `^/ci/slice/review$` path rule before the wildcard launcher rule. Its origin is `http://127.0.0.1:8932`; enable `originRequest.access.required: true`, team `snowy-voice-36a1`, and only the new application's audience. This makes cloudflared verify the signed Access identity before forwarding. Do not route the rest of the hostname directly to the gateway or disable the dashboard's owner check.
 
-A one-year service token and the dedicated GitHub environment secrets are prepared. The maintainer authorized activation on October 15, 2026; the scoped Access application/policy and production routing still require verification. The connection is not active merely because the workflow is merged. Complete and verify the steps below before calling it live.
+The connection was activated and verified on October 15, 2026. It uses a dedicated one-year service token, expiring October 15, 2027, and secrets in GitHub’s protected `ai-review` environment. A real hosted review of PR #30 completed through this connection. The steps below document setup and recovery; merging a workflow alone does not provision its connection.
 
 ## Credentials and activation
 
@@ -43,4 +43,6 @@ Availability depends on the Mac mini, tunnel, gateway and subscription sign-in. 
 
 ## Verified model connection
 
-A synthetic live review through the candidate gateway and Slice adapter requested Claude Opus 5.5 at High effort, found the introduced authorization bug, and passed the existing exact-source evidence checks. This is local integration evidence; a hosted GitHub review remains unverified until activation.
+A synthetic live review through the candidate gateway and Slice adapter requested Claude Opus 5.5 at High effort, found the introduced authorization bug, and passed the existing exact-source evidence checks. The subsequent [hosted review of PR #30](https://github.com/sliceconsultingsu/slice-launcher/actions/runs/38836195196) completed through Cloudflare and the production gateway in about 28 seconds, returning a finding that passed exact-source evidence validation. That run reviewed base `02fbb89` and head `5f1512d`; later commits need a fresh review. The changed screenshot was disclosed as requiring human visual review.
+
+Public connection checks confirmed that unsigned requests and the review key alone were rejected by Cloudflare, the Access credential alone was rejected by the gateway, and both credentials reached request validation. Requests carrying both CI credentials to `/v1/models` and `/` still redirected to owner sign-in; those credentials did not grant access to the personal API or dashboard. These checks establish the dedicated connection; they do not activate consultants’ separate personal MCP sign-in.
