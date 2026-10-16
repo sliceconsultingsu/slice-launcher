@@ -4,7 +4,7 @@ Use this guide when a consultant asks an AI agent to connect to Slice, is stoppe
 
 **Current status: awaiting platform setup.** The shared connection is implemented, but remote sign-in has not been activated and verified. Help the person check their account and prepare their client. Stop before connecting until the Slice maintainer confirms availability. Installing a client or opening the launcher does not prove a working connection.
 
-The launcher’s **Connect your AI** page provides a message to copy into an agent. This public repository guide is readable before sign-in; private application data remains behind Cloudflare Access.
+Use **Connect your AI** in the launcher’s footer to open the setup page and copy a message into your agent. This public repository guide is readable before sign-in; private application data remains behind Cloudflare Access.
 
 ## 1. Identify the AI client
 

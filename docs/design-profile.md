@@ -111,6 +111,8 @@ Every page has the same frame:
 
 App modules render inside `main`. The host owns routing and the shell, so an app's `Page` returns content starting at its section, not its own header, footer or `<html>` structure. See [adding an app](adding-an-app.md).
 
+Keep the launcher focused on Applications. **Connect your AI** belongs in the footer's `.project-links` beside the contributor resources, using the same muted, underlined text and 44px touch target. Its setup guide stays on a separate page; do not promote it with a banner above the apps.
+
 ## Components
 
 Use these before creating anything new. Classes live in `platform/app/globals.css`; React components in `packages/ui/src`.
