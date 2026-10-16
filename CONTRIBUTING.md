@@ -31,13 +31,13 @@ The command creates its folder, app settings, starter screen and README. Follow 
 
 ## 3. If you use an AI agent
 
-Choose **Claude Opus 5.5** or **GPT-6 Astra**. Set reasoning to **High** while planning, then **Medium** while implementing the agreed work. Prefer these over weaker models for code changes; the aim is to reduce mistakes that break existing features. Model choice does not replace tests or your review. See [the model guidance](skills/models.md) for exceptions and difficult tasks.
+Use **Claude Opus 5.5** or **GPT-6 Astra** with the [recommended reasoning settings](skills/models.md). Model choice does not replace tests or your review.
 
 Have it read [AGENTS.md](AGENTS.md) and the guides linked for your task. Claude can discover the [CLAUDE.md](CLAUDE.md) pointer; other agents may need this instruction pasted into their task:
 
 > Read AGENTS.md and the skills guide. Explain the business outcome first and teach me any technical concepts in simple language, using small examples. Implement this task within the repository rules, test the result, and explain what changed, what remains uncertain and whether it is live.
 
-Your agent should work like a patient teacher: explain why a change matters, introduce one idea at a time and help you make informed decisions. You can ask it to explain more simply or show an example. Start with [agent skills](skills/README.md); the first collection is [Superpowers](skills/superpowers/README.md), which helps an agent plan, investigate problems and check its work.
+Your agent should teach as it works (see [AGENTS.md](AGENTS.md)). Start with [agent skills](skills/README.md), beginning with [Superpowers](skills/superpowers/README.md).
 
 Review the plan and diff yourself. Never give an agent production credentials or private member/client data. A passing test or AI review does not replace your responsibility to understand what changed.
 

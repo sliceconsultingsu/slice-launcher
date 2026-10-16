@@ -4,7 +4,7 @@
 
 Apps are modules in `platform/apps/<id>`, bundled into one platform Worker. They inherit its Access session, permission enforcement, release artifact, credentials and rollback. Public metadata lives in `platform/apps/<id>/app.json`; a generated static server registry connects modules to guarded catch-all routes. Shared packages cannot import the host application. `scripts/check-architecture.mjs` parses TypeScript/JavaScript imports and re-exports, resolves aliases, checks workspace dependencies, and walks client import graphs. It rejects client paths reaching server-only modules, Cloudflare/Node server bindings, environment access, and nonliteral dynamic imports. Type-only contracts are allowed. Keep server modules marked with `server-only`; membership auth/API/repository are also recognized explicitly. This check supplements review and bundler isolation; it cannot prove arbitrary runtime code safe.
 
-Common components and design tokens belong in `packages/ui`. Follow the [design profile](design-profile.md) for Slice's logo, typography, colors and accessible form conventions. App libraries belong in the host manifest; reusable libraries can become workspace packages. Avoid copy-pasting a design system into new apps.
+Shared components and design tokens belong in `packages/ui`; follow the [design profile](design-profile.md). App libraries belong in the host manifest; reusable libraries can become workspace packages. Avoid copy-pasting a design system into new apps.
 
 ## Server and data contracts
 
@@ -12,7 +12,7 @@ Validate external input at the boundary with explicit schemas and bounded payloa
 
 ## Maintainability
 
-Keep TypeScript strict; do not hide errors with blanket lint disables, any, unchecked casts, or catch-and-ignore. Explain unusual assumptions near the code. Keep modules focused by behavior. Tests should prove user-visible behavior or a security/reliability invariant, including rejection paths. A named test script is a minimum contract, not useful coverage by itself.
+Follow the implementation expectations in [AGENTS.md](../AGENTS.md); also avoid `any`. Tests prove user-visible behavior or a security/reliability invariant, including rejection paths; a named test script alone is not coverage.
 
 The host declares lint/typecheck/test/build commands and operational documentation for all modules. New app tests live beside their module and run in the host suite. `check:platform` verifies the catalog/registry and rejects per-app deployment configs, MCP SDK imports and server actions that bypass guarded dispatch. Module endpoints must use the platform page/API/tool contract; add action authorization and domain validation inside those handlers. Add shared checks to the reusable validation workflow to keep PR and release validation aligned.
 
