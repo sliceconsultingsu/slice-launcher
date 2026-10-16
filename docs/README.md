@@ -25,4 +25,4 @@ For consultants and their agents: [Connect your AI](connect-your-ai.md) walks th
 
 ## Historical evidence
 
-[Experiments](experiments/), [original specs/plans](superpowers/), [foundation review](foundation-review-2026-10-03.md), and [platform validation](platform-validation-2026-10-15.md) record what was designed or tested at a particular revision. They may refer to superseded folder names, deployment assumptions or pending work later completed. Do not use them as current setup instructions. Their original results remain intact.
+[Experiments](experiments/), [original specs/plans](superpowers/), [foundation review](foundation-review-2026-10-03.md), [platform validation](platform-validation-2026-10-15.md) and the [October 16 readiness evaluation](evaluations/2026-10-16-platform-readiness.md) record what was designed or tested at a particular revision. They may refer to superseded folder names, deployment assumptions or pending work later completed. Do not use them as current setup instructions. Their original results remain intact.
