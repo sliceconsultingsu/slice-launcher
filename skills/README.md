@@ -14,9 +14,10 @@ Before starting, use [the recommended model and reasoning settings](models.md). 
 2. Choose a collection below. Ask the agent to read its guide and the instructions relevant to your task.
 3. Have the agent explain which routine it is using and why, in ordinary business language.
 
-| Collection                                         | How it helps                                                                                        | Start with                                            |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [Superpowers](https://github.com/obra/superpowers) | Helps an agent clarify the goal, plan manageable steps, investigate problems and verify the outcome | [Using Superpowers with Slice](superpowers/README.md) |
+| Collection                                               | How it helps                                                                                         | Start with                                            |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| [Superpowers](https://github.com/obra/superpowers)       | Helps an agent clarify the goal, plan manageable steps, investigate problems and verify the outcome  | [Using Superpowers with Slice](superpowers/README.md) |
+| [Anthropic skills](https://github.com/anthropics/skills) | Designs new interface patterns, checks screens in a browser and guides a feature from idea to review | [Anthropic skills for Slice](anthropic/README.md)     |
 
 ## A prompt you can use
 
