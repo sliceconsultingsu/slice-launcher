@@ -17,7 +17,7 @@ One home for Slice Consulting's internal tools. Consultants sign in once; each t
 | Build or change an app                 | [Contributing](CONTRIBUTING.md), then [add an app](docs/adding-an-app.md)                          |
 | Work with an AI coding agent           | Ask it to read [AGENTS.md](AGENTS.md) first                                                        |
 | Understand roles and access            | [Membership guide](docs/membership.md)                                                             |
-| Connect an approved AI client          | [MCP setup](docs/mcp.md)                                                                           |
+| Connect an approved AI client          | [Connect your AI](docs/connect-your-ai.md)                                                         |
 | Find technical or operational guidance | [Documentation index](docs/README.md)                                                              |
 
 ## Recommended AI models
