@@ -828,7 +828,7 @@ test("subscription missing credentials and large requests make no call; transpor
     "incomplete",
   );
   assert.equal(
-    (await review({ ...context, standards: "x".repeat(101000) }, subscriptionCfg, never)).status,
+    (await review({ ...context, standards: "x".repeat(201000) }, subscriptionCfg, never)).status,
     "incomplete",
   );
   let calls = 0;
@@ -839,4 +839,119 @@ test("subscription missing credentials and large requests make no call; transpor
   assert.equal(calls, 1);
   assert.equal(failed.status, "failed");
   assert.doesNotMatch(JSON.stringify(failed), /private/);
+});
+
+test("image evidence is disclosed without blocking a text review", async () => {
+  const { api, responses } = apiFixture();
+  responses["/pulls/12"].changed_files++;
+  responses["/compare/" + base + "..." + head].files.push({
+    filename: "docs/images/preview.png",
+    status: "added",
+    additions: 0,
+    deletions: 0,
+  });
+  const collected = await collectContext(
+    api,
+    { pr: 12, base, head, repository: "owner/repo" },
+    "standards",
+  );
+  assert.equal(collected.complete, true);
+  assert.deepEqual(collected.scope.visualAssets, ["docs/images/preview.png"]);
+  let calls = 0;
+  const result = await review(collected, subscriptionCfg, async () => {
+    calls++;
+    return response(subscriptionResponse());
+  });
+  assert.equal(calls, 1);
+  assert.equal(result.status, "completed");
+  assert.match(result.reason, /1 image asset.*human visual review/);
+  validateReport(result);
+});
+
+test("large surrounding context is bounded without dropping changed source", async () => {
+  const { api, responses } = apiFixture();
+  const path = "platform/src/membership/example.ts";
+  responses["/compare/" + base + "..." + head].files[0].filename = path;
+  for (const ref of [base, head])
+    responses["/git/trees/" + ref + "?recursive=1"].tree[0].path = path;
+  const large = "// supporting context\n".repeat(4000);
+  responses["/git/trees/" + head + "?recursive=1"].tree.push({
+    path: "platform/other/large.ts",
+    type: "blob",
+    mode: "100644",
+    sha: "e".repeat(40),
+    size: Buffer.byteLength(large),
+  });
+  responses["/git/blobs/" + "e".repeat(40)] = {
+    content: Buffer.from(large).toString("base64"),
+    size: Buffer.byteLength(large),
+    encoding: "base64",
+  };
+  const collected = await collectContext(
+    api,
+    { pr: 12, base, head, repository: "owner/repo" },
+    "standards",
+  );
+  assert.equal(collected.complete, true);
+  assert.equal(collected.files[0].head, context.files[0].head);
+  assert.ok(collected.scope.supportingFilesOmitted > 0);
+  assert.ok(Buffer.byteLength(JSON.stringify(modelContext(collected))) <= 175000);
+  let calls = 0;
+  const result = await review(collected, subscriptionCfg, async () => {
+    calls++;
+    return response(subscriptionResponse({ status: "completed", findings: [] }));
+  });
+  assert.equal(calls, 1);
+  assert.match(result.reason, /supporting files outside/);
+});
+
+test("unsupported changed binaries still block inference with a specific reason", async () => {
+  const { api, responses } = apiFixture();
+  responses["/pulls/12"].changed_files++;
+  responses["/compare/" + base + "..." + head].files.push({
+    filename: "download.bin",
+    status: "added",
+    additions: 0,
+    deletions: 0,
+  });
+  const collected = await collectContext(
+    api,
+    { pr: 12, base, head, repository: "owner/repo" },
+    "standards",
+  );
+  let calls = 0;
+  const result = await review(collected, subscriptionCfg, async () => {
+    calls++;
+  });
+  assert.equal(calls, 0);
+  assert.equal(result.status, "incomplete");
+  assert.match(result.reason, /patch/);
+});
+
+test("image-only changes, image renames and truncated image-named text never look reviewed", async () => {
+  for (const change of [
+    { filename: "preview.png", status: "added", additions: 0, deletions: 0 },
+    {
+      filename: "preview.png",
+      status: "renamed",
+      previous_filename: "source.ts",
+      additions: 0,
+      deletions: 0,
+    },
+    { filename: "preview.png", status: "added", additions: 1, deletions: 0 },
+  ]) {
+    const { api, responses } = apiFixture();
+    responses["/compare/" + base + "..." + head].files = [change];
+    const collected = await collectContext(
+      api,
+      { pr: 12, base, head, repository: "owner/repo" },
+      "standards",
+    );
+    let calls = 0;
+    const result = await review(collected, subscriptionCfg, async () => {
+      calls++;
+    });
+    assert.equal(result.status, "incomplete");
+    assert.equal(calls, 0);
+  }
 });
