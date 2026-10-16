@@ -60,6 +60,8 @@ The authoritative CI sequence is `.github/workflows/validation.yml`; security sc
 
 ## Delivery and authority
 
+Before handoff, follow the [advisory review loop](docs/ai-review.md#recommended-review-loop): assess, fix, test, push to the same PR, and read the fresh review. Use up to two fix-and-review rounds; report unresolved issues.
+
 - Review the diff, push the intended branch, and open or update a PR using its template. Describe the concrete problem, resulting behavior, tests actually run, unverified paths, and migration/release/rollback effects. Confirm the remote contains the intended commits.
 - Required `validate` and security checks must pass on the current revision; resolve review conversations. Ivan reviews other contributors' PRs; his own require no independent approval. AI review is advisory and cannot approve, waive checks, merge, or deploy. An unavailable/incomplete AI result is not a clean review.
 - Do not push implementation changes directly to `main`, force-push shared branches, bypass protection, merge your own contribution without the applicable maintainer review, or deploy directly from your laptop. Use the approved shared release workflow. Respect explicit draft/merge holds; obtain maintainer authorization before production access/configuration changes, migrations, destructive operations, or releases outside the normal approved workflow.
