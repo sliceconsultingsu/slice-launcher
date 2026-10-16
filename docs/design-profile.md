@@ -1,202 +1,219 @@
 # Slice design profile
 
-This is the visual and interaction standard for everything people see in Slice: the launcher, the account workspace and every app module. Follow it so a consultant moving between apps feels they are in one product, and so the next student team can change a screen without guessing.
+This is the standard for everything people see in Slice: the launcher, the account workspace, the connect-your-AI page and every app module. Follow it so consultants moving between apps feel they are in one product, and so the next student team can change a screen without guessing.
 
-It records what the platform already does, names the values, and says where today's code falls short. When the code and this profile disagree, raise it in your PR instead of silently picking one.
+The profile describes the target. Parts of it are still being built; [Not yet implemented](#not-yet-implemented) says what to use in the meantime. If code and this profile disagree in a way that section does not explain, raise it in your PR.
+
+<!-- reviewer-digest:start -->
+
+## Reviewer digest
+
+Applies to new or changed UI. Items listed under "Not yet implemented" are targets, not violations.
+
+- Use `@slice/ui` components and token variables; no colour literals outside `packages/ui/src/tokens.css`.
+- One primary button per view; destructive actions use `ConfirmDialog`.
+- Each app ships a square, full-bleed `icon.svg` or `icon.png` with no scripts, handlers, external links, embedded images or animation, its origin and licence in the README, and a `guide.md` for consultants with no private data or raw HTML.
+- Apps render inside the shared shell and add no headers, fonts, themes, UI kits or global CSS.
+- Sentence case, verb-first buttons; errors state what happened and what to do, never raw technical messages.
+- WCAG 2.2 AA: labels, visible focus, keyboard use, status and alert roles, checked at 390px and 1280px.
+
+<!-- reviewer-digest:end -->
 
 ## How to use this profile
 
-**Contributors:** read the [principles](#principles), skim the [components](#components) you need, and run the [review checklist](#review-checklist) before opening a PR.
+**Contributors:** read the [principles](#principles), find the [components](#components) you need, and complete the [review checklist](#review-checklist) in your PR.
 
 **AI agents:** read this file before changing anything under `platform/app/`, `platform/apps/`, `platform/src/**/*.tsx` or `packages/ui/`. Then:
 
-1. Reuse an existing class or component from the [components](#components) table. Name the one you used in your summary.
-2. Use only the colors, type sizes, radii and breakpoints listed here. If you need a new one, stop and propose it; do not add it on your own.
-3. Write interface text in the [voice](#voice-and-copy) described below.
+1. Reuse a component from the [components](#components) table, or the interim class listed in [Not yet implemented](#not-yet-implemented). Name what you used in your summary.
+2. Use only the tokens, type sizes, radii and breakpoints listed here. If you need a new one, propose it in this file in the same PR.
+3. Write interface text in the [copy](#copy) style.
 4. Before handoff, report each [review checklist](#review-checklist) item as checked, not applicable, or not verified, with the reason.
 
 A prompt a consultant can paste:
 
-> Read AGENTS.md and docs/design-profile.md. Build this screen with the existing Slice components and tokens. Do not introduce new colors, fonts, icon libraries or CSS frameworks. When you finish, go through the design profile's review checklist and tell me what you checked at desktop and mobile widths.
+> Read AGENTS.md and docs/design-profile.md. Build this screen with the existing Slice components and tokens. Don't introduce new colours, fonts, UI libraries or global styles. When you finish, go through the design profile's review checklist and tell me what you checked at desktop and mobile widths.
 
 ## Principles
 
-1. **Work first, decoration second.** Slice is a tool consultants use between client tasks. Screens lead with the task or the data. No hero banners, stock imagery or ornamental illustrations.
-2. **Warm and calm.** Off-white paper, charcoal ink, one orange accent. The accent marks the single most important action or the current location; it is not a fill color for decoration.
-3. **One product, many apps.** Apps live inside the platform shell and use the shared styles. An app does not bring its own theme, fonts, logo or navigation chrome.
-4. **Plain business language.** Labels say what happens in words a new consultant understands. Avoid internal codes, stack names and jargon.
-5. **Accessible by default.** Keyboard, screen reader, contrast and mobile use are requirements, not polish. They are checked before review.
-6. **Reuse before inventing.** A new pattern needs a reason another screen will also benefit from it. Then it goes into `packages/ui` or `platform/app/globals.css`, not into one app.
+1. **Work first.** Screens lead with the task or the data. No hero banners, stock imagery or decoration.
+2. **A quiet interface; apps carry the colour.** Warm paper, charcoal ink and one burnt-orange accent. The accent marks the single most important action or the current location. App icons are where colour and personality live.
+3. **One product, many apps.** Apps render inside the platform shell with shared components. An app does not bring its own theme, fonts, logo or navigation.
+4. **Plain business language.** Labels say what happens, in words a new consultant understands.
+5. **Accessible by default.** Keyboard, screen reader, contrast and mobile use are requirements checked before review.
+6. **Reuse before inventing.** A new pattern goes into `packages/ui` and this profile, never into one app only.
 
 ## Brand
 
-- Use only the original logo at `platform/public/brand/slice-logo.png`. Its source is recorded in [brand assets](brand-assets.md). Do not recolor, redraw, stretch, crop out the tagline, or add effects. The header fits its square canvas with `object-fit: cover` at 180×100 (144×80 on narrow screens).
+- Use only the original logo at `platform/public/brand/slice-logo.png` ([source](brand-assets.md)). Do not recolour, redraw, stretch or crop it, and do not add effects.
 - The logo appears once, in the platform header, linking home with the accessible name "Slice Consulting home".
-- The product name in the interface is **Slice Consulting**; the launcher area is **App Launcher**. Individual apps use their catalog `name` from `app.json`.
-- Do not add other organizations' marks, Syracuse University marks beyond what the supplied logo contains, or generated logos.
+- The organisation is **Slice Consulting**; the launcher is **App Launcher**. Apps use the `name` in their `app.json`.
+- Do not use other organisations' marks or Syracuse University marks beyond what the supplied logo contains.
 
 ## Tokens
 
-### Color
+All colours are CSS variables defined once in `packages/ui/src/tokens.css`. Use `var(--token)` in CSS or `text-(--token)` in Tailwind. Never type a colour value in a component.
 
-All interface text below meets WCAG 2.1 AA (4.5:1) on its intended background. Ratios were calculated for this profile from the hex values; recheck when you change a color.
+| Token                           | Value                | Use                                                        |
+| ------------------------------- | -------------------- | ---------------------------------------------------------- |
+| `--page`                        | `#faf9f6`            | Page background                                            |
+| `--surface`                     | `#fffefb`            | Cards, secondary buttons                                   |
+| `--ink`                         | `#292c30`            | Text, secondary-button outline (13.3:1 on page)            |
+| `--muted`                       | `#666962`            | Secondary text (5.3:1 on page)                             |
+| `--accent`                      | `#a4461c`            | Primary fill, links, current tab, focus ring (white 6.0:1) |
+| `--accent-hover`                | `#853915`            | Primary hover                                              |
+| `--accent-tint`                 | `#fff0e3`            | Accent-tinted backgrounds                                  |
+| `--line`                        | `#e5e4df`            | Decorative borders and dividers                            |
+| `--control-border`              | `#868880`            | Input and select borders (3.6:1 on white)                  |
+| `--selected`                    | `#f3efe7`            | Selected or hovered row                                    |
+| `--selection`                   | `#ffd8b7`            | Text selection                                             |
+| `--notice-bg`, `--notice-line`  | `#f6f3e9`, `#ddd9c9` | Information notice                                         |
+| `--error-bg`, `--error-line`    | `#fff0ea`, `#e9baa6` | Error notice                                               |
+| `--status-neutral-bg`, `-ink`   | `#eeeee8`, `#55594e` | Neutral badge (6.2:1)                                      |
+| `--status-active-bg`, `-ink`    | `#e8efe5`, `#3c573b` | Active badge (6.8:1)                                       |
+| `--status-pending-bg`, `-ink`   | `#f5ebd9`, `#735124` | Pending or invited badge (6.1:1)                           |
+| `--status-suspended-bg`, `-ink` | `#f6e6e1`, `#914833` | Suspended badge (5.5:1)                                    |
+| `--avatar-bg`, `--avatar-ink`   | `#f0e7dc`, `#713f27` | Initials avatars (7.0:1)                                   |
 
-| Role                      | Value     | CSS variable today | Use                                                         | Contrast                     |
-| ------------------------- | --------- | ------------------ | ----------------------------------------------------------- | ---------------------------- |
-| Page background           | `#faf9f6` | none (on `:root`)  | Whole-page background                                       | —                            |
-| Surface                   | `#fffefb` | none               | Cards, tiles, empty states, secondary buttons               | —                            |
-| Ink                       | `#292c30` | `--ink`            | Body text and headings                                      | 13.3:1 on page               |
-| Muted text                | `#666962` | `--muted`          | Secondary text, notes, timestamps, inactive tabs            | 5.3:1 on page, 5.5:1 surface |
-| Accent                    | `#a4461c` | `--accent`         | Primary action fill, current tab, text links, focus outline | 5.8:1 on page                |
-| Accent hover              | `#853915` | none               | Primary button hover                                        | white text 8.1:1             |
-| Accent tint               | `#fff0e3` | none               | App tile initial background                                 | accent text 5.4:1            |
-| Line                      | `#e5e4df` | `--line`           | Dividers and card borders (decorative only)                 | 1.2:1, decorative            |
-| Control border            | `#cfcec6` | none               | Text input and select borders                               | 1.6:1 — see known gaps       |
-| Selected row              | `#f3efe7` | none               | Hovered or selected list row                                | —                            |
-| Text selection            | `#ffd8b7` | none               | `::selection` background                                    | —                            |
-| Notice                    | `#f6f3e9` | none               | Informational notice background, border `#ddd9c9`           | ink 12.6:1                   |
-| Error notice              | `#fff0ea` | none               | Error notice background, border `#e9baa6`                   | ink 12.6:1                   |
-| Status: neutral           | `#55594e` | none               | Badge text on `#eeeee8`                                     | 6.2:1                        |
-| Status: active            | `#3c573b` | none               | Badge text on `#e8efe5`                                     | 6.8:1                        |
-| Status: pending / invited | `#735124` | none               | Badge text on `#f5ebd9`                                     | 6.1:1                        |
-| Status: suspended         | `#914833` | none               | Badge text on `#f6e6e1`                                     | 5.5:1                        |
-| Launch button             | `#30372e` | none               | "Open app" on app tiles only; hover `#465140`               | white text 12.3:1            |
+There is no dark theme, and red is not a brand colour: errors use the error notice and clear words. Never communicate meaning with colour alone.
 
-Rules:
+### Type
 
-- Use the CSS variable where one exists (`var(--accent)`, or `text-(--accent)` in Tailwind). Do not type a new hex value in a component.
-- Never communicate meaning with color alone. Status badges always carry a word ("Active", "Pending").
-- There is no dark theme. The platform declares `color-scheme: light`; do not add `prefers-color-scheme` styles in one app.
-- Red is not a brand color. Errors use the error notice palette and clear words, not bright red text.
+Font stack, set once: `"Avenir Next", Avenir, "Segoe UI", ui-sans-serif, system-ui, sans-serif`. Do not load web fonts.
 
-### Typography
+| Use                | Size and weight             |
+| ------------------ | --------------------------- |
+| Page title (`h1`)  | 32px / 700 (26px at ≤650px) |
+| Section heading    | 22px / 700                  |
+| Card title         | 18px / 700                  |
+| Body               | 15px / 400, line-height 1.6 |
+| Labels and buttons | 14px / 600–700              |
+| Small and notes    | 13px / 400                  |
 
-Font stack, set once on `:root`: `"Avenir Next", Avenir, "Segoe UI", ui-sans-serif, system-ui, sans-serif`. Do not load web fonts or set another family.
+One `h1` per page, headings in order, sentence case everywhere.
 
-| Element                   | Size | Weight  | Notes                                                    |
-| ------------------------- | ---- | ------- | -------------------------------------------------------- |
-| Page title (`h1`)         | 28px | 600     | 25px at ≤650px; line-height 1.25; letter-spacing -0.03em |
-| Card heading              | 19px | 600     | `.account-card h2`                                       |
-| Form legend               | 18px | 600     |                                                          |
-| Tile heading              | 18px | 600     | `text-lg font-semibold tracking-tight`                   |
-| Body and form inputs      | 14px | 400     | Long-form paragraphs use line-height 1.6                 |
-| Labels, buttons, tabs     | 13px | 500–600 | Buttons and the active tab are 600                       |
-| Notes, timestamps, footer | 12px | 400     | Muted color                                              |
-| Badges                    | 11px | 500     | Sentence case word, rendered capitalized                 |
+### Shape and layout
 
-Rules: one `h1` per page, headings in order, sentence case everywhere ("Save access", not "Save Access"). Use `…` for in-progress text ("Loading activity…").
-
-### Spacing, shape and layout
-
-- **Spacing** uses this scale (px): 4, 8, 12, 16, 20, 24, 28, 32, 40, 56. Prefer 8, 12, 16, 20 and 24 inside components; 24–40 between sections.
-- **Radii:** 6px badges · 7–8px inputs and buttons · 9px notices · 14px account cards and icon tiles · 16px app tiles and empty states · 50% avatars.
-- **Borders:** 1px solid. No drop shadows, gradients or blur.
-- **Shell:** content is centered with `max-width: 1440px` and 6% side margins in `.site-header`, `.workspace-main` and `.site-footer`.
-- **Grids:** app tiles use `repeat(auto-fit, minmax(min(100%, 280px), 1fr))` with a 20px gap. Two-panel layouts (`.profile-grid`, `.management-grid`) collapse to one column at ≤800px.
-- **Breakpoints:** 800px (two panels stack), 650px (smaller header and title), 500px (account header compacts, toolbars stack). Do not add others without a reason.
-- **Touch targets:** buttons and inputs are at least 42–44px tall. Keep new interactive controls at 44px or larger.
+- **Radii:** buttons and badges 999px (pills) · cards 16px · notices 9px · inputs 8px · avatars 50%.
+- **Borders** are 1px. No shadows or gradients in interface elements; app icons are exempt.
+- **Shell:** centred, `max-width: 1440px`, 6% side margins.
+- **Breakpoints:** 800px (two-panel layouts stack), 650px (smaller header and title), 500px (toolbars stack).
+- **Targets:** buttons and inputs at least 44px tall.
 
 ## Page shell
 
-Every page has the same frame:
+Every page, apps included, uses one shell:
 
 ```text
-.workspace-shell
-├── a.skip-link           "Skip to content" → #main
-├── header.site-header    logo · divider · workspace label · AccountNav
-├── main#main.workspace-main
-│   └── section           h1, then content
-└── footer.site-footer    "Slice Consulting" · project links
+skip link "Skip to content" → #main
+header   logo · "App Launcher" or the app's icon and name · account menu
+main#main
+footer   "Slice Consulting" · project links
 ```
 
-App modules render inside `main`. The host owns routing and the shell, so an app's `Page` returns content starting at its section, not its own header, footer or `<html>` structure. See [adding an app](adding-an-app.md).
+App modules render inside `main`. They never add their own header, footer or `<html>` structure.
 
 ## Components
 
-Use these before creating anything new. Classes live in `platform/app/globals.css`; React components in `packages/ui/src`.
+From `@slice/ui`. Apps import these instead of restyling them.
 
-| Need                            | Use                                               | Notes                                                                                     |
-| ------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Main action on a screen         | `.primary-button`                                 | One per view or form. Verb first: "Save access", "Add member".                            |
-| Other actions                   | `.secondary-button`                               | Cancel, Refresh, secondary navigation.                                                    |
-| Low-emphasis inline action      | `.text-button`                                    | "Reload latest changes", "Sign out". Underlined accent text.                              |
-| App in the launcher grid        | `AppTile` from `@slice/ui`                        | Shows initial, name, description and "Open app", or "Coming soon" when there is no link.  |
-| Grouped content                 | `.account-card`                                   | Surface, 1px line, 14px radius, 28px padding (22px on mobile).                            |
-| Section switcher                | `nav.account-tabs` with `aria-current` on current | Accent underline on the current tab. Horizontal scroll, never wrapping.                   |
-| Heading row with an action      | `.account-heading` or `.section-toolbar`          | Toolbar stacks at ≤500px.                                                                 |
-| Forms                           | `.form-stack` with `fieldset` and `legend`        | Label wraps the control; hints use `.field-note`. Checkboxes use `.check-label`.          |
-| Information the user should see | `p.notice` with `role="status"`                   | Calm background; keep it to one or two sentences.                                         |
-| Something went wrong            | `.notice.error-notice` with `role="alert"`        | Say what happened and offer a next step such as a "Reload latest changes" `.text-button`. |
-| Record status                   | `.status-badge.status-<state>`                    | States: active, pending, invited, suspended; neutral otherwise.                           |
-| Person                          | `.member-avatar`, `.profile-avatar`               | Initial on `#f0e7dc`; decorative, so `aria-hidden="true"`.                                |
-| Selectable list                 | `.member-list` with `button.member-row`           | `aria-pressed="true"` for the selected row.                                               |
-| Nothing to show yet             | `.empty-catalog` pattern                          | Line icon in `.empty-icon`, one short heading.                                            |
-| Waiting for data                | `<p role="status">Loading your account…</p>`      | Text, not spinners or skeletons.                                                          |
-| History or audit entries        | `.activity-list`                                  | `time` in muted 12px; raw detail inside `details`.                                        |
-| Icons                           | Inline SVG, 24px viewBox, 1.5px `currentColor`    | Decorative icons get `aria-hidden="true"`. Do not add an icon library.                    |
+| Component       | Use                                                                                                                                                                              |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Button`        | `primary` (filled accent, one per view), `secondary` (ink outline), `text`, `danger` (only in `ConfirmDialog`). Pill-shaped, bold label.                                         |
+| `ConfirmDialog` | Any destructive or hard-to-undo action. Names the consequence and the action ("Remove member").                                                                                  |
+| `PageHeader`    | Page title with optional eyebrow and actions.                                                                                                                                    |
+| `Card`          | Grouped content on a surface with a line border.                                                                                                                                 |
+| `Tabs`          | Section switcher; the current tab has `aria-current` and an accent underline.                                                                                                    |
+| `Field`         | Label, control, hint and error together. A control never appears without a label.                                                                                                |
+| `Notice`        | `info` announces with `role="status"`; `error` announces with `role="alert"` and offers a next step.                                                                             |
+| `Badge`         | A status word with its colour pair.                                                                                                                                              |
+| `EmptyState`    | A heading, one sentence and an optional action.                                                                                                                                  |
+| `Table`         | Tabular data; becomes labelled stacked rows at ≤650px.                                                                                                                           |
+| `AppIcon`       | An app's icon at 20, 32, 40 or 48px, as `<img alt="">` with rounded corners.                                                                                                     |
+| `AppCard`       | Launcher card: 40px icon, bold title, description up to three lines, then **Open** and **Guide** pills at the bottom. "Coming soon" badge replaces Open when an app has no link. |
 
-If a pattern you need is missing, build it once in the shared place, using the tokens above, and add a row to this table in the same PR.
+App-specific layout styles may live in the app folder, using tokens only. If a component you need is missing, add it to `packages/ui` and to this table in the same PR.
 
-## Voice and copy
+## App icons
 
-Follow the [communication standard](../AGENTS.md#communicate-as-a-business-partner-and-teacher) in AGENTS.md: plain business language, outcome first.
+Every app has an icon, and the style is up to its designer.
 
-- **Buttons** are verbs describing the result: "Open app", "Save access", "Add member". Avoid "Submit", "OK" and "Click here".
-- **Headings** name the thing: "Applications", "Organization", "Recent activity".
-- **Errors** say what happened and what to do next, without technical detail or private data, for example "We couldn't save these changes. Reload latest changes and try again." Never show stack traces, IDs from the database or raw provider messages.
-- **Permission messages** say who can act: "An owner must make changes to this member."
-- **Empty states** state the fact plainly: "No apps have been added yet", "No members found."
-- Use synthetic names and emails in examples, screenshots and fixtures.
+**Required (checked by CI):**
+
+- Exactly one `icon.svg` or `icon.png` in `platform/apps/<id>/`, replacing the starter from `pnpm app:create`.
+- Square and full-bleed: an SVG with a square `viewBox`, or a 512×512 PNG with no transparency. The platform rounds the corners.
+- Safe and light. SVG: at most 32 KiB, with no scripts, event handlers, external links, embedded images, `foreignObject` or animation. PNG: at most 150 KiB, with no metadata and no animation.
+- An `## Icon` section in the app README stating how the icon was made (original, adapted from a named source, or generated with a named tool), its licence and its author. Only original or permissively licensed artwork (MIT, ISC, Apache-2.0, CC0, CC-BY); no real people's faces and no other organisations' logos.
+
+**Tips:** check it at 20px; make it easy to tell apart from the other apps' icons; keep important detail away from the corners.
+
+## Guides
+
+Each app ships `platform/apps/<id>/guide.md` for consultants: what the app is for and how to do its main tasks, in plain language. Guides appear at `/guides/<id>`, open to any signed-in member, so they must contain no private data. Raw HTML is not rendered.
+
+## Copy
+
+Follow the [communication standard](../AGENTS.md#communicate-as-a-business-partner-and-teacher): plain business language, outcome first.
+
+- Sentence case everywhere.
+- Buttons are one to three words, verb first: "Open", "Add member", "Save access". Not "Submit" or "OK".
+- No "please", "successfully" or exclamation marks. Contractions are fine.
+- Errors say what happened and what to do, without first person, technical detail or private data: "Couldn't save changes. Reload and try again."
+- Empty states invite an action: "Add your first member".
+- Use "your" for the user's things.
+- Use synthetic names and emails in examples, fixtures and screenshots.
 
 ## Accessibility
 
-Target WCAG 2.1 AA. The browser tests run axe with the `wcag2a`, `wcag2aa` and `wcag21aa` rules; passing them is required but does not cover everything below.
+Target WCAG 2.2 AA.
 
-- Every page keeps the skip link and a single `main#main`.
-- Every control has a visible label or an accessible name. Icon-only controls need `aria-label`.
-- Focus is always visible: 3px `--accent` outline (offset 3px on controls, 6px on links). Do not remove outlines.
-- Everything works with a keyboard in a sensible order. Use `button` for actions and `a` for navigation; no clickable `div`s.
-- Announce changes: `role="status"` for progress and results, `role="alert"` for errors.
-- Links that open a new tab say so to screen readers: `<span className="sr-only"> (opens in a new tab)</span>`.
-- Do not rely on hover. Anything revealed on hover is also available on focus or tap.
-- Keep motion to simple color transitions. Anything larger must respect `prefers-reduced-motion`.
-- Decorative images and initials are `aria-hidden="true"`; meaningful images have specific `alt` text.
+- Keep the skip link and one `main#main` on every page.
+- Every control has a visible label or an accessible name.
+- Focus is always visible: a 3px `--accent` outline. Never remove outlines.
+- Everything works with a keyboard, in a sensible order. Use `button` for actions and `a` for navigation.
+- Announce changes with `role="status"`, and errors with `role="alert"`.
+- Links that open a new tab say so to screen readers.
+- Nothing depends on hover alone.
+- Large motion respects `prefers-reduced-motion`.
+- Decorative images and icons use `alt=""` or `aria-hidden="true"`.
 
 ## Responsive behavior
 
-- Design for 390px wide phones and 1280px laptops; check both before review.
-- The page never scrolls sideways. Only tab rows and `pre` blocks may scroll horizontally inside themselves.
-- Long names and emails wrap (`overflow-wrap: anywhere`) or truncate with an ellipsis where space is fixed, as in `AccountNav`.
-- Two-panel screens stack at ≤800px; action rows stack at ≤500px.
+- Check every screen at 390px and 1280px wide.
+- The page never scrolls sideways. Only tab rows, tables and code blocks may scroll inside themselves.
+- Long names and emails wrap or truncate with an ellipsis.
 
 ## App modules
 
-- Render inside the platform shell; do not add another header, logo, footer, theme or global stylesheet.
-- Use the shared classes and `@slice/ui` components. App-specific styles stay in the app folder and use the tokens above.
-- Do not add UI frameworks, component libraries, icon packs or web fonts without maintainer agreement.
-- Public metadata in `app.json` (name and description) shows on the launcher tile. Keep the name short and the description to one plain sentence saying who it helps and how.
+- Render inside the platform shell. No extra header, logo, footer, theme or global stylesheet.
+- Use `@slice/ui` and tokens. No UI frameworks, component libraries, icon packs or web fonts without maintainer agreement.
+- Keep the `app.json` description to one plain sentence about who the app helps and how; it appears on the launcher card.
 
 ## Review checklist
 
-Copy this into the PR's Validation section for any visible change, marking each item.
+Copy this into the PR's Validation section for any visible change, and mark each item.
 
-- [ ] Uses existing components and tokens; any new pattern is shared and added to this profile.
-- [ ] No new colors, fonts, shadows, icon libraries or UI frameworks.
-- [ ] Copy is plain, sentence case, verb-led on buttons; errors explain the next step and expose no private data.
+- [ ] Uses `@slice/ui` components and tokens; any new pattern is shared and added to this profile.
+- [ ] No new colours, fonts, shadows, UI libraries or global styles.
+- [ ] Copy is plain, sentence case and verb-led; errors explain the next step and expose no private data.
 - [ ] Keyboard-only walk-through done; focus is visible and in order.
-- [ ] Labels, accessible names and `role="status"`/`role="alert"` are in place; `pnpm test:e2e` axe checks pass for covered screens.
+- [ ] Labels, accessible names and status or alert roles are in place; `pnpm test:e2e` accessibility checks pass.
 - [ ] Checked at 390px and 1280px wide; no sideways page scroll.
+- [ ] For a new app: icon and README `## Icon` section, `guide.md` written for consultants.
 - [ ] Screenshots at both widths attached, containing synthetic data only.
 
-## Known gaps
+## Not yet implemented
 
-These are real differences between today's code and this profile. Fix them in focused PRs; do not copy them into new work.
+The standard above is being delivered in stages. Until each stage lands, use what exists today. Reviewers treat these items as targets, not violations.
 
-- **Hard-coded colors.** Most values above are typed as hex in `globals.css` and `packages/ui/src/app-tile.tsx` instead of CSS variables. New code should use variables; a follow-up should add the missing ones (for example `--page`, `--surface`, `--accent-hover`).
-- **Form control borders are too faint.** `#cfcec6` on white is about 1.6:1, below the 3:1 that WCAG 2.1 asks for the boundary of an input. axe does not catch this. Darken the border in a dedicated PR and recheck screenshots.
-- **App page shell is incomplete.** `platform/app/apps/[appId]/[[...path]]/page.tsx` renders a plain text header without the logo, skip link, `main` id or `AccountNav`. App modules should look like the launcher; the platform owner should bring this shell in line.
-- **No automated design check.** CI checks accessibility rules with axe but does not check tokens or copy. Reviewers and this checklist carry that today.
+| Target                                                              | Arrives in      | Use until then                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tokens.css` and token names                                        | Components PR   | The four variables in `platform/app/globals.css` (`--ink`, `--muted`, `--accent`, `--line`); other values come from the token table above.                                                                                         |
+| `@slice/ui` components, pill buttons, new type scale                | Components PR   | Classes in `platform/app/globals.css`: `.primary-button`, `.secondary-button`, `.text-button`, `.notice`, `.error-notice`, `.status-badge`, `.account-card`, `.form-stack`, `.account-tabs`, `.section-toolbar`, `.empty-catalog`. |
+| Darker input borders (`--control-border`)                           | Components PR   | Existing inputs; don't add new low-contrast borders.                                                                                                                                                                               |
+| App icons, guides, `/guides/<id>`, `AppCard`, shared app page shell | App identity PR | Today's `AppTile` and the plain app page header. New apps may add `icon.svg` or `icon.png` and `guide.md` early.                                                                                                                   |
+| `check:design` and catalog-wide browser tests on WCAG 2.2           | Enforcement PR  | The review checklist and the existing WCAG 2.1 axe checks.                                                                                                                                                                         |
 
 ## Changing this profile
 
-Propose changes in a PR that updates this file, the affected CSS or components, and screenshots together. Explain the reason (for example, a contrast fix or a pattern two apps need). Brand changes, such as the logo, accent color or font, need maintainer agreement before implementation.
+Propose changes in a PR that updates this file together with the affected tokens, components and screenshots, and explain why. Brand changes (logo, accent colour, font) need maintainer agreement first. Keep the reviewer digest at or below 1,600 characters; a test enforces the limit.
