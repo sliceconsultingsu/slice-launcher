@@ -358,11 +358,14 @@ test("provider refusals and response limits fail closed; timeout has no retry", 
   assert.ok(!JSON.stringify(timeout).includes("sensitive provider error"));
 });
 
-const { loadStandards } = await import("./ai-review/standards.mjs");
+const { loadStandards, extractDigest, DIGEST_LIMIT } = await import("./ai-review/standards.mjs");
 
 test("checked-in contributor guidance fits the trusted reviewer input limit", async () => {
   await assert.doesNotReject(() => loadStandards());
 });
+
+const digestProfile = (body) =>
+  `# Profile\n\nIntro.\n\n<!-- reviewer-digest:start -->\n\n${body}\n\n<!-- reviewer-digest:end -->\n\n## Tokens\n\nFull details stay out.`;
 
 test("required trusted standards must all load; missing standards fail closed", async () => {
   const files = new Map([
@@ -371,14 +374,45 @@ test("required trusted standards must all load; missing standards fail closed", 
     ["docs/architecture.md", "Apps cannot import app internals"],
     ["docs/security-review.md", "Review authentication and database changes"],
     ["docs/data-boundary.md", "Validate Cloudflare Access identity"],
+    ["docs/design-profile.md", digestProfile("## Reviewer digest\n\n- Use token variables.")],
   ]);
   const read = async (path) => {
     if (!files.has(path)) throw new Error("missing");
     return files.get(path);
   };
-  assert.match(await loadStandards(read), /Apps cannot import/);
+  const standards = await loadStandards(read);
+  assert.match(standards, /Apps cannot import/);
+  assert.match(standards, /docs\/design-profile\.md \(reviewer digest\)\n## Reviewer digest/);
+  assert.doesNotMatch(standards, /Full details stay out/);
+  files.delete("docs/design-profile.md");
+  await assert.rejects(loadStandards(read), /missing/);
+  files.set("docs/design-profile.md", "# Profile without markers");
+  await assert.rejects(loadStandards(read), /Design digest markers/);
+  files.set("docs/design-profile.md", digestProfile("ok"));
   files.delete("docs/architecture.md");
   await assert.rejects(loadStandards(read), /missing/);
+});
+
+test("design digest extraction rejects missing, duplicated, empty and oversized digests", () => {
+  assert.equal(extractDigest(digestProfile("  Keep this.  ")), "Keep this.");
+  assert.throws(() => extractDigest("no markers"), /Design digest markers/);
+  assert.throws(
+    () => extractDigest(digestProfile("a") + "\n<!-- reviewer-digest:start -->"),
+    /Design digest markers/,
+  );
+  assert.throws(
+    () => extractDigest("<!-- reviewer-digest:end --> <!-- reviewer-digest:start -->"),
+    /Design digest markers/,
+  );
+  assert.throws(() => extractDigest(digestProfile("   ")), /Design digest empty/);
+  assert.throws(() => extractDigest(digestProfile("x".repeat(DIGEST_LIMIT + 1))), /too long/);
+  assert.equal(extractDigest(digestProfile("x".repeat(DIGEST_LIMIT))).length, DIGEST_LIMIT);
+});
+
+test("the checked-in design profile supplies the reviewer digest", async () => {
+  const standards = await loadStandards();
+  assert.match(standards, /docs\/design-profile\.md \(reviewer digest\)\n## Reviewer digest/);
+  assert.ok(standards.length <= 30000);
 });
 
 test("a base-only advance invalidates a published review", async () => {
