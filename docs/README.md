@@ -18,6 +18,7 @@ Start with the [main README](../README.md) and [contribution walkthrough](../CON
 | [Migrations](migrations.md)           | How are database changes applied safely?            |
 | [Security review](security-review.md) | What does security CI enforce?                      |
 | [AI review](ai-review.md)             | Where are review comments and what do they mean?    |
+| [Design profile](design-profile.md)   | How should screens look, read and behave?           |
 | [Brand assets](brand-assets.md)       | Where did the visual assets come from?              |
 
 For consultants and their agents: [Connect your AI](connect-your-ai.md) walks through account approval, client setup, sign-in and a harmless connection check.

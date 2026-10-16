@@ -4,7 +4,7 @@
 
 Apps are modules in `platform/apps/<id>`, bundled into one platform Worker. They inherit its Access session, permission enforcement, release artifact, credentials and rollback. Public metadata lives in `platform/apps/<id>/app.json`; a generated static server registry connects modules to guarded catch-all routes. Shared packages cannot import the host application. `scripts/check-architecture.mjs` parses TypeScript/JavaScript imports and re-exports, resolves aliases, checks workspace dependencies, and walks client import graphs. It rejects client paths reaching server-only modules, Cloudflare/Node server bindings, environment access, and nonliteral dynamic imports. Type-only contracts are allowed. Keep server modules marked with `server-only`; membership auth/API/repository are also recognized explicitly. This check supplements review and bundler isolation; it cannot prove arbitrary runtime code safe.
 
-Common components and design tokens belong in `packages/ui`. Preserve Slice's approved logo, typography, colors, and accessible form conventions. App libraries belong in the host manifest; reusable libraries can become workspace packages. Avoid copy-pasting a design system into new apps.
+Common components and design tokens belong in `packages/ui`. Follow the [design profile](design-profile.md) for Slice's logo, typography, colors and accessible form conventions. App libraries belong in the host manifest; reusable libraries can become workspace packages. Avoid copy-pasting a design system into new apps.
 
 ## Server and data contracts
 

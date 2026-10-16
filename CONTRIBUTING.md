@@ -60,7 +60,7 @@ pnpm build
 pnpm smoke:launcher
 ```
 
-These check formatting, code rules/types, behavior and permissions, database changes, browser flows, and the actual Worker build. Use `pnpm format` to fix formatting. If a check fails, fix the cause; do not disable it. Explain any check you could not run. For visible changes, test desktop/mobile and accessibility, and include screenshots containing synthetic data only.
+These check formatting, code rules/types, behavior and permissions, database changes, browser flows, and the actual Worker build. Use `pnpm format` to fix formatting. If a check fails, fix the cause; do not disable it. Explain any check you could not run. For visible changes, follow the [design profile checklist](docs/design-profile.md#review-checklist) and include desktop/mobile screenshots containing synthetic data only.
 
 Update the app README and affected current guides when behavior changes. Use the [documentation index](docs/README.md); historical plans and experiment reports are evidence, not setup instructions.
 
