@@ -195,7 +195,7 @@ export function configFromEnv(env) {
     if (env.AI_JEV_ENABLED === "true") throw new Error("Subscription review does not use Jev");
     return {
       gptProvider,
-      gptModel: "chatgpt/gpt-6-astra",
+      gptModel: "claude/claude-opus-5-5",
       gptKey: env.SUBSCRIPTION_REVIEW_KEY || "",
       accessId: env.SUBSCRIPTION_ACCESS_CLIENT_ID || "",
       accessSecret: env.SUBSCRIPTION_ACCESS_CLIENT_SECRET || "",
@@ -411,7 +411,7 @@ async function subscriptionReview(context, presented, cfg, fetcher) {
       reason:
         valid.status === "incomplete"
           ? "Reviewer reported insufficient context."
-          : "Subscription route requested GPT-6 Astra. Upstream model identity, token usage and cost are not independently reported by the gateway.",
+          : "Subscription route requested Claude Opus 5.5. Upstream model identity, token usage and cost are not independently reported by the gateway.",
     });
     report.gpt.status = valid.status;
   } catch (error) {
@@ -615,7 +615,7 @@ export function renderComment(report, currentHead, repository, currentBase = rep
     "Reviewed base `" + report.base + "` → head `" + report.head + "`.",
     "**Status: " + (stale ? "stale" : escape(report.status)) + ".** " + escape(report.reason),
     "Applies only to that head commit. Any later commit makes these results stale. Deterministic checks and human review remain required.",
-    "GPT: " + escape(report.gpt.status) + "; optional Jev: " + escape(report.jev.status) + ".",
+    "Reviewer: " + escape(report.gpt.status) + "; optional Jev: " + escape(report.jev.status) + ".",
   ];
   if (!stale && report.status === "completed" && report.findings.length === 0)
     lines.push(

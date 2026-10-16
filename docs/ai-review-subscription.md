@@ -1,6 +1,6 @@
 # Subscription review setup
 
-Slice's review job calls the owner's Subscription API to review public repository changes. Builds and tests still run on GitHub. The Mac mini handles only the text request through its signed-in Codex subscription.
+Slice's review job calls the owner's Subscription API to review public repository changes. Builds and tests still run on GitHub. The Mac mini handles only the text request through its signed-in Claude subscription.
 
 ## Connection and access
 
@@ -8,14 +8,14 @@ Slice's review job calls the owner's Subscription API to review public repositor
 Protected-base GitHub review job
   → HTTPS + dedicated Cloudflare service identity + separate review key
   → app-subscription-api.chenagent.com/ci/slice/review
-  → loopback Subscription API → GPT-6 Astra, High reasoning, no tools
+  → loopback Subscription API → Claude Opus 5.5, High reasoning, no tools
 ```
 
-The request URL and `chatgpt/gpt-6-astra` route are fixed in trusted code. PR text cannot change them. The gateway uses its own credential for this endpoint; the credential cannot access the dashboard, personal API, saved defaults or other model routes. Keep the gateway master key and provider sign-ins on the Mac mini.
+The request URL and `claude/claude-opus-5-5` route are fixed in trusted code. PR text cannot change them. The gateway uses its own credential for this endpoint; the credential cannot access the dashboard, personal API, saved defaults or other model routes. Keep the gateway master key and provider sign-ins on the Mac mini.
 
 Use a dedicated **Service Auth** Access application for the exact hostname/path above, accepting only the Slice review service token. Preserve the existing owner-only dashboard application. In the local Cloudflare Tunnel configuration, put an exact-host, anchored `^/ci/slice/review$` path rule before the wildcard launcher rule. Its origin is `http://127.0.0.1:8932`; enable `originRequest.access.required: true`, team `snowy-voice-36a1`, and only the new application's audience. This makes cloudflared verify the signed Access identity before forwarding. Do not route the rest of the hostname directly to the gateway or disable the dashboard's owner check.
 
-The connection is not active merely because the workflow is merged. Complete and verify the steps below before calling it live.
+A one-year service token and the dedicated GitHub environment secrets are prepared. Activation remains on maintainer hold; the scoped Access application/policy and production routing are not configured. The connection is not active merely because the workflow is merged. Complete and verify the steps below before calling it live.
 
 ## Credentials and activation
 
@@ -35,8 +35,12 @@ Subscription requests also fit the gateway's 100,000-character conversation and 
 
 ## Limits to understand
 
-This gateway returns text, not guaranteed structured output. It does not support output-token limits, report token usage/cost or independently attest the upstream model version; its model field echoes the requested route. Slice verifies the route and output evidence but does not claim upstream version attestation. The gateway requests High effort; the response does not independently attest that setting either.
+This gateway returns text, not guaranteed structured output. It does not support output-token limits, report token usage/cost or independently attest the upstream model version; its model field echoes the requested route. Slice verifies the route and output evidence but does not claim upstream version attestation. The gateway requests High effort and disables Claude’s automatic switching to another model on flagged requests. It requires Claude Code 2.1.280 or newer (verified with 2.1.301); the response does not independently attest that setting either.
 
 The old $1 reservation and 4,096-output-token cap apply only to the retained paid-provider transports, not this subscription route. In its legacy report fields, token counts and reserved cost are zero placeholders for **unreported/not applicable**, and `estimatedUsd` remains null. They do not mean free usage or a measured spending cap. Subscription quota, provider credit settings and CLI retention rules still apply. Keep any optional additional spending disabled unless deliberately approved in the provider account. The gateway does not enable paid API-key fallback.
 
 Availability depends on the Mac mini, tunnel, gateway and subscription sign-in. AI advice is not a required release gate; ordinary tests and security scans remain independent.
+
+## Verified model connection
+
+A synthetic live review through the candidate gateway and Slice adapter requested Claude Opus 5.5 at High effort, found the introduced authorization bug, and passed the existing exact-source evidence checks. This is local integration evidence; a hosted GitHub review remains unverified until activation.

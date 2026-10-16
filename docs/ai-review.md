@@ -1,6 +1,6 @@
 # Advisory AI review
 
-The workflow selects the personal Subscription API with a fixed `chatgpt/gpt-6-astra` request. The dedicated gateway route requests **High** reasoning and has tools disabled. See [subscription setup and limits](ai-review-subscription.md) for the protected connection, credentials and rollout. Code selection is not proof of activation: the gateway route, Cloudflare policy, secrets and a post-merge hosted run must all be verified.
+The workflow selects the personal Subscription API with a fixed `claude/claude-opus-5-5` request. The dedicated gateway route requests **High** reasoning and has tools disabled. See [subscription setup and limits](ai-review-subscription.md) for the protected connection, credentials and rollout. Code selection is not proof of activation: the gateway route, Cloudflare policy, secrets and a post-merge hosted run must all be verified.
 
 Jev remains disabled. AI review is advisory: it cannot approve, merge, deploy, edit code or replace required checks. Hosted results appear as one top-level PR comment; a successful workflow job is not necessarily a completed review. Findings still require exact source evidence.
 

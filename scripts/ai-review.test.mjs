@@ -723,7 +723,7 @@ const subscriptionCfg = configFromEnv({
   SUBSCRIPTION_ACCESS_CLIENT_SECRET: "test-access",
 });
 const subscriptionResponse = (value = output) => ({
-  model: "chatgpt/gpt-6-astra",
+  model: "claude/claude-opus-5-5",
   object: "chat.completion",
   choices: [
     { message: { role: "assistant", content: JSON.stringify(value) }, finish_reason: "stop" },
@@ -749,6 +749,8 @@ test("subscription review uses one fixed authenticated request and validates rea
   ]);
   assert.equal(result.gpt.estimatedUsd, null);
   assert.match(result.reason, /not independently reported/);
+  assert.equal(JSON.parse(calls[0].options.body).model, "claude/claude-opus-5-5");
+  assert.match(renderComment(result, head, "owner/repo"), /Reviewer: completed/);
 });
 
 test("subscription review rejects unsupported output, forged citations and wrong routes", async () => {
