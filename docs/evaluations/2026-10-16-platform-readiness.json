@@ -4,25 +4,11 @@
   "report": "2026-10-16-platform-readiness.md",
   "findings": [
     {
-      "id": "S1",
-      "severity": "High",
-      "finding": "A Write collaborator can merge their own PR, and merging deploys to production",
-      "affects": "Production, all members",
-      "status": "Confirmed from settings"
-    },
-    {
       "id": "S2",
       "severity": "High",
       "finding": "7 of the last 10 releases failed post-release verification; failed releases stay live",
       "affects": "Production, all members",
       "status": "Reproduced (logs)"
-    },
-    {
-      "id": "A1",
-      "severity": "High",
-      "finding": "App code can read the whole membership database; no check notices",
-      "affects": "Member privacy",
-      "status": "Reproduced locally"
     },
     {
       "id": "S3",
@@ -39,20 +25,6 @@
       "status": "Reproduced"
     },
     {
-      "id": "S8",
-      "severity": "Medium",
-      "finding": "Secret scanning, push protection and private vulnerability reporting are off; the guide says on",
-      "affects": "Public repository",
-      "status": "Confirmed from settings"
-    },
-    {
-      "id": "S9",
-      "severity": "Medium",
-      "finding": "The organization does not require two-factor authentication",
-      "affects": "Accounts with Write access",
-      "status": "Confirmed from settings"
-    },
-    {
       "id": "S4",
       "severity": "Medium",
       "finding": "The advisory reviewer is likely blocked from November 2, 2026 (GitHub `pull_request_target` default policy)",
@@ -65,34 +37,6 @@
       "finding": "The advisory review completed on 2 of 8 recent PRs; valid findings can be discarded",
       "affects": "Contributors",
       "status": "Reproduced"
-    },
-    {
-      "id": "S6",
-      "severity": "Medium",
-      "finding": "Any GitHub user can spend the owner's review subscription",
-      "affects": "Owner, contributors",
-      "status": "Reasoned"
-    },
-    {
-      "id": "S7",
-      "severity": "Medium",
-      "finding": "A Write collaborator can roll production back without approval",
-      "affects": "Production",
-      "status": "Confirmed from settings"
-    },
-    {
-      "id": "A2",
-      "severity": "Medium",
-      "finding": "A route added outside the guarded folders ships without a membership check",
-      "affects": "Member privacy",
-      "status": "Reproduced locally"
-    },
-    {
-      "id": "A3",
-      "severity": "Medium",
-      "finding": "Test code can alter the release configuration before the build",
-      "affects": "Production",
-      "status": "Reproduced up to the build artifact"
     },
     {
       "id": "A4",
@@ -272,9 +216,9 @@
     },
     {
       "area": "B",
-      "scenario": "Maintainer review required for Write collaborators",
+      "scenario": "Documented review policy enforced by GitHub",
       "result": "Failed",
-      "evidence": "S1: 0 approvals, no CODEOWNERS, Write collaborator present"
+      "evidence": "S1 (details withheld until fixed)"
     },
     {
       "area": "B",
@@ -290,9 +234,9 @@
     },
     {
       "area": "B",
-      "scenario": "Rollback limited to maintainers",
+      "scenario": "Production recovery limited to maintainers",
       "result": "Failed",
-      "evidence": "S7: any Write account can dispatch"
+      "evidence": "S7 (details withheld until fixed)"
     },
     {
       "area": "B",
@@ -326,21 +270,21 @@
     },
     {
       "area": "B",
-      "scenario": "Secret scanning, push protection, private vulnerability reporting",
+      "scenario": "Repository security settings match the security guide",
       "result": "Failed",
-      "evidence": "S8: all disabled"
+      "evidence": "S8 (details withheld until fixed)"
     },
     {
       "area": "B",
-      "scenario": "Organization two-factor requirement",
+      "scenario": "Organization account protections",
       "result": "Failed",
-      "evidence": "S9"
+      "evidence": "S9 (details withheld until fixed)"
     },
     {
       "area": "B",
       "scenario": "Security scanning gate (CodeQL, dependency review) runs and blocks",
       "result": "Passed",
-      "evidence": "green on main; 2 medium code-scanning and 2 high Dependabot alerts open (S12)"
+      "evidence": "green on main; 2 medium code-scanning and 2 high Dependabot alerts open (S12b)"
     },
     {
       "area": "B",
@@ -388,7 +332,7 @@
       "area": "C",
       "scenario": "Plain-language validation errors tied to fields",
       "result": "Failed",
-      "evidence": "C6: raw library wording, no aria-describedby"
+      "evidence": "C6: raw library wording; C4: errors not tied to fields (no aria-describedby)"
     },
     {
       "area": "C",
@@ -524,21 +468,9 @@
     },
     {
       "area": "D",
-      "scenario": "Guardrail: app reads membership database directly",
+      "scenario": "App-boundary guardrails (three cases)",
       "result": "Failed",
-      "evidence": "A1: ships"
-    },
-    {
-      "area": "D",
-      "scenario": "Guardrail: route outside guarded folders",
-      "result": "Failed",
-      "evidence": "A2: ships, returns data without sign-in locally"
-    },
-    {
-      "area": "D",
-      "scenario": "Guardrail: test code alters release config",
-      "result": "Failed",
-      "evidence": "A3: change reaches dist"
+      "evidence": "A1\u2013A3 (details withheld until fixed)"
     },
     {
       "area": "D",
@@ -554,7 +486,7 @@
     },
     {
       "area": "D",
-      "scenario": "Guardrail: GET that writes, read-only tool that writes, Set-Cookie",
+      "scenario": "Guardrail: GET that writes, read-only tool that writes",
       "result": "Failed",
       "evidence": "A5: ship (Low)"
     },
@@ -760,7 +692,7 @@
       "area": "H",
       "scenario": "Local /mcp under parallel load",
       "result": "Failed",
-      "evidence": "S12: 5 of 1,500 failed in local proxy; cause not established"
+      "evidence": "S12d: 5 of 1,500 failed in local proxy; cause not established"
     },
     {
       "area": "H",
@@ -772,7 +704,7 @@
       "area": "H",
       "scenario": "Sign-in key service unavailable",
       "result": "Failed",
-      "evidence": "S12: tells user to sign in again"
+      "evidence": "S12a: tells user to sign in again"
     },
     {
       "area": "H",
@@ -820,13 +752,13 @@
       "area": "H",
       "scenario": "Interrupted review finalizes its status",
       "result": "Failed",
-      "evidence": "S12: PR #23 stuck pending"
+      "evidence": "S12c: PR #23 stuck pending"
     },
     {
       "area": "H",
-      "scenario": "Reviewer usage limited to trusted authors",
+      "scenario": "Reviewer triggering limited appropriately",
       "result": "Failed",
-      "evidence": "S6"
+      "evidence": "S6 (details withheld until fixed)"
     },
     {
       "area": "H",
@@ -843,7 +775,7 @@
   ],
   "totals": {
     "Passed": 59,
-    "Failed": 40,
+    "Failed": 38,
     "Unverified": 7,
     "Not applicable": 4
   }

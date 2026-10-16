@@ -12,26 +12,26 @@ The foundation is sound in the places that matter most. In every test run here, 
 
 The surrounding controls are not yet ready for more contributors:
 
-- **Production is not protected from unreviewed changes.** Anyone with Write access can merge their own pull request, and merging releases to production automatically. One such collaborator already exists. GitHub's security settings are also weaker than the security guide says.
+- **Repository and release controls need hardening before more contributors join.** The documented maintainer-review policy is not enforced by GitHub, and several repository settings are weaker than the security guide describes. The details are withheld from this public report until they are fixed; the maintainer has them.
 - **Releases are not reliably verified.** 7 of the last 10 releases failed their post-release check and were left running. The live site is probably serving a release that never passed verification.
-- **The app-builder path breaks on its first step.** Creating an app with the documented command turns the required tests red. Contributors also cannot preview their app locally, and app code can bypass the platform's privacy boundary without any check noticing.
+- **The app-builder path breaks on its first step.** Creating an app with the documented command turns the required tests red. Contributors also cannot preview their app locally, and the app boundary described in the guides relies on review rather than automated checks (details withheld).
 - **Personal AI connections are not switched on in production.** The advisory AI reviewer rarely completes a review today and is likely to be blocked by a GitHub policy change on November 2, 2026.
 
-| Who                                    | Ready?                            | In one sentence                                                                                                                                                                |
-| -------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Consultants **using** the platform     | **Usable, with caveats**          | Sign-in, approval, access levels, the directory and activity history behave correctly in testing. There are no business apps yet, and the current release is unverified.       |
-| Consultants **building** apps          | **Not ready without supervision** | Inheritance of login, permissions, MCP and deployment works. The first app PR fails CI, cannot be previewed, can bypass the privacy boundary and can be merged without review. |
-| Consultants **connecting personal AI** | **Not available**                 | The code and synthetic tests are in place, but production sign-in for AI clients has not been activated; an official MCP client cannot connect.                                |
+| Who                                    | Ready?                            | In one sentence                                                                                                                                                          |
+| -------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Consultants **using** the platform     | **Usable, with caveats**          | Sign-in, approval, access levels, the directory and activity history behave correctly in testing. There are no business apps yet, and the current release is unverified. |
+| Consultants **building** apps          | **Not ready without supervision** | Inheritance of login, permissions, MCP and deployment works. The first app PR fails CI and cannot be previewed, and the app boundary is not yet enforced by checks.      |
+| Consultants **connecting personal AI** | **Not available**                 | The code and synthetic tests are in place, but production sign-in for AI clients has not been activated; an official MCP client cannot connect.                          |
 
 **Ready:** server-side permission enforcement; membership data integrity under concurrent and repeated requests; one shared build and release artifact for all apps; honest status reporting by the AI reviewer and the AI-connection guide.
-**Blocked:** maintainer review enforcement; reliable release verification; a working first-app path; personal AI connections; the advisory reviewer after November 2.
+**Blocked:** enforcement of the documented review and app-boundary rules; reliable release verification; a working first-app path; personal AI connections; the advisory reviewer after November 2.
 **Unknown:** real Google sign-in and the Cloudflare Access policy as members see them; the exact version serving production now; live rollback and database restore in Cloudflare; the AI reviewer's detection rate on new known-defect cases (that run needed the owner's review credential and was not performed).
 
 ## What was evaluated
 
 | Item                    | Value                                                                                                                                                                                                                                               |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Date                    | 2026-10-16, about 14:50–15:40 US Eastern (testing); the advisory review rounds followed                                                                                                                                                             |
+| Date                    | 2026-10-16, about 14:50–16:30 US Eastern                                                                                                                                                                                                            |
 | Repository              | `sliceconsultingsu/slice-launcher`, public; `main` at `f1f1c4d` (PR #30)                                                                                                                                                                            |
 | Live application        | `slice-launcher.ivan27chen.workers.dev`: Cloudflare Worker `slice-launcher` behind Cloudflare Access, D1 database `slice-membership`                                                                                                                |
 | Newest uploaded release | Worker version `818e63d6` from `f1f1c4d`, uploaded 02:24 UTC by run 38840089613; **failed verification**                                                                                                                                            |
@@ -46,8 +46,8 @@ The surrounding controls are not yet ready for more contributors:
 | Launcher, sign-in, membership approval, access levels, activity | Yes                   | Yes. Last verified release `f304a50`; the newest release is unverified (S2) | Real Google sign-in not exercised here |
 | Shared app routes and module contract                           | Yes                   | Yes. The catalog is empty                                                   | No business apps exist                 |
 | Shared MCP endpoint `/mcp`                                      | Yes                   | Code deployed; **AI-client sign-in not activated**                          | S11                                    |
-| Release pipeline with provenance and rollback                   | Yes                   | Releases run; rollback never run live                                       | S2, S7                                 |
-| Advisory AI reviewer (Claude Opus 5.5 subscription route)       | Yes                   | Running on PRs                                                              | S4, S5, S6                             |
+| Release pipeline with provenance and rollback                   | Yes                   | Releases run; rollback never run live                                       | S2                                     |
+| Advisory AI reviewer (Claude Opus 5.5 subscription route)       | Yes                   | Running on PRs                                                              | S4, S5                                 |
 | Alumni directory                                                | No                    | No                                                                          | Planned                                |
 
 **Evidence used.** Read-only GitHub API calls, workflow logs, unauthenticated requests to the live site (no credentials and no load), the documented check suite, local builds of the Worker, and new tests that run the real code against disposable in-memory databases with synthetic identities. Earlier reports and rollout notes in the repository and the maintainer's notes were treated as leads and checked again. Where a claim could not be checked, it is marked **unverified**.
@@ -56,47 +56,32 @@ The surrounding controls are not yet ready for more contributors:
 
 Severity reflects business impact today. "Reproduced" means the evaluator ran it and saw the result. "Confirmed from settings" means read-only inspection of live configuration. "Reasoned" means source or documentation analysis without execution.
 
-| ID                 | Severity | Finding                                                                                                         | Affects                                 | Status                                   |
-| ------------------ | -------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ---------------------------------------- |
-| S1                 | High     | A Write collaborator can merge their own PR, and merging deploys to production                                  | Production, all members                 | Confirmed from settings                  |
-| S2                 | High     | 7 of the last 10 releases failed post-release verification; failed releases stay live                           | Production, all members                 | Reproduced (logs)                        |
-| A1                 | High     | App code can read the whole membership database; no check notices                                               | Member privacy                          | Reproduced locally                       |
-| S3                 | High     | Creating an app with the documented command makes required tests fail                                           | App builders                            | Reproduced                               |
-| G1                 | High     | Contributors cannot see their app, or any signed-in page, before production                                     | App builders                            | Reproduced                               |
-| S8                 | Medium   | Secret scanning, push protection and private vulnerability reporting are off; the guide says on                 | Public repository                       | Confirmed from settings                  |
-| S9                 | Medium   | The organization does not require two-factor authentication                                                     | Accounts with Write access              | Confirmed from settings                  |
-| S4                 | Medium   | The advisory reviewer is likely blocked from November 2, 2026 (GitHub `pull_request_target` default policy)     | Contributors                            | Reasoned (GitHub docs and live settings) |
-| S5                 | Medium   | The advisory review completed on 2 of 8 recent PRs; valid findings can be discarded                             | Contributors                            | Reproduced                               |
-| S6                 | Medium   | Any GitHub user can spend the owner's review subscription                                                       | Owner, contributors                     | Reasoned                                 |
-| S7                 | Medium   | A Write collaborator can roll production back without approval                                                  | Production                              | Confirmed from settings                  |
-| A2                 | Medium   | A route added outside the guarded folders ships without a membership check                                      | Member privacy                          | Reproduced locally                       |
-| A3                 | Medium   | Test code can alter the release configuration before the build                                                  | Production                              | Reproduced up to the build artifact      |
-| A4                 | Medium   | One invalid AI tool registration breaks AI access for every member                                              | AI clients                              | Reproduced                               |
-| D1                 | Medium   | Stored membership rows are not validated: one bad row can crash membership, a mistyped flag can grant ownership | All members; operators                  | Reproduced                               |
-| D2                 | Medium   | No tested database recovery procedure                                                                           | All members                             | Reviewed; local rehearsal passed         |
-| S10                | Medium   | Changing the Access team (a planned account move) locks out every member, including the owner                   | All members                             | Reproduced                               |
-| C1                 | Medium   | An expired sign-in or network failure leaves stale data, a technical error and no way back                      | All signed-in people                    | Reproduced (harness)                     |
-| C2                 | Medium   | Activity can look empty when loading it failed                                                                  | Administrators, auditors                | Reproduced (harness)                     |
-| C3                 | Medium   | Allow and Revoke checkboxes have identical accessible names                                                     | Screen-reader administrators            | Reproduced (harness)                     |
-| C4                 | Medium   | Keyboard focus is lost after common actions; phone errors appear off-screen                                     | Keyboard, screen-reader and phone users | Reproduced (harness)                     |
-| C7                 | Medium   | One organization-wide revision makes unrelated edits fail and discards typed changes                            | Administrators, members                 | Reproduced (harness and data tests)      |
-| C5, C6             | Low      | Sideways scrolling with long names or at 320 px; raw validation wording; small targets; faint borders           | Various                                 | Reproduced (harness)                     |
-| S12, A5, D3, G2–G4 | Low      | Smaller issues listed in each section                                                                           | Various                                 | Mixed                                    |
-| S11                | Status   | Personal AI sign-in not activated in production                                                                 | AI users                                | Confirmed                                |
+| ID                 | Severity         | Finding                                                                                                                                                                 | Affects                                 | Status                                    |
+| ------------------ | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------- |
+| S1, S6–S9, A1–A3   | 2 High, 6 Medium | Security-sensitive findings: repository permissions and settings, release controls, advisory-reviewer triggering, app-module boundary. **Details withheld until fixed** | Production, member privacy, owner       | Confirmed or reproduced; shared privately |
+| S2                 | High             | 7 of the last 10 releases failed post-release verification; failed releases stay live                                                                                   | Production, all members                 | Reproduced (logs)                         |
+| S3                 | High             | Creating an app with the documented command makes required tests fail                                                                                                   | App builders                            | Reproduced                                |
+| G1                 | High             | Contributors cannot see their app, or any signed-in page, before production                                                                                             | App builders                            | Reproduced                                |
+| S4                 | Medium           | The advisory reviewer is likely blocked from November 2, 2026 (GitHub `pull_request_target` default policy)                                                             | Contributors                            | Reasoned (GitHub docs and live settings)  |
+| S5                 | Medium           | The advisory review completed on 2 of 8 recent PRs; valid findings can be discarded                                                                                     | Contributors                            | Reproduced                                |
+| A4                 | Medium           | One invalid AI tool registration breaks AI access for every member                                                                                                      | AI clients                              | Reproduced                                |
+| D1                 | Medium           | Stored membership rows are not validated: one bad row can crash membership, a mistyped flag can grant ownership                                                         | All members; operators                  | Reproduced                                |
+| D2                 | Medium           | No tested database recovery procedure                                                                                                                                   | All members                             | Reviewed; local rehearsal passed          |
+| S10                | Medium           | Changing the Access team (a planned account move) locks out every member, including the owner                                                                           | All members                             | Reproduced                                |
+| C1                 | Medium           | An expired sign-in or network failure leaves stale data, a technical error and no way back                                                                              | All signed-in people                    | Reproduced (harness)                      |
+| C2                 | Medium           | Activity can look empty when loading it failed                                                                                                                          | Administrators, auditors                | Reproduced (harness)                      |
+| C3                 | Medium           | Allow and Revoke checkboxes have identical accessible names                                                                                                             | Screen-reader administrators            | Reproduced (harness)                      |
+| C4                 | Medium           | Keyboard focus is lost after common actions; phone errors appear off-screen                                                                                             | Keyboard, screen-reader and phone users | Reproduced (harness)                      |
+| C7                 | Medium           | One organization-wide revision makes unrelated edits fail and discards typed changes                                                                                    | Administrators, members                 | Reproduced (harness and data tests)       |
+| C5, C6             | Low              | Sideways scrolling with long names or at 320 px; raw validation wording; small targets; faint borders                                                                   | Various                                 | Reproduced (harness)                      |
+| S12, A5, D3, G2–G4 | Low              | Smaller issues listed in each section                                                                                                                                   | Various                                 | Mixed                                     |
+| S11                | Status           | Personal AI sign-in not activated in production                                                                                                                         | AI users                                | Confirmed                                 |
 
 ## Finding details
 
 ### Repository, release, identity and AI connection
 
-### S1. A Write collaborator can merge their own pull request, and merging deploys to production
-
-- **Severity:** High. **Status:** confirmed from live GitHub settings; a merge by a Write account was not performed.
-- **Who and where:** any repository collaborator with Write access (one exists today); GitHub `main` and the `production` environment.
-- **Business impact:** the documented rule is "Ivan reviews other contributors' PRs". GitHub does not enforce it. Once `validate` passes and conversations are resolved, a Write collaborator can merge their own change. The merge automatically releases to production. Because a merged workflow runs with the production Cloudflare token, a merged workflow change could also use that token. Mistakes or a compromised account can therefore reach production without human review.
-- **Evidence (read-only API, 2026-10-16):** `branches/main/protection` reports `required_approving_review_count: 0`, `require_code_owner_reviews: false`, no push restrictions and no rulesets. There is no `.github/CODEOWNERS`. `collaborators` lists one outside collaborator with `write`. The `production` environment has only a branch policy and no required reviewers, with `SLICE_LAUNCHER_DEPLOY_ENABLED=true`. `docs/security-review.md` already records the gap: "does not technically prevent a future write collaborator merging their own PR. Revisit permissions before adding write maintainers."
-- **Expected vs observed:** expected a required maintainer approval for non-maintainer PRs. Observed zero required approvals with a Write collaborator present.
-- **Fix:** add `CODEOWNERS` (`* @ichen27`) and require one code-owner approval. Keep Ivan's own-PR workflow with a branch ruleset whose bypass list contains only Ivan (or the Repository admin role). Also add Ivan as a required reviewer on the `production` environment, or an Actions actor rule, so a Write collaborator cannot dispatch a rollback (S7).
-- **Verify:** `gh api repos/sliceconsultingsu/slice-launcher/rules/branches/main` shows the review rule and bypass actor. A PR from a Write test account shows "Review required" and cannot be merged. Ivan's own PR still merges.
+**Withheld until fixed: S1, S6, S7, S8, S9, A1, A2, A3 and part of A5.** These concern repository permissions and settings, release controls, who can trigger the advisory reviewer, and the app-module boundary (2 High, 6 Medium). Following the private-reporting rule in `CONTRIBUTING.md`, their evidence and reproduction details were given to the maintainer privately. Publish them in an addendum once the fixes are verified.
 
 ### S2. Most recent production releases fail verification, and the failed release stays live
 
@@ -122,7 +107,7 @@ Severity reflects business impact today. "Reproduced" means the evaluator ran it
 - **Severity:** Medium (time-bound). **Status:** reasoned from current GitHub documentation and live repository settings. No organization-level policy could be checked.
 - **Business impact:** the contributor loop in `docs/ai-review.md` depends on the review comment. GitHub documents a default policy for public repositories that blocks `pull_request_target` workflows and says enforcement starts November 2, 2026, unless an applicable Actions event policy exists. This repository is public and `ai-review.yml` runs on `pull_request_target`.
 - **Evidence:** `gh api repos/sliceconsultingsu/slice-launcher/actions/policies` returns `{"total_count":0,"policies":[]}`. The organization policy endpoint needs the `admin:org` scope, which the session token lacks, so it was not read. GitHub source: "Securely using pull_request_target → Default policy" (docs.github.com).
-- **Fix:** before November 2, review **Settings → Actions → Policy insights**. If the reviewer is kept, add a repository event policy that allows `pull_request_target` only for this workflow's purpose. Pair it with an actor rule that limits who can trigger it (this also fixes S6).
+- **Fix:** before November 2, review **Settings → Actions → Policy insights**. If the reviewer is kept, add a repository event policy that allows `pull_request_target` only for this workflow's purpose. Consider also limiting who can trigger it.
 - **Verify:** after November 2, a same-repository PR still receives a fresh advisory comment, and policy insights show no blocked runs.
 
 ### S5. The advisory review rarely completes on real PRs
@@ -137,38 +122,6 @@ Severity reflects business impact today. "Reproduced" means the evaluator ran it
   - a truncated answer and a different echoed model are rejected, as designed.
 - **Fix:** keep strict evidence checks per finding, but publish the findings that pass, together with a count of rejected ones and a non-"completed" status. Accept a single fenced JSON block. Map HTTP 429 to a distinct `provider_busy` category. Track the completion rate as an operating measure.
 - **Verify:** extend `scripts/ai-review.test.mjs` with the probe cases above. Over the next 10 ordinary PRs, record completed / incomplete / failed counts.
-
-### S6. Any GitHub user can spend the owner's review subscription
-
-- **Severity:** Medium. **Status:** reasoned from workflow source and GitHub semantics; not exercised with an outside account.
-- **Business impact:** the reviewer runs on the owner's personal subscription through the Mac mini gateway, which handles one request at a time. On a public repository anyone can open PRs. GitHub documents fork approval as applying to `pull_request` events, while `pull_request_target` runs in the trusted base-branch context, so these review runs are probably not held for approval. That point was not tested with an outside account. The workflow also re-runs on `edited`, so changing a PR description triggers another review. Outsiders can use up allowance and make legitimate reviews report busy or fail.
-- **Evidence:** `.github/workflows/ai-review.yml:4-6` (`types: [opened, synchronize, reopened, edited, ready_for_review]`) and no author or association check in `scripts/ai-review/` (searched for `author_association`). The gateway returns `429 provider_busy` when a request is already running (`subscription-api/src/providers.mjs:130`).
-- **Fix:** use Actions actor rules, or a first step that checks `author_association` in `OWNER/MEMBER/COLLABORATOR`, so the reviewer runs only for trusted authors. Drop `edited`, or limit it to base-branch changes. Rely on manual dispatch for outside PRs.
-- **Verify:** a PR from a non-collaborator fork gets no provider call. Editing a PR description does not start a review.
-
-### S7. A Write collaborator can roll production back without approval
-
-- **Severity:** Medium. **Status:** confirmed from settings; not exercised.
-- **Business impact:** production recovery is an owner decision, as the release documentation says, but anyone with Write access can run **Roll back launcher** from `main`. Rollback is limited to previously verified releases, so the damage is bounded. It can still reintroduce a fixed defect or interrupt an incident response.
-- **Evidence:** `.github/workflows/rollback.yml` uses `workflow_dispatch` with `environment: production`. That environment has no required reviewers. GitHub's default is that every user with write access can trigger workflows.
-- **Fix:** add a required reviewer (Ivan) to `production`, or an actor rule restricting `workflow_dispatch` on this workflow to admins.
-- **Verify:** a dispatch by a Write account waits for approval.
-
-### S8. Secret scanning and push protection are off, although the security guide says they are on
-
-- **Severity:** Medium. **Status:** confirmed from settings.
-- **Business impact:** this is a public repository with a growing contributor base. Push protection is the safety net that blocks a pasted credential before it becomes public.
-- **Evidence:** `gh api repos/sliceconsultingsu/slice-launcher --jq .security_and_analysis` returns `secret_scanning: disabled` and `secret_scanning_push_protection: disabled`. `docs/security-review.md:5` says both "were already enabled on inspection (2026-10-04)". The repository moved to the organization on 2026-10-14. That before/after comparison did not cover these settings, so the transfer is the likely cause (unconfirmed). Private vulnerability reporting is also disabled (`{"enabled": false}`), although `CONTRIBUTING.md` offers it.
-- **Fix:** re-enable secret scanning, push protection and private vulnerability reporting. Correct the guide. Add these settings to any future transfer checklist.
-- **Verify:** the API shows `enabled`, and a test push of a known test-token pattern is blocked.
-
-### S9. Organization accounts do not require two-factor authentication
-
-- **Severity:** Medium. **Status:** confirmed from settings.
-- **Business impact:** with S1, a stolen password for an account with Write access is enough to ship to production.
-- **Evidence:** `gh api orgs/sliceconsultingsu` returns `two_factor_requirement_enabled: false`.
-- **Fix:** require 2FA for the organization. Outside collaborators must also enable it.
-- **Verify:** the organization API reports `true`.
 
 ### S10. Changing the Cloudflare Access team locks everyone out, including the owner
 
@@ -186,36 +139,13 @@ Severity reflects business impact today. "Reproduced" means the evaluator ran it
 
 ### S12. Smaller issues
 
-- **Sign-in key outage shows "Sign in again" (Low, reproduced).** If Cloudflare's signing keys cannot be fetched, `verifyIdentity` returns 401 "Your sign-in could not be verified. Sign in again." Users would loop through sign-in during an outage. Return 503 with a "temporarily unavailable" message when key retrieval fails.
-- **New dependency alert not in the security guide (Low).** Dependabot #2, `sharp` < 0.35.5 (GHSA-wq5f-xc86-pv6w, high), arrives through `miniflare` in local test tooling, not the Worker bundle. A patched version exists. Update or override it, and record it alongside alert #1 (`braces`).
-- **A review can stay "pending" forever (Low).** PR #23's final comment still says "pending". When a run is cancelled or fails before publishing, the comment is never finalized.
-- **Intermittent local `/mcp` failures under parallel load (Low, local only).** 5 of 1,500 unauthenticated `POST /mcp` requests at 10 in parallel failed inside Wrangler's local proxy ("Network connection lost"), in bursts. There were 0 of 600 failures with one request at a time, and 0 of 1,500 for the same pattern against `/api/membership`. Cause not established; production impact unknown. Include `/mcp` in a staging soak test.
-- **Scale (Info).** Every request loads the whole organization. At 1,000 synthetic members, an administrator's view is 264 KB and took 7.9 ms (p50) locally. This is not a near-term risk at Slice's size. Add pagination before the alumni directory reuses the pattern.
+- **S12a. Sign-in key outage shows "Sign in again" (Low, reproduced).** If Cloudflare's signing keys cannot be fetched, `verifyIdentity` returns 401 "Your sign-in could not be verified. Sign in again." Users would loop through sign-in during an outage. Return 503 with a "temporarily unavailable" message when key retrieval fails.
+- **S12b. New dependency alert not in the security guide (Low).** Dependabot #2, `sharp` < 0.35.5 (GHSA-wq5f-xc86-pv6w, high), arrives through `miniflare` in local test tooling, not the Worker bundle. A patched version exists. Update or override it, and record it alongside alert #1 (`braces`).
+- **S12c. A review can stay "pending" forever (Low).** PR #23's final comment still says "pending". When a run is cancelled or fails before publishing, the comment is never finalized.
+- **S12d. Intermittent local `/mcp` failures under parallel load (Low, local only).** 5 of 1,500 unauthenticated `POST /mcp` requests at 10 in parallel failed inside Wrangler's local proxy ("Network connection lost"), in bursts. There were 0 of 600 failures with one request at a time, and 0 of 1,500 for the same pattern against `/api/membership`. Cause not established; production impact unknown. Include `/mcp` in a staging soak test.
+- **S12e. Scale (Info).** Every request loads the whole organization. At 1,000 synthetic members, an administrator's view is 264 KB and took 7.9 ms (p50) locally. This is not a near-term risk at Slice's size. Add pagination before the alumni directory reuses the pattern.
 
 ### Shared app platform
-
-### A1. App code can read the whole membership database, and no check notices
-
-- **Severity:** High while S1 is open (Medium once maintainer review is enforced). **Status:** reproduced with the disposable `evalprobe` app (never committed, merged or deployed).
-- **Who and where:** every member's private data; any app module in production.
-- **Business impact:** the guide says an app's context "does not expose the membership database or other members" (`docs/adding-an-app.md`). That is true of the context object, but app code can reach the database directly. One careless or AI-written handler could publish every member's email and status, or change membership rows, and every automated check stays green.
-- **Evidence:** an API handler that lazily imports `cloudflare:workers` and calls `new Repository(env.MEMBERSHIP_DB).load()` without any permission check passes lint, typecheck, tests and build, and ships in `platform/dist`. A member holding only `app.evalprobe.open` received pending, active and suspended members' emails. `scripts/platform-apps.mjs:183-207` checks modules only for MCP SDK imports and `"use server"`. `scripts/check-architecture.mjs` checks client imports, not server imports from apps into platform internals.
-- **Fix:** make `check:platform` reject imports from `platform/apps/**` of `cloudflare:workers`, of membership internals (`repository`, `api`, `auth`, `domain`) and of platform internals (`runtime`, `dispatch`, `access`, `mcp`), and reject non-literal dynamic imports. Allow the contracts, `mcp-tool` and `MembershipError`. Reword the guide: modules are trusted code, and the check is a guardrail, not a sandbox.
-- **Verify:** both bypass variants fail `pnpm lint` with a named rule.
-
-### A2. A route added outside the three guarded folders ships with no membership check
-
-- **Severity:** Medium (high impact if one lands). **Status:** reproduced locally.
-- **Evidence:** a new `platform/app/api/evalprobe-export/route.ts` passes every check. The compiled Worker returned data for requests with no, malformed or forged sign-in. `scripts/platform-apps.mjs:138-148` inspects only `app/apps`, `app/api/apps` and `app/mcp`. In production, Cloudflare Access still requires a sign-in. Any identity it admits, including any eligible university account that has not been approved and the CI service token, would reach such a route without a membership check. That last point is reasoned from the Access policy description.
-- **Fix:** allowlist the known `platform/app` route files in `check:platform`, and add `CODEOWNERS` entries for `platform/app`, `platform/src`, `scripts`, `.github` and `platform/wrangler.jsonc`.
-- **Verify:** the bypass fails `pnpm lint`.
-
-### A3. Test code can change the release configuration before the build
-
-- **Severity:** Medium. **Status:** reproduced up to the built artifact; the deployment step is reasoned from the workflows.
-- **Evidence:** a test inside the app folder rewrote `platform/wrangler.jsonc`, and after `pnpm build` the change appeared in `dist/server/wrangler.json`. `validation.yml` runs tests and the release build in the same workspace and fingerprints only afterwards, so the deploy job would verify and ship the altered configuration. The test code is visible in the PR, but the configuration change is not.
-- **Fix:** fail the job if `git status --porcelain` shows changes after tests, or build from a fresh checkout in a separate job. Have `release-artifact.mjs` assert the expected Worker name, bindings and variables.
-- **Verify:** the tampering test makes validation fail.
 
 ### A4. One invalid AI tool registration breaks AI access for every member
 
@@ -227,7 +157,6 @@ Severity reflects business impact today. "Reproduced" means the evaluator ran it
 ### A5. Smaller app-platform findings
 
 - **Rules the checks don't catch (Low, reproduced).**
-  - App APIs can set cookies on the shared origin. Dispatch forces private caching but passes `Set-Cookie` through, including one that clears the sign-in cookie. Strip `Set-Cookie`, or allow only app-prefixed `__Host-` names.
   - A GET handler that writes, and a tool marked read-only that writes, both pass CI; the probe's cross-origin GET changed a record. This is a documented rule with no check. Add reviewer-checklist items, and consider a read-only context for GET.
   - A typo in an action name is caught only at runtime. It correctly returns 403, even for owners. Typed action IDs would catch it earlier.
 - **App tests are not required (Low).** With all probe tests deleted, CI still passed (apart from S3). Coverage measures platform files only, and the release smoke checks never probe `/apps` or `/api/apps`. Require at least one test per app, and add a platform test that asserts denial for every registered app through the real registry.
@@ -394,7 +323,7 @@ These journeys ran in the synthetic browser harness, which uses the real account
 - **Severity:** Low. **Status:** reproduced.
 - **Stale statements:**
   - `docs/testing.md` says "37 application tests"; there are now 67 application, 95 tooling and 3 browser tests.
-  - `docs/security-review.md` says secret scanning and push protection are on (S8) and that Ivan is the sole maintainer, but a Write collaborator exists.
+  - several statements in `docs/security-review.md` no longer match the settings (details withheld with S8).
   - `docs/deployment.md` doesn't mention that the latest releases failed verification (S2).
   - `docs/ai-review.md` keeps the "Accepted operating policy — GPT-6 Sol via Cloudflare" and the GPT-oriented limits table at the same heading level as the current Claude subscription setup.
   - Historical plans under `docs/superpowers/` carry stale banners and live instructions, such as "Use superpowers:executing-plans".
@@ -415,33 +344,27 @@ These journeys ran in the synthetic browser harness, which uses the real account
 
 Each action names the findings it closes and what "done" means. Actions 1 and 2 protect production and should come before inviting more contributors. Action 3 is the gate for the first business app.
 
-1. **Enforce maintainer review and harden the repository** (S1, S7, S8, S9, A2).
+1. **Apply the private repository and release hardening checklist** (withheld findings S1, S6–S9).
    **Done when:**
-   - a pull request from a Write test account shows "Review required" and cannot be merged until Ivan approves;
-   - Ivan's own PRs still merge through the ruleset bypass;
-   - a rollback started by a Write account waits for Ivan's approval;
-   - `CODEOWNERS` covers `platform/app`, `platform/src`, `scripts`, `.github` and `platform/wrangler.jsonc`;
-   - the organization requires two-factor authentication;
-   - secret scanning, push protection and private vulnerability reporting are enabled;
-   - `docs/security-review.md` describes the actual settings, checked through the API.
+   - each item on the private checklist has been fixed and verified through the GitHub API, with a test PR or dispatch where the checklist asks for one;
+   - `docs/security-review.md` describes the actual settings;
+   - the withheld findings are published in an addendum to this report.
 2. **Make release verification reliable, and never leave an unverified release serving traffic** (S2).
    **Done when:**
    - the post-release check tolerates an asset that is briefly missing during the existing 30-second rollout window and still fails when an asset stays missing (both cases tested);
    - the chosen policy for a failed check, automatic rollback to the last verified record or verifying the version's preview URL before routing traffic, is implemented and tested;
    - 10 consecutive releases to production pass;
    - the version serving production now has been re-verified with the service identity.
-3. **Make the first app PR succeed safely** (S3, G1, A1, A3, A4, A5).
+3. **Make the first app PR succeed safely** (S3, G1, A4, A5, and withheld A1–A3).
    **Done when:**
    - CI runs `pnpm app:create` for a temporary app followed by the full gate, and it passes;
    - a newcomer can open `/apps/<id>` locally as a synthetic owner by following the README, and the release artifact check still rejects the harness;
-   - the A1 and A2 bypass variants fail `pnpm lint` with a named rule;
-   - validation fails if tests modify tracked files;
+   - each withheld app-boundary item (A1–A3) is enforced by an automated check, as described in the private checklist;
    - the real app registry's AI tools are validated in CI, and a bad registration affects only its own app;
    - a platform test asserts denial for every registered app.
-4. **Keep the advisory reviewer running and make its results usable** (S4, S5, S6).
+4. **Keep the advisory reviewer running and make its results usable** (S4, S5).
    **Done when:**
-   - before November 2, a repository Actions event policy allows the reviewer's `pull_request_target` workflow and an actor rule limits it to collaborators;
-   - a PR from an outside fork triggers no provider call, and editing a PR description does not start a review;
+   - before November 2, a repository Actions event policy allows the reviewer's `pull_request_target` workflow, and policy insights show no blocked runs;
    - findings that pass validation are published even when another finding is rejected (status not "completed");
    - a fenced JSON answer is accepted;
    - "busy" has its own category;
@@ -478,18 +401,18 @@ After these, activate personal AI sign-in by following `docs/mcp.md#activate-rem
 | A. Identity, permissions, privacy        | Real Google sign-in and Access policy in production                                                           | **Unverified**     | no member account; site is Access-protected                                        |
 | A. Identity, permissions, privacy        | Isolation between organizations                                                                               | **Not applicable** | one organization by design                                                         |
 | B. Contribution and release              | Required check `validate` on main, strict, pinned to GitHub Actions                                           | **Passed**         | branch protection API                                                              |
-| B. Contribution and release              | Maintainer review required for Write collaborators                                                            | **Failed**         | S1: 0 approvals, no CODEOWNERS, Write collaborator present                         |
+| B. Contribution and release              | Documented review policy enforced by GitHub                                                                   | **Failed**         | S1 (details withheld until fixed)                                                  |
 | B. Contribution and release              | PR code cannot read production or model credentials                                                           | **Passed**         | workflows and environment branch policies inspected; not exploit-tested            |
 | B. Contribution and release              | Production credentials limited to protected main                                                              | **Passed**         | environment API: protected branches only                                           |
-| B. Contribution and release              | Rollback limited to maintainers                                                                               | **Failed**         | S7: any Write account can dispatch                                                 |
+| B. Contribution and release              | Production recovery limited to maintainers                                                                    | **Failed**         | S7 (details withheld until fixed)                                                  |
 | B. Contribution and release              | Exact validated artifact promoted; verified record only on success                                            | **Passed**         | release tests; verified-release artifact present only on passing run               |
 | B. Contribution and release              | Post-release verification reliable                                                                            | **Failed**         | S2: 7 of last 10 failed on asset 404 after upload                                  |
 | B. Contribution and release              | Failed release leaves production on a verified version                                                        | **Failed**         | S2: no rollback; version 818e63d6 left serving (inferred)                          |
 | B. Contribution and release              | Rollback mechanics (isolated fixtures)                                                                        | **Passed**         | scripts/release.test.mjs, 8 tests                                                  |
 | B. Contribution and release              | Live rollback                                                                                                 | **Unverified**     | never run successfully; two October 4 attempts failed; not exercised               |
-| B. Contribution and release              | Secret scanning, push protection, private vulnerability reporting                                             | **Failed**         | S8: all disabled                                                                   |
-| B. Contribution and release              | Organization two-factor requirement                                                                           | **Failed**         | S9                                                                                 |
-| B. Contribution and release              | Security scanning gate (CodeQL, dependency review) runs and blocks                                            | **Passed**         | green on main; 2 medium code-scanning and 2 high Dependabot alerts open (S12)      |
+| B. Contribution and release              | Repository security settings match the security guide                                                         | **Failed**         | S8 (details withheld until fixed)                                                  |
+| B. Contribution and release              | Organization account protections                                                                              | **Failed**         | S9 (details withheld until fixed)                                                  |
+| B. Contribution and release              | Security scanning gate (CodeQL, dependency review) runs and blocks                                            | **Passed**         | green on main; 2 medium code-scanning and 2 high Dependabot alerts open (S12b)     |
 | B. Contribution and release              | External Actions pinned to commit SHAs                                                                        | **Passed**         | by convention; repository setting does not require it                              |
 | C. Consultant and administrator journeys | Onboarding, pending limits, owner approval, profile persistence                                               | **Passed**         | C1 journey                                                                         |
 | C. Consultant and administrator journeys | Pending person: own profile only; history, add and level calls refused; empty directory                       | **Passed**         | C1 journey                                                                         |
@@ -497,7 +420,7 @@ After these, activate personal AI sign-in by following `docs/mcp.md#activate-rem
 | C. Consultant and administrator journeys | Delegated administrator meets locked and forbidden actions                                                    | **Passed**         | C5 journey                                                                         |
 | C. Consultant and administrator journeys | Suspension while the member's page is open                                                                    | **Passed**         | C6 journey (server denies at once)                                                 |
 | C. Consultant and administrator journeys | Invalid, overlong and duplicate input rejected                                                                | **Passed**         | C3 journey                                                                         |
-| C. Consultant and administrator journeys | Plain-language validation errors tied to fields                                                               | **Failed**         | C6: raw library wording, no aria-describedby                                       |
+| C. Consultant and administrator journeys | Plain-language validation errors tied to fields                                                               | **Failed**         | C6: raw library wording; C4: errors not tied to fields (no aria-describedby)       |
 | C. Consultant and administrator journeys | Server, network and expired-session errors                                                                    | **Failed**         | C1                                                                                 |
 | C. Consultant and administrator journeys | Activity view after a load error                                                                              | **Failed**         | C2: false empty log                                                                |
 | C. Consultant and administrator journeys | Stale revision message and recovery                                                                           | **Failed**         | C7: unrelated edits fail; typed edit lost                                          |
@@ -520,12 +443,10 @@ After these, activate personal AI sign-in by following `docs/mcp.md#activate-rem
 | D. Shared app inheritance                | App MCP tools filtered and re-checked on call                                                                 | **Passed**         | probe MCP tests                                                                    |
 | D. Shared app inheritance                | Compiled Worker denies app page/API and /mcp without valid sign-in                                            | **Passed**         | 307 to /account; 401; 404 for unknown app                                          |
 | D. Shared app inheritance                | One shared build and release; no per-app deploy step or credential                                            | **Passed**         | workflows inspected                                                                |
-| D. Shared app inheritance                | Guardrail: app reads membership database directly                                                             | **Failed**         | A1: ships                                                                          |
-| D. Shared app inheritance                | Guardrail: route outside guarded folders                                                                      | **Failed**         | A2: ships, returns data without sign-in locally                                    |
-| D. Shared app inheritance                | Guardrail: test code alters release config                                                                    | **Failed**         | A3: change reaches dist                                                            |
+| D. Shared app inheritance                | App-boundary guardrails (three cases)                                                                         | **Failed**         | A1–A3 (details withheld until fixed)                                               |
 | D. Shared app inheritance                | Guardrail: undeclared tool permission                                                                         | **Failed**         | A4: ships; /mcp 500 for everyone                                                   |
 | D. Shared app inheritance                | Guardrail: server action, MCP SDK import, client import of server code, wrangler.jsonc/package.json in module | **Passed**         | caught by check:platform / check-architecture                                      |
-| D. Shared app inheritance                | Guardrail: GET that writes, read-only tool that writes, Set-Cookie                                            | **Failed**         | A5: ship (Low)                                                                     |
+| D. Shared app inheritance                | Guardrail: GET that writes, read-only tool that writes                                                        | **Failed**         | A5: ship (Low)                                                                     |
 | D. Shared app inheritance                | Undeclared action at runtime fails closed                                                                     | **Passed**         | 403, including for owners                                                          |
 | D. Shared app inheritance                | Record-level rules in a real business app                                                                     | **Not applicable** | no business apps exist; the probe used in-memory records                           |
 | E. Personal AI / MCP                     | Production OAuth discovery (Bearer challenge, protected-resource metadata)                                    | **Failed**         | S11: 302 to login with Cloudflare-Access header; activation pending, as documented |
@@ -559,9 +480,9 @@ After these, activate personal AI sign-in by following `docs/mcp.md#activate-rem
 | G. Contributor experience                | Current guides match implementation and settings                                                              | **Failed**         | G3                                                                                 |
 | H. Reliability, performance, AI review   | Documented gate on main (format, lint, typecheck, tests, coverage, migrations, browser, build, smoke)         | **Passed**         | all green; about 28 s on the Mac mini                                              |
 | H. Reliability, performance, AI review   | Local load: 300 requests at 10 concurrent per route                                                           | **Passed**         | p50 8–17 ms; expected statuses (one /mcp exception below)                          |
-| H. Reliability, performance, AI review   | Local /mcp under parallel load                                                                                | **Failed**         | S12: 5 of 1,500 failed in local proxy; cause not established                       |
+| H. Reliability, performance, AI review   | Local /mcp under parallel load                                                                                | **Failed**         | S12d: 5 of 1,500 failed in local proxy; cause not established                      |
 | H. Reliability, performance, AI review   | Membership database unavailable                                                                               | **Passed**         | existing tests: generic 500, no data                                               |
-| H. Reliability, performance, AI review   | Sign-in key service unavailable                                                                               | **Failed**         | S12: tells user to sign in again                                                   |
+| H. Reliability, performance, AI review   | Sign-in key service unavailable                                                                               | **Failed**         | S12a: tells user to sign in again                                                  |
 | H. Reliability, performance, AI review   | Missing Access configuration                                                                                  | **Passed**         | 503, fails closed                                                                  |
 | H. Reliability, performance, AI review   | Scaling to 1,000 members                                                                                      | **Passed**         | 264 KB admin view, 7.9 ms local p50; not a near-term risk                          |
 | H. Reliability, performance, AI review   | Advisory review shows honest status (green job is not a completed review)                                     | **Passed**         | PR #30: green workflow, comment says incomplete                                    |
@@ -569,20 +490,19 @@ After these, activate personal AI sign-in by following `docs/mcp.md#activate-rem
 | H. Reliability, performance, AI review   | Reviewer keeps valid findings when one is invalid                                                             | **Failed**         | S5 probe                                                                           |
 | H. Reliability, performance, AI review   | Reviewer distinguishes busy from unavailable                                                                  | **Failed**         | S5 probe                                                                           |
 | H. Reliability, performance, AI review   | New commits make earlier review stale                                                                         | **Passed**         | comments record base/head; pending on push                                         |
-| H. Reliability, performance, AI review   | Interrupted review finalizes its status                                                                       | **Failed**         | S12: PR #23 stuck pending                                                          |
-| H. Reliability, performance, AI review   | Reviewer usage limited to trusted authors                                                                     | **Failed**         | S6                                                                                 |
+| H. Reliability, performance, AI review   | Interrupted review finalizes its status                                                                       | **Failed**         | S12c: PR #23 stuck pending                                                         |
+| H. Reliability, performance, AI review   | Reviewer triggering limited appropriately                                                                     | **Failed**         | S6 (details withheld until fixed)                                                  |
 | H. Reliability, performance, AI review   | Reviewer keeps running after November 2, 2026                                                                 | **Failed**         | S4 (reasoned)                                                                      |
 | H. Reliability, performance, AI review   | Reviewer detection on new known-defect and clean cases (live)                                                 | **Unverified**     | credential access blocked; six cases prepared                                      |
 
-Totals: 59 passed, 40 failed, 7 unverified, 4 not applicable.
+Totals: 59 passed, 38 failed, 7 unverified, 4 not applicable.
 
 ## Scenarios the existing tests miss
 
 These are covered by the evaluation suite or listed as next actions:
 
 - **App scaffolding.** An app registered in the real catalog, run through the full gate (S3). Real-registry MCP validation (A4).
-- **App boundary.** Server imports from apps into platform internals, and routes outside the guarded folders (A1, A2).
-- **Workspace integrity.** Tracked files modified by tests before the release build (A3).
+- **App boundary and workspace integrity.** Withheld items A1–A3.
 - **Release propagation.** An asset briefly missing during rollout (S2).
 - **Stored data.** Malformed or wrongly typed stored rows (D1). Revision reuse after a point-in-time restore (D2).
 - **Identity.** An Access team or issuer change (S10). Sign-in key retrieval failure (S12).
