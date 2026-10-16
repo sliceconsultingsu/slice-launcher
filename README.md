@@ -2,6 +2,8 @@
 
 One home for Slice Consulting's internal tools. Consultants sign in once; each tool uses the same account, permissions and release process.
 
+**Live app:** [slice-launcher.ivan27chen.workers.dev](https://slice-launcher.ivan27chen.workers.dev) — sign in with your approved Slice account.
+
 **Building an app? Start in [platform/apps/](platform/apps/README.md).** Each app gets its own folder there. The shared login, launcher and administration live elsewhere in `platform/`.
 
 ## Start here
