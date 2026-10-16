@@ -715,3 +715,92 @@ test("incomplete collection with missing source stays incomplete without formatt
   assert.equal(result.status, "incomplete");
   assert.equal(calls, 0);
 });
+
+const subscriptionCfg = configFromEnv({
+  GPT_PROVIDER: "subscription",
+  SUBSCRIPTION_REVIEW_KEY: "test-review",
+  SUBSCRIPTION_ACCESS_CLIENT_ID: "test-id",
+  SUBSCRIPTION_ACCESS_CLIENT_SECRET: "test-access",
+});
+const subscriptionResponse = (value = output) => ({
+  model: "chatgpt/gpt-6-astra",
+  object: "chat.completion",
+  choices: [
+    { message: { role: "assistant", content: JSON.stringify(value) }, finish_reason: "stop" },
+  ],
+});
+
+test("subscription review uses one fixed authenticated request and validates real evidence", async () => {
+  const calls = [];
+  const result = await review(context, subscriptionCfg, async (url, options) => {
+    calls.push({ url, options });
+    return response(subscriptionResponse());
+  });
+  assert.equal(result.status, "completed");
+  assert.deepEqual(result.findings, [finding]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "https://app-subscription-api.chenagent.com/ci/slice/review");
+  assert.equal(calls[0].options.redirect, "error");
+  assert.equal(calls[0].options.headers["CF-Access-Client-Secret"], "test-access");
+  assert.deepEqual(Object.keys(JSON.parse(calls[0].options.body)).sort(), [
+    "messages",
+    "model",
+    "stream",
+  ]);
+  assert.equal(result.gpt.estimatedUsd, null);
+  assert.match(result.reason, /not independently reported/);
+});
+
+test("subscription review rejects unsupported output, forged citations and wrong routes", async () => {
+  for (const raw of [
+    { ...subscriptionResponse(), model: "chatgpt/gpt-6-luna" },
+    { ...subscriptionResponse(), choices: [] },
+    {
+      ...subscriptionResponse(),
+      choices: [
+        { message: { role: "assistant", content: "not JSON secret" }, finish_reason: "stop" },
+      ],
+    },
+    {
+      ...subscriptionResponse(),
+      choices: [
+        {
+          message: { role: "assistant", content: JSON.stringify(output) },
+          finish_reason: "length",
+        },
+      ],
+    },
+    subscriptionResponse({ ...output, findings: [{ ...finding, evidence: "forged secret" }] }),
+  ]) {
+    const result = await review(context, subscriptionCfg, async () => response(raw));
+    assert.equal(result.status, "failed");
+    assert.deepEqual(result.findings, []);
+    assert.doesNotMatch(JSON.stringify(result), /forged secret|not JSON secret/);
+  }
+});
+
+test("subscription missing credentials and large requests make no call; transport failures never retry", async () => {
+  const never = async () => {
+    throw new Error("must not call");
+  };
+  assert.equal(
+    (await review(context, { ...subscriptionCfg, accessSecret: "" }, never)).status,
+    "unavailable",
+  );
+  assert.equal(
+    (await review({ ...context, complete: false }, subscriptionCfg, never)).status,
+    "incomplete",
+  );
+  assert.equal(
+    (await review({ ...context, standards: "x".repeat(101000) }, subscriptionCfg, never)).status,
+    "incomplete",
+  );
+  let calls = 0;
+  const failed = await review(context, subscriptionCfg, async () => {
+    calls++;
+    return response({ error: "private" }, 429);
+  });
+  assert.equal(calls, 1);
+  assert.equal(failed.status, "failed");
+  assert.doesNotMatch(JSON.stringify(failed), /private/);
+});

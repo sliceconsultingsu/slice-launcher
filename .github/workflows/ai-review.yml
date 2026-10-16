@@ -69,15 +69,12 @@ jobs:
           TARGET_BASE: ${{ needs.pending.outputs.base }}
           TARGET_HEAD: ${{ needs.pending.outputs.head }}
           TARGET_PR: ${{ needs.pending.outputs.pr }}
-          GPT_PROVIDER: cloudflare
-          GPT_CLOUDFLARE_ACCOUNT_ID: ${{ vars.GPT_CLOUDFLARE_ACCOUNT_ID }}
-          GPT_CLOUDFLARE_API_TOKEN: ${{ secrets.GPT_CLOUDFLARE_API_TOKEN }}
-          OPENAI_REVIEW_MODEL: gpt-6-sol
-          # Accepted policy: GPT reviews every in-scope change; Jev is lab-only.
+          GPT_PROVIDER: subscription
+          SUBSCRIPTION_REVIEW_KEY: ${{ secrets.SUBSCRIPTION_REVIEW_KEY }}
+          SUBSCRIPTION_ACCESS_CLIENT_ID: ${{ secrets.SUBSCRIPTION_ACCESS_CLIENT_ID }}
+          SUBSCRIPTION_ACCESS_CLIENT_SECRET: ${{ secrets.SUBSCRIPTION_ACCESS_CLIENT_SECRET }}
+          # Fixed route/model in trusted code; no paid API fallback or Jev call.
           AI_JEV_ENABLED: "false"
-          AI_MAX_USD: ${{ vars.AI_MAX_USD }}
-          GPT_INPUT_USD_PER_MILLION: ${{ vars.GPT_INPUT_USD_PER_MILLION }}
-          GPT_OUTPUT_USD_PER_MILLION: ${{ vars.GPT_OUTPUT_USD_PER_MILLION }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: advisory-report-${{ github.run_id }}-${{ github.run_attempt }}

@@ -1,6 +1,8 @@
 # Advisory AI review
 
-GPT-6 Sol through Cloudflare is the primary reviewer. The PR workflow fixes `AI_JEV_ENABLED=false` and receives no Jev credential; Jev remains available only in explicitly invoked experiments. Neither changes the required `validate` gate, approves a PR, merges, deploys, or edits code. AI review can miss bugs. The original 2026-10-04 implementation used mocks only. The current primary route is Cloudflare GPT-6 Sol (2026-10-06). The foundation merged in PR #11 on 2026-10-15. Hosted runs now publish a top-level comment in each eligible PR conversation. PR #21 verified comment publication but exceeded the bounded input scope, so that run was explicitly incomplete and made no provider call. A successful workflow job is not necessarily a completed model review.
+The workflow selects the personal Subscription API with a fixed `chatgpt/gpt-6-astra` request. The dedicated gateway route requests **High** reasoning and has tools disabled. See [subscription setup and limits](ai-review-subscription.md) for the protected connection, credentials and rollout. Code selection is not proof of activation: the gateway route, Cloudflare policy, secrets and a post-merge hosted run must all be verified.
+
+Jev remains disabled. AI review is advisory: it cannot approve, merge, deploy, edit code or replace required checks. Hosted results appear as one top-level PR comment; a successful workflow job is not necessarily a completed review. Findings still require exact source evidence.
 
 ## Trust boundary
 
@@ -12,7 +14,7 @@ The small report artifact contains validated findings and accounting metadata, n
 
 New commits replace the summary with pending status and make earlier findings stale. Final publication rechecks the head and base. Every comment explicitly applies only to its recorded SHA, so a push racing the final API write is visibly outside scope. Concurrency cancels superseded work. Missing artifacts, unavailable providers, refusals, malformed output, and incomplete review have distinct visible states; none becomes “no findings.”
 
-## Review scope and bounded cost
+## Review scope and bounds
 
 Trusted standards include the protected-base `AGENTS.md`, contribution, architecture, security and data-boundary documents. The reviewer does not adopt a PR's edited standards as instructions.
 
@@ -24,7 +26,7 @@ Failures expose only fixed diagnostic categories: `provider_transport`, `provide
 
 The branch must contain its current base. Changed-file enumeration must agree with GitHub's PR count. Truncated trees/patches, unsupported binary or rename changes, sensitive paths, missing source, or exceeded bounds produce incomplete review without a provider call. The broad surrounding-file scope is deterministic; it is not a guarantee that every runtime dependency was captured. GPT must report incomplete if necessary cross-file evidence is absent.
 
-Hard bounds in trusted code:
+Hard bounds shared by the review collector and original paid-provider transport (subscription differences follow):
 
 | Bound                                           | Limit                                                 |
 | ----------------------------------------------- | ----------------------------------------------------- |
@@ -32,41 +34,22 @@ Hard bounds in trusted code:
 | Full serialized context, including line records | 180,000 UTF-8 bytes                                   |
 | Provider calls                                  | At most one GPT and one Jev; zero retries             |
 | Timeout                                         | 90 seconds per provider                               |
-| GPT output                                      | 4,096 tokens, including reasoning                     |
+| Paid-provider GPT output                        | 4,096 tokens, including reasoning                     |
 | Provider response body                          | 80,000 bytes                                          |
 | Jev request                                     | 26,000 UTF-8 bytes; otherwise Jev alone is incomplete |
 | GitHub requests                                 | 220, each with a 15-second timeout and bounded body   |
-| Per-review reserved cost                        | At most $1; configurable downward                     |
+| Paid-provider reserved cost                     | At most $1; configurable downward                     |
 | Findings / public comment                       | 8 / 18,000 bytes                                      |
 
-The preflight reserves both calls before spending, using UTF-8 byte count as a conservative token upper bound, framing/schema reserves, configured input rates, and the full GPT output allowance. The rates must match current provider billing. Network failures can still incur provider charges; missing usage is **unknown** (`estimatedUsd: null`), not free. Job timeouts and provider project spending limits provide additional limits. Frequent PR events/reruns multiply spend, so set provider-level monthly limits. No per-run cap substitutes for a monthly project limit.
+For the retained paid-provider experiment transports, the preflight reserves both calls before spending, using UTF-8 byte count as a conservative token upper bound, framing/schema reserves, configured input rates, and the full GPT output allowance. The rates must match current provider billing. Network failures can still incur provider charges; missing usage is **unknown** (`estimatedUsd: null`), not free. Job timeouts and provider project spending limits provide additional limits. Frequent PR events/reruns multiply spend, so set provider-level monthly limits. No per-run cap substitutes for a monthly project limit.
 
-Provider documentation (GPT route updated 2026-10-06):
+## Current activation
 
-- [Cloudflare GPT-6 Sol](https://developers.cloudflare.com/ai/models/openai/gpt-6-sol/): `openai/gpt-6-sol` through account-scoped `/ai/v1/responses`. Strict structured output; `store: false`, no tools or redirects. Returned model must match; no fallback. This catalog alias is not an immutable dated snapshot. Short-context estimates use $2/M input and $10/M output; reservations use the highest published $5/M input/cache-write and $15/M output rates.
-- [TypeSafe API](https://docs.typesafe.ai/api): `POST https://api.typesafe.ai/v1/systemone`; fixed `state` and typed `questions`. Two Noul questions ask about sensitive boundaries and test priorities.
-- [TypeSafe models](https://docs.typesafe.ai/models): default pinned `jev-1.13.0`; $0.042/M input, output free; 32k tokens for state plus longest question and 64k aggregate.
+Follow [the subscription rollout](ai-review-subscription.md). The prior Cloudflare credentials are not injected by this workflow; retained experiment commands can still explicitly use the old transports. There is no automatic fallback if the subscription route fails.
 
-Example assumption: 20,000 GPT input tokens and 2,000 output tokens cost about **$0.06**; 10,000 Jev input tokens add **$0.00042**. This is an estimate, not measured usage. OpenAI API billing is separate from ChatGPT/Codex subscriptions. Account access/credits must be checked in the provider projects. Cloudflare unified billing funds the selected route; no OpenAI key is needed. Token estimates exclude cache discounts and the 5% Cloudflare credit-purchase fee; they are not invoices.
+## Historical provider experiments
 
-Jev receives changed patches, never credentials. Its output must be exactly the two typed numeric answers. GPT independently receives all original source/context and may also receive those optional answers. Jev failure cannot suppress GPT, discard source, or skip security review. Unknown models require explicit current pricing configuration.
-
-## Activation and bootstrap
-
-1. Merge only after the user approves the completed PR. Because review code is taken from protected base, this first PR cannot exercise its new privileged workflow from contributor code. Its mocks and unprivileged checks exercise the implementation. After merge, dispatch a representative PR from main and verify the actual comment and accounting artifact.
-2. Create GitHub environment `ai-review`, restrict deployment branches to protected main, and add a dedicated inference-only `GPT_CLOUDFLARE_API_TOKEN` plus `GPT_CLOUDFLARE_ACCOUNT_ID`. For local experiments only, use `JEV_PROVIDER=cloudflare`, `JEV_CLOUDFLARE_ACCOUNT_ID`, and `JEV_CLOUDFLARE_API_TOKEN`; the PR workflow does not receive these values. Do not reuse deployment credentials or upload personal Wrangler OAuth credentials. Configure keys in the provider/GitHub UI; never paste them into chat or commit them.
-3. Configure environment/repository variables below. The PR workflow fixes `AI_JEV_ENABLED=false`; a repository variable cannot enable Jev. Set provider project spending limits.
-4. Exercise same-repository and fork PRs. Verify protected code is used, comments stay tied to head SHA, failures remain advisory, and required CI still blocks independently.
-5. Run and manually score the live A/B evaluation before deciding to make Jev standard.
-
-| Variable                                                   | Default / rule                                         |
-| ---------------------------------------------------------- | ------------------------------------------------------ |
-| `OPENAI_REVIEW_MODEL`                                      | `gpt-6-sol` (fixed in workflow)                        |
-| `TYPESAFE_REVIEW_MODEL`                                    | `jev-1.13.0`                                           |
-| `AI_JEV_ENABLED`                                           | Fixed `false` in PR workflow; local experiments opt in |
-| `AI_MAX_USD`                                               | `1`; positive and no higher than 1                     |
-| `GPT_INPUT_USD_PER_MILLION` / `GPT_OUTPUT_USD_PER_MILLION` | Required for nondefault GPT model                      |
-| `JEV_INPUT_USD_PER_MILLION`                                | Required for nondefault Jev model                      |
+The sections below record the earlier paid-provider design and evaluations. Their provider choices, prices, billing caps and activation instructions are not the current subscription setup. They do not prove subscription review quality or quota availability.
 
 ## Reproducible A/B evaluation
 
