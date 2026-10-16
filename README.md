@@ -1,3 +1,5 @@
+<img src="platform/public/brand/slice-logo.png" alt="Slice Consulting — Syracuse University" width="320" />
+
 # Slice Consulting platform
 
 One home for Slice Consulting's internal tools. Consultants sign in once; each tool uses the same account, permissions and release process.
