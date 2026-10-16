@@ -359,6 +359,11 @@ test("provider refusals and response limits fail closed; timeout has no retry", 
 });
 
 const { loadStandards } = await import("./ai-review/standards.mjs");
+
+test("checked-in contributor guidance fits the trusted reviewer input limit", async () => {
+  await assert.doesNotReject(() => loadStandards());
+});
+
 test("required trusted standards must all load; missing standards fail closed", async () => {
   const files = new Map([
     ["AGENTS.md", "One platform; agents must verify their work"],

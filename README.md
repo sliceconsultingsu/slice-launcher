@@ -2,6 +2,8 @@
 
 One home for Slice Consulting's internal tools. Consultants sign in once; each tool uses the same account, permissions and release process.
 
+**Live app:** [slice-launcher.ivan27chen.workers.dev](https://slice-launcher.ivan27chen.workers.dev) — sign in with your approved Slice account.
+
 **Building an app? Start in [platform/apps/](platform/apps/README.md).** Each app gets its own folder there. The shared login, launcher and administration live elsewhere in `platform/`.
 
 ## Start here
@@ -15,6 +17,10 @@ One home for Slice Consulting's internal tools. Consultants sign in once; each t
 | Understand roles and access            | [Membership guide](docs/membership.md)                                                             |
 | Connect an approved AI client          | [MCP setup](docs/mcp.md)                                                                           |
 | Find technical or operational guidance | [Documentation index](docs/README.md)                                                              |
+
+## Recommended AI models
+
+Use **Claude Opus 5.5** or **GPT-6 Astra**, with **High** reasoning for planning and **Medium** for implementation. Avoid weaker models for code changes to help reduce the risk of breaking existing features. Every change still needs tests and review. See [the shared model guidance](skills/models.md), including what to do if a model is unavailable.
 
 ## Skills for your AI agent
 
