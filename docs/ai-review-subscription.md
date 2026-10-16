@@ -15,7 +15,7 @@ The request URL and `claude/claude-opus-5-5` route are fixed in trusted code. PR
 
 Use a dedicated **Service Auth** Access application for the exact hostname/path above, accepting only the Slice review service token. Preserve the existing owner-only dashboard application. In the local Cloudflare Tunnel configuration, put an exact-host, anchored `^/ci/slice/review$` path rule before the wildcard launcher rule. Its origin is `http://127.0.0.1:8932`; enable `originRequest.access.required: true`, team `snowy-voice-36a1`, and only the new application's audience. This makes cloudflared verify the signed Access identity before forwarding. Do not route the rest of the hostname directly to the gateway or disable the dashboard's owner check.
 
-A one-year service token and the dedicated GitHub environment secrets are prepared. Activation remains on maintainer hold; the scoped Access application/policy and production routing are not configured. The connection is not active merely because the workflow is merged. Complete and verify the steps below before calling it live.
+A one-year service token and the dedicated GitHub environment secrets are prepared. The maintainer authorized activation on October 15, 2026; the scoped Access application/policy and production routing still require verification. The connection is not active merely because the workflow is merged. Complete and verify the steps below before calling it live.
 
 ## Credentials and activation
 
@@ -31,7 +31,7 @@ Store secrets without printing them or adding them to command arguments. Rotate 
 
 The reviewer reads exact base/head source, treats it as untrusted text, and makes at most one request with no retries or paid-provider fallback. JSON output must pass the existing schema, changed-line and exact-evidence checks. The separate publisher independently rechecks evidence and current commit before commenting. Invalid output, timeouts, quota/busy errors and missing credentials remain visibly failed, unavailable or incomplete, never a clean review.
 
-Subscription requests also fit the gateway's 100,000-character conversation and 256,000-byte body limits. Oversized input is rejected before calling; source is not silently cut. The response reader remains capped at 80,000 bytes and the client timeout at 90 seconds. The gateway permits one request per provider at a time, so overlapping PR reviews may report busy. Rerun deliberately after checking the earlier request, rather than automatically retrying and consuming more allowance.
+Subscription requests also fit the gateway's 200,000-character review conversation and 256,000-byte body limits. Oversized input is rejected before calling; source is not silently cut. The response reader remains capped at 80,000 bytes and the client timeout at 90 seconds. The gateway permits one request per provider at a time, so overlapping PR reviews may report busy. Rerun deliberately after checking the earlier request, rather than automatically retrying and consuming more allowance.
 
 ## Limits to understand
 
