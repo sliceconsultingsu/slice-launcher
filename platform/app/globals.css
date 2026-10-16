@@ -134,10 +134,14 @@ h1 {
 }
 .project-links {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 24px;
 }
 .project-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   text-decoration: underline;
   text-underline-offset: 4px;
 }
@@ -580,29 +584,6 @@ button.member-row:hover,
   }
 }
 
-.connection-entry {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-  padding: 20px 24px;
-  margin-bottom: 32px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #fffefb;
-}
-.connection-entry strong {
-  font-size: 16px;
-  font-weight: 600;
-}
-.connection-entry p {
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 14px;
-}
-.connection-entry a {
-  flex-shrink: 0;
-}
 .connection-guide {
   max-width: 1120px;
 }
@@ -719,11 +700,6 @@ button.member-row:hover,
   }
 }
 @media (max-width: 650px) {
-  .connection-entry {
-    align-items: flex-start;
-    flex-direction: column;
-    padding: 20px;
-  }
   .connection-guide .account-card {
     padding: 22px;
   }

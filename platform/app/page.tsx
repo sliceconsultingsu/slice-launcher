@@ -41,15 +41,6 @@ export default function Home() {
         <AccountNav />
       </header>
       <main id="main" className="workspace-main">
-        <aside className="connection-entry" aria-label="AI connection setup">
-          <div>
-            <strong>Bring your AI to Slice</strong>
-            <p>Get the setup guide and instructions your agent can follow.</p>
-          </div>
-          <a className="secondary-button" href="/connect-ai">
-            Connect your AI
-          </a>
-        </aside>
         <section aria-labelledby="applications-title">
           <h1 id="applications-title">Applications</h1>
           {apps.length === 0 ? (
@@ -76,6 +67,7 @@ export default function Home() {
       <footer className="site-footer">
         <span>Slice Consulting</span>
         <nav className="project-links" aria-label="Project resources">
+          <a href="/connect-ai">Connect your AI</a>
           <a
             href="https://github.com/ichen27/slice-launcher/blob/main/docs/adding-an-app.md"
             target="_blank"
