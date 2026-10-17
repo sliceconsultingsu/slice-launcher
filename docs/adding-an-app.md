@@ -20,7 +20,7 @@ Build the UI in the module's `Page` and any API in `api`. Import `AppModule` and
 
 Registration automatically adds `app.alumni.open` to the existing permission editor. An active owner can open every registered app. Other members need an administrator to grant access through their level or individual permissions. Revocation takes precedence for nonowners. New sign-ins still follow the existing enrollment/approval flow.
 
-Both page and API dispatch verify the Access token, load current membership from D1, and enforce the app capability before calling module code. Pending/suspended members are denied, including with an old valid session. Context exposes only the current member's ID/name/email and app-scoped permissions; it does not expose the membership database or other members.
+Both page and API dispatch verify the Access token, load current membership from D1, and enforce the app capability before calling module code. Pending/suspended members are denied, including with an old valid session. Context exposes only the current member's ID/name/email and app-scoped permissions. App modules are trusted code in the same Worker, not a sandbox: server code could still import platform internals and read the membership database directly, and no automated check currently stops that. Use only the context and your app's own storage, and reviewers should reject any app that reaches into membership or platform internals. API responses are sent as `private, no-store`, and any `Set-Cookie` or `Clear-Site-Data` header an app sets is removed, because apps share the platform's origin and sign-in cookie.
 
 Declare additional actions in that app's `app.json`:
 
