@@ -38,18 +38,18 @@ The branch must contain its current base. Changed-file enumeration must agree wi
 
 Hard bounds shared by the review collector and original paid-provider transport (subscription differences follow):
 
-| Bound                                           | Limit                                                 |
-| ----------------------------------------------- | ----------------------------------------------------- |
-| Changed files / source blobs                    | 40 / 80                                               |
-| Full serialized context, including line records | 180,000 UTF-8 bytes                                   |
-| Provider calls                                  | At most one GPT and one Jev; zero retries             |
-| Timeout                                         | 90 seconds per provider                               |
-| Paid-provider GPT output                        | 4,096 tokens, including reasoning                     |
-| Provider response body                          | 80,000 bytes                                          |
-| Jev request                                     | 26,000 UTF-8 bytes; otherwise Jev alone is incomplete |
-| GitHub requests                                 | 220, each with a 15-second timeout and bounded body   |
-| Paid-provider reserved cost                     | At most $1; configurable downward                     |
-| Findings / public comment                       | 8 / 18,000 bytes                                      |
+| Bound                                           | Limit                                                                                     |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Changed files / source blobs                    | 40 / 80                                                                                   |
+| Full serialized context, including line records | 360,000 UTF-8 bytes; optional supporting files fill only to 175,000                       |
+| Provider calls                                  | At most one GPT and one Jev; zero retries                                                 |
+| Timeout                                         | 90 seconds per paid provider; subscription jobs up to 8 minutes, checked every 10 seconds |
+| Paid-provider GPT output                        | 4,096 tokens, including reasoning                                                         |
+| Provider response body                          | 80,000 bytes                                                                              |
+| Jev request                                     | 26,000 UTF-8 bytes; otherwise Jev alone is incomplete                                     |
+| GitHub requests                                 | 220, each with a 15-second timeout and bounded body                                       |
+| Paid-provider reserved cost                     | At most $1; configurable downward                                                         |
+| Findings / public comment                       | 8 / 18,000 bytes                                                                          |
 
 For the retained paid-provider experiment transports, the preflight reserves both calls before spending, using UTF-8 byte count as a conservative token upper bound, framing/schema reserves, configured input rates, and the full GPT output allowance. The rates must match current provider billing. Network failures can still incur provider charges; missing usage is **unknown** (`estimatedUsd: null`), not free. Job timeouts and provider project spending limits provide additional limits. Frequent PR events/reruns multiply spend, so set provider-level monthly limits. No per-run cap substitutes for a monthly project limit.
 
