@@ -14,7 +14,7 @@ No exceptions are currently configured. Never globally disable scanning or lower
 
 Authentication changes: trace issuer/audience/signature validation, expiry, service rejection, identity linking, and failure behavior. Authorization changes: trace current membership, pending/suspended restrictions, deny overrides, delegation, last owner, direct APIs and private directory data. Schema changes: test empty and prior-state upgrades, constraints, audit atomicity, and backward compatibility. Workflow changes: inspect every trigger, checked-out ref, credential scope, cache/artifact source, shell interpolation, cancellation, and publishing permission. Review the actual diff even when automated checks pass.
 
-Ivan is the sole maintainer. A `main` ruleset requires his code-owner approval on contributor PRs; admins bypass it only by merging a PR, and checks still apply. Only admins can run rollback. No AI check can approve, merge, deploy, mutate the database, or waive deterministic checks.
+Ivan is the sole maintainer and the only code owner. A `main` ruleset requires a code-owner approval on PRs. Every repository admin can bypass it when merging a PR, so admins merge their own PRs without independent approval; required checks still apply. Revisit this before adding admins. Only admins can run rollback. No AI check can approve, merge, deploy, mutate the database, or waive deterministic checks.
 
 ## Existing dependency risk observed 2026-10-04
 
