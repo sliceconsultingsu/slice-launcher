@@ -3,7 +3,8 @@ name: Advisory AI review
 on:
   pull_request_target:
     branches: [main]
-    types: [opened, synchronize, reopened, edited, ready_for_review]
+    # No `edited`: description edits do not change the code and would spend another review.
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       pr:
@@ -20,8 +21,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  pending:
+  # The review spends the maintainer's subscription, so it runs automatically only for PRs
+  # from people with Write access or higher. Maintainers can still dispatch it for any PR.
+  trust:
     if: github.event_name == 'pull_request_target' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    outputs:
+      trusted: ${{ steps.author.outputs.trusted }}
+    steps:
+      - id: author
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            echo "trusted=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          role=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$AUTHOR/permission" --jq .role_name 2>/dev/null || echo none)
+          case "$role" in
+            admin | maintain | write) echo "trusted=true" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "trusted=false" >> "$GITHUB_OUTPUT"
+              echo "Advisory review skipped: $AUTHOR has the $role role. A maintainer can run it with workflow_dispatch." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+          esac
+
+  pending:
+    needs: trust
+    if: needs.trust.outputs.trusted == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

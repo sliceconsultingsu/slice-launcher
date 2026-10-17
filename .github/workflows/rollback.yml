@@ -24,6 +24,21 @@ jobs:
       queue: max
       cancel-in-progress: false
     steps:
+      # Rollback is the maintainer's recovery decision. Checked inside this job, before any
+      # production secret is used, so re-running only this job repeats the check for the new runner.
+      - name: Allow only repository administrators
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          for person in "$ACTOR" "$TRIGGERING_ACTOR"; do
+            role=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$person/permission" --jq .role_name)
+            if [ "$role" != "admin" ]; then
+              echo "::error::Only repository administrators can roll back production; $person has the $role role."
+              exit 1
+            fi
+          done
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
