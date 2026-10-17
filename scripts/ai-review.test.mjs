@@ -9,6 +9,7 @@ import {
   configFromEnv,
   callJev,
   modelContext,
+  SUBSCRIPTION_ENDPOINT,
   SUBSCRIPTION_LIMITS,
 } from "./ai-review/core.mjs";
 
@@ -780,6 +781,95 @@ test("subscription review rejects unsupported output, forged citations and wrong
     assert.deepEqual(result.findings, []);
     assert.doesNotMatch(JSON.stringify(result), /forged secret|not JSON secret/);
   }
+});
+
+const jobId = "0f8fad5b-d9cb-469f-a165-70867728950e";
+const jobResponse = (value) => new Response(JSON.stringify(value), { status: 202 });
+const noWait = async () => {};
+
+test("subscription review submits a gateway job and checks back until it completes", async () => {
+  const calls = [];
+  const waits = [];
+  const replies = [
+    jobResponse({ id: jobId, status: "queued", position: 1 }),
+    response({ id: jobId, status: "running" }),
+    response({ id: jobId, status: "completed", result: subscriptionResponse() }),
+  ];
+  const result = await review(
+    context,
+    subscriptionCfg,
+    async (url, options) => {
+      calls.push({ url, options });
+      return replies.shift();
+    },
+    async (ms) => waits.push(ms),
+  );
+  assert.equal(result.status, "completed");
+  assert.equal(result.findings.length, 1);
+  assert.equal(calls.length, 3);
+  assert.equal(calls[0].options.method, "POST");
+  assert.equal(calls[0].options.headers.Prefer, "respond-async");
+  for (const call of calls.slice(1)) {
+    assert.equal(call.url, SUBSCRIPTION_ENDPOINT + "?job=" + jobId);
+    assert.equal(call.options.method, "GET");
+    assert.equal(call.options.body, undefined);
+    assert.equal(call.options.redirect, "error");
+    assert.equal(call.options.headers.Authorization, "Bearer test-review");
+    assert.equal(call.options.headers["CF-Access-Client-Secret"], "test-access");
+  }
+  assert.deepEqual(waits, [SUBSCRIPTION_LIMITS.pollIntervalMs, SUBSCRIPTION_LIMITS.pollIntervalMs]);
+});
+
+test("failed, malformed, mismatched or unfinished gateway jobs fail without a second submission", async () => {
+  const cases = [
+    [
+      jobResponse({ id: jobId, status: "queued" }),
+      response({
+        id: jobId,
+        status: "failed",
+        error: { status: 429, code: "provider_busy", message: "private detail" },
+      }),
+    ],
+    [jobResponse({ id: "../../admin", status: "queued" })],
+    [
+      jobResponse({ id: jobId, status: "queued" }),
+      response({
+        id: "1f8fad5b-d9cb-469f-a165-70867728950e",
+        status: "completed",
+        result: subscriptionResponse(),
+      }),
+    ],
+    [jobResponse({ id: jobId, status: "queued" }), response({ id: jobId, status: "completed" })],
+  ];
+  for (const replies of cases) {
+    let posts = 0;
+    const result = await review(
+      context,
+      subscriptionCfg,
+      async (_url, options) => {
+        if (options.method === "POST") posts++;
+        return replies.shift();
+      },
+      noWait,
+    );
+    assert.equal(result.status, "failed");
+    assert.match(result.reason, /\[provider_transport\]/);
+    assert.doesNotMatch(JSON.stringify(result), /private detail/);
+    assert.equal(posts, 1);
+  }
+  let polls = 0;
+  const stuck = await review(
+    context,
+    subscriptionCfg,
+    async (_url, options) => {
+      if (options.method === "POST") return jobResponse({ id: jobId, status: "queued" });
+      polls++;
+      return response({ id: jobId, status: "running" });
+    },
+    noWait,
+  );
+  assert.equal(stuck.status, "failed");
+  assert.equal(polls, SUBSCRIPTION_LIMITS.waitMs / SUBSCRIPTION_LIMITS.pollIntervalMs);
 });
 
 test("subscription missing credentials and large requests make no call; transport failures never retry", async () => {
