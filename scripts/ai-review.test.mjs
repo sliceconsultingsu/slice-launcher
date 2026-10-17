@@ -9,6 +9,7 @@ import {
   configFromEnv,
   callJev,
   modelContext,
+  SUBSCRIPTION_LIMITS,
 } from "./ai-review/core.mjs";
 
 const base = "a".repeat(40);
@@ -794,7 +795,13 @@ test("subscription missing credentials and large requests make no call; transpor
     "incomplete",
   );
   assert.equal(
-    (await review({ ...context, standards: "x".repeat(201000) }, subscriptionCfg, never)).status,
+    (
+      await review(
+        { ...context, standards: "x".repeat(SUBSCRIPTION_LIMITS.characters + 1000) },
+        subscriptionCfg,
+        never,
+      )
+    ).status,
     "incomplete",
   );
   let calls = 0;
@@ -869,6 +876,55 @@ test("large surrounding context is bounded without dropping changed source", asy
   });
   assert.equal(calls, 1);
   assert.match(result.reason, /supporting files outside/);
+});
+
+test("changed source above the supporting budget is still reviewed, without supporting files", async () => {
+  const { api, responses } = apiFixture();
+  const path = "platform/src/membership/example.ts";
+  responses["/compare/" + base + "..." + head].files[0].filename = path;
+  for (const ref of [base, head])
+    responses["/git/trees/" + ref + "?recursive=1"].tree[0].path = path;
+  // Each side stays under the 100 KB per-file limit; numbered together they exceed 175 KB.
+  const body = "// changed module body\n".repeat(3500);
+  for (const [ref, blobSha, source] of [
+    [head, "c".repeat(40), context.files[0].head + body],
+    [base, "d".repeat(40), context.files[0].base + body],
+  ]) {
+    responses["/git/trees/" + ref + "?recursive=1"].tree[0].size = Buffer.byteLength(source);
+    responses["/git/blobs/" + blobSha] = {
+      content: Buffer.from(source).toString("base64"),
+      size: Buffer.byteLength(source),
+      encoding: "base64",
+    };
+  }
+  responses["/git/trees/" + head + "?recursive=1"].tree.push({
+    path: "platform/src/membership/neighbor.ts",
+    type: "blob",
+    mode: "100644",
+    sha: "e".repeat(40),
+    size: 20,
+  });
+  responses["/git/blobs/" + "e".repeat(40)] = {
+    content: Buffer.from("export const x = 1;\n").toString("base64"),
+    size: 20,
+    encoding: "base64",
+  };
+  const collected = await collectContext(
+    api,
+    { pr: 12, base, head, repository: "owner/repo" },
+    "standards",
+  );
+  const bytes = Buffer.byteLength(JSON.stringify(modelContext(collected)));
+  assert.equal(collected.complete, true);
+  assert.ok(bytes > 175000 && bytes <= 360000);
+  assert.equal(collected.surrounding.length, 0);
+  let calls = 0;
+  const result = await review(collected, subscriptionCfg, async () => {
+    calls++;
+    return response(subscriptionResponse({ status: "completed", findings: [] }));
+  });
+  assert.equal(calls, 1);
+  assert.equal(result.status, "completed");
 });
 
 test("unsupported changed binaries still block inference with a specific reason", async () => {
