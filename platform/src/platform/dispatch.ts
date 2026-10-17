@@ -51,8 +51,10 @@ export function createPlatform(dependencies: PlatformDependencies) {
         headers.delete("Cloudflare-CDN-Cache-Control");
         headers.delete("Surrogate-Control");
         headers.set("X-Content-Type-Options", "nosniff");
-        // Apps share the platform origin, so an app cookie could overwrite or clear the sign-in cookie.
+        // Apps share the platform origin, so an app could overwrite or clear the sign-in cookie
+        // with a cookie or by asking the browser to clear the site's data.
         headers.delete("Set-Cookie");
+        headers.delete("Clear-Site-Data");
         return new Response(request.method === "HEAD" ? null : response.body, {
           status: response.status,
           statusText: response.statusText,

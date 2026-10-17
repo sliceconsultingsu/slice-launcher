@@ -3,8 +3,8 @@ name: Advisory AI review
 on:
   pull_request_target:
     branches: [main]
-    # No `edited`: description edits do not change the code and would spend another review.
-    types: [opened, synchronize, reopened, ready_for_review]
+    # `edited` also fires for description edits; the trust job continues only when the base changed.
+    types: [opened, synchronize, reopened, edited, ready_for_review]
   workflow_dispatch:
     inputs:
       pr:
@@ -24,7 +24,10 @@ jobs:
   # The review spends the maintainer's subscription, so it runs automatically only for PRs
   # from people with Write access or higher. Maintainers can still dispatch it for any PR.
   trust:
-    if: github.event_name == 'pull_request_target' || github.ref == 'refs/heads/main'
+    if: >-
+      (github.event_name == 'pull_request_target' &&
+      (github.event.action != 'edited' || github.event.changes.base)) ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 2
     permissions: {}

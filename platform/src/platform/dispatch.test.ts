@@ -119,11 +119,13 @@ it("drops cookies set by app APIs so apps cannot replace or clear the shared sig
   const headers = new Headers();
   headers.append("Set-Cookie", "CF_Authorization=; Max-Age=0; Path=/");
   headers.append("Set-Cookie", "app-preference=compact; Path=/");
+  headers.set("Clear-Site-Data", '"cookies"');
   const host = platform({ Page: page, api: () => new Response("ok", { headers }) });
   const response = await host.api(request(), "example", []);
   expect(response.status).toBe(200);
   expect(response.headers.has("Set-Cookie")).toBe(false);
   expect(response.headers.getSetCookie()).toEqual([]);
+  expect(response.headers.has("Clear-Site-Data")).toBe(false);
 });
 it.each(["pending", "invited", "suspended"])(
   "blocks %s members on both entry points",
