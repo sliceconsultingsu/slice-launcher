@@ -7,11 +7,11 @@ on:
         default: false
     outputs:
       artifact-id:
-        value: ${{ jobs.checks.outputs.artifact-id }}
+        value: ${{ jobs.release.outputs.artifact-id }}
       content-digest:
-        value: ${{ jobs.checks.outputs.content-digest }}
+        value: ${{ jobs.release.outputs.content-digest }}
       artifact-digest:
-        value: ${{ jobs.checks.outputs.artifact-digest }}
+        value: ${{ jobs.release.outputs.artifact-digest }}
 permissions:
   contents: read
 jobs:
@@ -19,10 +19,6 @@ jobs:
     name: Quality, browser tests, and production build
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    outputs:
-      artifact-id: ${{ steps.upload.outputs.artifact-id }}
-      artifact-digest: ${{ steps.upload.outputs.artifact-digest }}
-      content-digest: ${{ steps.fingerprint.outputs.content-digest }}
     env:
       SLICE_RELEASE_SHA: ${{ github.sha }}
     steps:
@@ -52,24 +48,18 @@ jobs:
       - run: pnpm test:migrations
       - run: pnpm --filter @slice/launcher exec playwright install --with-deps chromium
       - run: pnpm test:e2e
+      - name: Confirm tests left the checkout unchanged
+        run: |
+          changes=$(git status --porcelain)
+          if [ -n "$changes" ]; then
+            echo "::error::Tests must not change repository files. Changed: $changes"
+            exit 1
+          fi
       - name: Build the release once
         run: pnpm build
       - run: pnpm smoke:launcher
       - name: Fingerprint and inspect deployable files
-        id: fingerprint
         run: node scripts/release-artifact.mjs create platform/dist release-manifest.json "$GITHUB_SHA"
-      - name: Upload immutable release
-        if: inputs.release
-        id: upload
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: launcher-release
-          path: |
-            platform/dist/
-            release-manifest.json
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 30
       - name: Synthetic browser diagnostics
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -80,3 +70,46 @@ jobs:
             platform/test-results/
           retention-days: 7
           if-no-files-found: ignore
+
+  # The release is built in a fresh job so files written by tests (including git-ignored ones
+  # such as .env files the build reads) cannot change what ships.
+  release:
+    name: Release build from a clean checkout
+    needs: checks
+    if: inputs.release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      artifact-digest: ${{ steps.upload.outputs.artifact-digest }}
+      content-digest: ${{ steps.fingerprint.outputs.content-digest }}
+    env:
+      SLICE_RELEASE_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 10.17.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - run: pnpm install --frozen-lockfile
+      - name: Build the release once
+        run: pnpm build
+      - run: pnpm smoke:launcher
+      - name: Fingerprint and inspect deployable files
+        id: fingerprint
+        run: node scripts/release-artifact.mjs create platform/dist release-manifest.json "$GITHUB_SHA"
+      - name: Upload immutable release
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: launcher-release
+          path: |
+            platform/dist/
+            release-manifest.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
