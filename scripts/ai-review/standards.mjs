@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { text } from "./core.mjs";
+import { STANDARDS_CHARACTERS, text } from "./core.mjs";
 
 export async function loadStandards(read = readFile) {
   const paths = [
@@ -16,5 +16,5 @@ export async function loadStandards(read = readFile) {
       return path + "\n" + content;
     }),
   );
-  return text(contents.join("\n"), 30000);
+  return text(contents.join("\n"), STANDARDS_CHARACTERS);
 }

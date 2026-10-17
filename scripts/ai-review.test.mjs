@@ -9,6 +9,8 @@ import {
   configFromEnv,
   callJev,
   modelContext,
+  SUBSCRIPTION_ENDPOINT,
+  SUBSCRIPTION_LIMITS,
 } from "./ai-review/core.mjs";
 
 const base = "a".repeat(40);
@@ -781,6 +783,95 @@ test("subscription review rejects unsupported output, forged citations and wrong
   }
 });
 
+const jobId = "0f8fad5b-d9cb-469f-a165-70867728950e";
+const jobResponse = (value) => new Response(JSON.stringify(value), { status: 202 });
+const noWait = async () => {};
+
+test("subscription review submits a gateway job and checks back until it completes", async () => {
+  const calls = [];
+  const waits = [];
+  const replies = [
+    jobResponse({ id: jobId, status: "queued", position: 1 }),
+    response({ id: jobId, status: "running" }),
+    response({ id: jobId, status: "completed", result: subscriptionResponse() }),
+  ];
+  const result = await review(
+    context,
+    subscriptionCfg,
+    async (url, options) => {
+      calls.push({ url, options });
+      return replies.shift();
+    },
+    async (ms) => waits.push(ms),
+  );
+  assert.equal(result.status, "completed");
+  assert.equal(result.findings.length, 1);
+  assert.equal(calls.length, 3);
+  assert.equal(calls[0].options.method, "POST");
+  assert.equal(calls[0].options.headers.Prefer, "respond-async");
+  for (const call of calls.slice(1)) {
+    assert.equal(call.url, SUBSCRIPTION_ENDPOINT + "?job=" + jobId);
+    assert.equal(call.options.method, "GET");
+    assert.equal(call.options.body, undefined);
+    assert.equal(call.options.redirect, "error");
+    assert.equal(call.options.headers.Authorization, "Bearer test-review");
+    assert.equal(call.options.headers["CF-Access-Client-Secret"], "test-access");
+  }
+  assert.deepEqual(waits, [SUBSCRIPTION_LIMITS.pollIntervalMs, SUBSCRIPTION_LIMITS.pollIntervalMs]);
+});
+
+test("failed, malformed, mismatched or unfinished gateway jobs fail without a second submission", async () => {
+  const cases = [
+    [
+      jobResponse({ id: jobId, status: "queued" }),
+      response({
+        id: jobId,
+        status: "failed",
+        error: { status: 429, code: "provider_busy", message: "private detail" },
+      }),
+    ],
+    [jobResponse({ id: "../../admin", status: "queued" })],
+    [
+      jobResponse({ id: jobId, status: "queued" }),
+      response({
+        id: "1f8fad5b-d9cb-469f-a165-70867728950e",
+        status: "completed",
+        result: subscriptionResponse(),
+      }),
+    ],
+    [jobResponse({ id: jobId, status: "queued" }), response({ id: jobId, status: "completed" })],
+  ];
+  for (const replies of cases) {
+    let posts = 0;
+    const result = await review(
+      context,
+      subscriptionCfg,
+      async (_url, options) => {
+        if (options.method === "POST") posts++;
+        return replies.shift();
+      },
+      noWait,
+    );
+    assert.equal(result.status, "failed");
+    assert.match(result.reason, /\[provider_transport\]/);
+    assert.doesNotMatch(JSON.stringify(result), /private detail/);
+    assert.equal(posts, 1);
+  }
+  let polls = 0;
+  const stuck = await review(
+    context,
+    subscriptionCfg,
+    async (_url, options) => {
+      if (options.method === "POST") return jobResponse({ id: jobId, status: "queued" });
+      polls++;
+      return response({ id: jobId, status: "running" });
+    },
+    noWait,
+  );
+  assert.equal(stuck.status, "failed");
+  assert.equal(polls, SUBSCRIPTION_LIMITS.waitMs / SUBSCRIPTION_LIMITS.pollIntervalMs);
+});
+
 test("subscription missing credentials and large requests make no call; transport failures never retry", async () => {
   const never = async () => {
     throw new Error("must not call");
@@ -794,7 +885,13 @@ test("subscription missing credentials and large requests make no call; transpor
     "incomplete",
   );
   assert.equal(
-    (await review({ ...context, standards: "x".repeat(201000) }, subscriptionCfg, never)).status,
+    (
+      await review(
+        { ...context, standards: "x".repeat(SUBSCRIPTION_LIMITS.characters + 1000) },
+        subscriptionCfg,
+        never,
+      )
+    ).status,
     "incomplete",
   );
   let calls = 0;
@@ -869,6 +966,55 @@ test("large surrounding context is bounded without dropping changed source", asy
   });
   assert.equal(calls, 1);
   assert.match(result.reason, /supporting files outside/);
+});
+
+test("changed source above the supporting budget is still reviewed, without supporting files", async () => {
+  const { api, responses } = apiFixture();
+  const path = "platform/src/membership/example.ts";
+  responses["/compare/" + base + "..." + head].files[0].filename = path;
+  for (const ref of [base, head])
+    responses["/git/trees/" + ref + "?recursive=1"].tree[0].path = path;
+  // Each side stays under the 100 KB per-file limit; numbered together they exceed 175 KB.
+  const body = "// changed module body\n".repeat(3500);
+  for (const [ref, blobSha, source] of [
+    [head, "c".repeat(40), context.files[0].head + body],
+    [base, "d".repeat(40), context.files[0].base + body],
+  ]) {
+    responses["/git/trees/" + ref + "?recursive=1"].tree[0].size = Buffer.byteLength(source);
+    responses["/git/blobs/" + blobSha] = {
+      content: Buffer.from(source).toString("base64"),
+      size: Buffer.byteLength(source),
+      encoding: "base64",
+    };
+  }
+  responses["/git/trees/" + head + "?recursive=1"].tree.push({
+    path: "platform/src/membership/neighbor.ts",
+    type: "blob",
+    mode: "100644",
+    sha: "e".repeat(40),
+    size: 20,
+  });
+  responses["/git/blobs/" + "e".repeat(40)] = {
+    content: Buffer.from("export const x = 1;\n").toString("base64"),
+    size: 20,
+    encoding: "base64",
+  };
+  const collected = await collectContext(
+    api,
+    { pr: 12, base, head, repository: "owner/repo" },
+    "standards",
+  );
+  const bytes = Buffer.byteLength(JSON.stringify(modelContext(collected)));
+  assert.equal(collected.complete, true);
+  assert.ok(bytes > 175000 && bytes <= 360000);
+  assert.equal(collected.surrounding.length, 0);
+  let calls = 0;
+  const result = await review(collected, subscriptionCfg, async () => {
+    calls++;
+    return response(subscriptionResponse({ status: "completed", findings: [] }));
+  });
+  assert.equal(calls, 1);
+  assert.equal(result.status, "completed");
 });
 
 test("unsupported changed binaries still block inference with a specific reason", async () => {

@@ -4,6 +4,7 @@ import { posix } from "node:path";
 import {
   LIMITS,
   MARKER,
+  STANDARDS_CHARACTERS,
   boundedJson,
   emptyReport,
   exactKeys,
@@ -15,6 +16,9 @@ import {
   text,
   validateFindings,
 } from "./core.mjs";
+
+// Changed source may use the larger budget; optional supporting files stop at the smaller one.
+const REVIEW_BUDGET = Object.freeze({ changedBytes: 360000, supportingBytes: 175000 });
 
 export function githubApi(repository, token, fetcher = fetch) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repository)) throw new Error("Invalid repository");
@@ -79,7 +83,7 @@ export async function collectContext(api, target, standards) {
     surrounding: [],
     scope: { visualAssets: [], supportingFilesOmitted: 0 },
     checks: [],
-    standards: text(standards, 30000),
+    standards: text(standards, STANDARDS_CHARACTERS),
   };
   const omit = (reason) => {
     context.complete = false;
@@ -204,9 +208,11 @@ export async function collectContext(api, target, standards) {
       head: after,
     });
   }
-  // Changed text is mandatory. Supporting text is a bounded, explicitly disclosed sample.
-  // Reserve room for the prompt/schema within the gateway's 200k-character review conversation cap.
-  const fits = () => Buffer.byteLength(JSON.stringify(modelContext(context))) <= 175000;
+  // Changed text is mandatory and may use the full budget, reserving room for the prompt/schema
+  // within the gateway's 400k-character review cap. Supporting text is a bounded, explicitly
+  // disclosed sample that only fills to the smaller budget, so ordinary reviews stay fast.
+  const fits = (limit = REVIEW_BUDGET.changedBytes) =>
+    Buffer.byteLength(JSON.stringify(modelContext(context))) <= limit;
   if (!context.complete) return context;
   if (!context.files.length) {
     omit("No reviewable text changes; visual assets require human review.");
@@ -268,7 +274,7 @@ export async function collectContext(api, target, standards) {
       continue;
     }
     context.surrounding.push({ path, ref: target.head, content: value });
-    if (!fits()) {
+    if (!fits(REVIEW_BUDGET.supportingBytes)) {
       context.surrounding.pop();
       context.scope.supportingFilesOmitted++;
     }
