@@ -68,7 +68,7 @@ Update the app README and affected current guides when behavior changes. Use the
 
 Push your branch and open a PR into `main`. Explain the problem, what now happens, tests actually run, remaining limitations and deployment effects. Include app permissions or data changes so the reviewer knows what to check.
 
-GitHub requires Ivan's approval on other contributors' PRs; his own need none. Required CI and resolved review conversations apply to everyone. Follow the [advisory review loop](docs/ai-review.md#recommended-review-loop) with your agent; without Write access, ask Ivan to start the advisory review. AI advice cannot approve or merge; incomplete or unavailable review is not a clean review.
+GitHub requires Ivan's approval on other contributors' PRs; his own need none. Required CI and resolved review conversations apply to everyone. Follow the [advisory review loop](docs/ai-review.md#recommended-review-loop) with your agent; it runs automatically once Ivan has added you to the repository, and otherwise Ivan can start it. AI advice cannot approve or merge; incomplete or unavailable review is not a clean review.
 
 After an authorized merge, all apps build and release together. Follow [deployment guidance](docs/deployment.md) for production settings, migrations and rollback. Report pushed, merged and deployed as separate states.
 
