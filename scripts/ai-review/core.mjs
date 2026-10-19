@@ -415,6 +415,12 @@ async function subscriptionReview(context, presented, cfg, fetcher, wait = pause
       { role: "user", content: JSON.stringify({ originalContext: presented }) },
     ],
     stream: false,
+    // The gateway passes this to Claude, which checks its answer against it (including length
+    // limits) and returns plain JSON. The parsing and withholding below remain as a backstop.
+    response_format: {
+      type: "json_schema",
+      json_schema: { name: "slice_review", schema: SUBSCRIPTION_SCHEMA },
+    },
   };
   const serialized = JSON.stringify(body);
   if (
