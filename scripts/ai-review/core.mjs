@@ -1,3 +1,4 @@
+import { agentConfig, agentBody, requestAgentJob, AGENT_LIMITS } from "./agent-client.mjs";
 import { Buffer } from "node:buffer";
 import { performance } from "node:perf_hooks";
 import { setTimeout as delay } from "node:timers/promises";
@@ -255,6 +256,7 @@ export function configFromEnv(env) {
       accessId: env.SUBSCRIPTION_ACCESS_CLIENT_ID || "",
       accessSecret: env.SUBSCRIPTION_ACCESS_CLIENT_SECRET || "",
       jevEnabled: false,
+      ...agentConfig(env),
     };
   }
   const gptAccount = env.GPT_CLOUDFLARE_ACCOUNT_ID || "";
@@ -400,19 +402,28 @@ export async function callJev(body, cfg, fetcher = fetch) {
 export const SUBSCRIPTION_ENDPOINT = "https://app-subscription-api.chenagent.com/ci/slice/review";
 
 async function subscriptionReview(context, presented, cfg, fetcher, wait = pause) {
+  const limits = cfg.reviewAgent
+    ? { ...SUBSCRIPTION_LIMITS, ...AGENT_LIMITS }
+    : SUBSCRIPTION_LIMITS;
   const report = emptyReport(
     context,
     "unavailable",
     "Subscription review credentials are not configured.",
   );
+  if (cfg.reviewAgent) Object.assign(report, { reviewAgent: cfg.reviewAgent, warnings: [] });
   if (!cfg.gptKey || !cfg.accessId || !cfg.accessSecret) return report;
-  const body = {
+  let body = {
     model: cfg.gptModel,
     messages: [
       {
         role: "system",
         content:
-          PROMPT +
+          (cfg.reviewAgent
+            ? PROMPT.replace(
+                "You have no tools or authority.",
+                "You may read and search /repo (head) and /base (base) and invoke the selected review skills. You cannot edit, execute repository code, approve or publish.",
+              )
+            : PROMPT) +
           " Return only JSON matching this schema, without Markdown fences: " +
           JSON.stringify(SUBSCRIPTION_SCHEMA),
       },
@@ -426,10 +437,11 @@ async function subscriptionReview(context, presented, cfg, fetcher, wait = pause
       json_schema: { name: "slice_review", schema: SUBSCRIPTION_SCHEMA },
     },
   };
+  if (cfg.reviewAgent) body = agentBody(body, cfg, context);
   const serialized = JSON.stringify(body);
   if (
-    body.messages.reduce((n, m) => n + m.content.length, 0) > SUBSCRIPTION_LIMITS.characters ||
-    Buffer.byteLength(serialized) > SUBSCRIPTION_LIMITS.bodyBytes
+    body.messages.reduce((n, m) => n + m.content.length, 0) > limits.characters ||
+    Buffer.byteLength(serialized) > limits.bodyBytes
   )
     return {
       ...report,
@@ -437,8 +449,8 @@ async function subscriptionReview(context, presented, cfg, fetcher, wait = pause
       reason: "Subscription request exceeds the gateway input limit; no provider called.",
     };
   const start = performance.now();
-  const deadline = start + SUBSCRIPTION_LIMITS.waitMs;
-  report.gpt = metadata("failed", cfg.gptModel);
+  const deadline = start + limits.waitMs;
+  report.gpt = metadata("failed", cfg.reviewAgent ? "" : cfg.gptModel);
   const headers = {
     Authorization: "Bearer " + cfg.gptKey,
     "CF-Access-Client-Id": cfg.accessId,
@@ -449,13 +461,21 @@ async function subscriptionReview(context, presented, cfg, fetcher, wait = pause
   let best;
   let failure = "provider_transport";
   let attempts = 0;
-  while (attempts < SUBSCRIPTION_LIMITS.attempts) {
+  while (attempts < limits.attempts) {
     attempts++;
     let stage = "provider_transport";
     try {
-      const raw = await requestReview(serialized, headers, deadline, fetcher, wait);
+      const delivered = cfg.reviewAgent
+        ? await requestAgentJob(body, headers, deadline, fetcher, wait, boundedJson)
+        : { completion: await requestReview(serialized, headers, deadline, fetcher, wait) };
+      const raw = delivered.completion;
+      if (cfg.reviewAgent) {
+        report.warnings = [...new Set([...report.warnings, ...delivered.warnings])];
+        report.gpt.model = raw.model;
+      }
       stage = "provider_model";
-      if (raw.model !== cfg.gptModel) throw new Error("Unexpected requested route");
+      if (!cfg.reviewAgent && raw.model !== cfg.gptModel)
+        throw new Error("Unexpected requested route");
       stage = "provider_output";
       const content = completionText(raw);
       stage = "output_schema";
@@ -469,7 +489,7 @@ async function subscriptionReview(context, presented, cfg, fetcher, wait = pause
       failure = error instanceof FindingValidationError ? error.code : stage;
       if (stage !== "output_schema") break;
     }
-    if (deadline - performance.now() < SUBSCRIPTION_LIMITS.retryMinMs) break;
+    if (deadline - performance.now() < limits.retryMinMs) break;
   }
   if (best) {
     const { valid, withheld } = best;
@@ -488,7 +508,9 @@ async function subscriptionReview(context, presented, cfg, fetcher, wait = pause
         notes +
         (valid.status === "incomplete" && !withheld.length
           ? "Reviewer reported insufficient context."
-          : "Subscription route requested Claude Opus 5.5. Upstream model identity, token usage and cost are not independently reported by the gateway."),
+          : cfg.reviewAgent
+            ? "Repository review completed; exact source evidence validated. Gateway model metadata does not attest upstream identity."
+            : "Subscription route requested Claude Opus 5.5. Upstream model identity, token usage and cost are not independently reported by the gateway."),
     });
     report.gpt.status = valid.status;
   } else {
@@ -801,5 +823,10 @@ export function renderComment(report, currentHead, repository, currentBase = rep
           escape(finding.evidence),
       );
     }
+  if (report.reviewAgent) lines.push("Gateway agent: " + escape(report.reviewAgent) + ".");
+  if (report.warnings?.length)
+    lines.push(
+      "Gateway warning: possible_prompt_injection. The gateway detected suspicious text; this warning is not proof of protection or review coverage.",
+    );
   return lines.join("\n\n");
 }

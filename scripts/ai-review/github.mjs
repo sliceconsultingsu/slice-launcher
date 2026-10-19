@@ -1,3 +1,4 @@
+import { validateAgentMetadata } from "./agent-client.mjs";
 import { Buffer } from "node:buffer";
 import { TextDecoder } from "node:util";
 import { posix } from "node:path";
@@ -303,6 +304,7 @@ export async function collectContext(api, target, standards) {
 }
 
 export function validateReport(report) {
+  validateAgentMetadata(report);
   exactKeys(report, [
     "version",
     "reservedUsd",
@@ -313,6 +315,7 @@ export function validateReport(report) {
     "findings",
     "gpt",
     "jev",
+    ...(report.reviewAgent === undefined ? [] : ["reviewAgent", "warnings"]),
   ]);
   if (
     !Number.isFinite(report.reservedUsd) ||
@@ -369,7 +372,7 @@ export function validateReport(report) {
     ]);
     if (!["completed", "incomplete", "failed", "unavailable", "disabled"].includes(provider.status))
       throw new Error("Invalid provider status");
-    text(provider.model, 100);
+    text(provider.model, report.reviewAgent ? 107 : 100);
     for (const key of ["inputTokens", "outputTokens", "latencyMs"])
       if (!Number.isSafeInteger(provider[key]) || provider[key] < 0 || provider[key] > 10000000)
         throw new Error("Invalid usage metadata");
