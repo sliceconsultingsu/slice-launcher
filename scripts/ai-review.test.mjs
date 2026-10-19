@@ -747,6 +747,7 @@ test("subscription review uses one fixed authenticated request and validates rea
   assert.deepEqual(Object.keys(JSON.parse(calls[0].options.body)).sort(), [
     "messages",
     "model",
+    "response_format",
     "stream",
   ]);
   assert.equal(result.gpt.estimatedUsd, null);
@@ -813,6 +814,13 @@ test("subscription review accepts one Markdown fence and states text limits in i
   assert.equal(result.findings.length, 1);
   const instructions = sent.messages[0].content;
   assert.match(instructions, /without Markdown fences/);
+  assert.equal(sent.response_format.type, "json_schema");
+  const items = sent.response_format.json_schema.schema.properties.findings.items.properties;
+  assert.deepEqual(
+    [items.title.maxLength, items.explanation.maxLength, items.evidence.maxLength],
+    [120, 1000, 500],
+  );
+  assert.ok(JSON.stringify(sent.response_format).length < 20000);
   for (const limit of ['"maxLength":120', '"maxLength":1000', '"maxLength":500'])
     assert.ok(instructions.includes(limit), limit);
 });
