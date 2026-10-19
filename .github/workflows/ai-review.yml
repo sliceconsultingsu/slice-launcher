@@ -49,8 +49,12 @@ jobs:
           fi
           # Only people explicitly added to the repository count: on a public repository the
           # permission endpoint reports "read" for every GitHub user.
-          if ! gh api "repos/$GITHUB_REPOSITORY/collaborators/$AUTHOR" --silent 2>/dev/null; then
-            reason="is not a collaborator on this repository"
+          # Only a 404 means "not a collaborator"; other failures are reported as a lookup error.
+          if ! lookup=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$AUTHOR" --silent 2>&1); then
+            case "$lookup" in
+              *"HTTP 404"*) reason="is not a collaborator on this repository" ;;
+              *) reason="could not be checked because the GitHub lookup failed; dispatch the review or push again" ;;
+            esac
           else
             role=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$AUTHOR/permission" --jq .role_name 2>/dev/null || echo unknown)
             case "$role" in
