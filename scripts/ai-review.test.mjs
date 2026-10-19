@@ -755,7 +755,7 @@ test("subscription review uses one fixed authenticated request and validates rea
   assert.match(renderComment(result, head, "owner/repo"), /Reviewer: completed/);
 });
 
-test("subscription review rejects unsupported output, forged citations and wrong routes", async () => {
+test("subscription review rejects unsupported output and wrong routes", async () => {
   for (const raw of [
     { ...subscriptionResponse(), model: "chatgpt/gpt-6-luna" },
     { ...subscriptionResponse(), choices: [] },
@@ -774,13 +774,69 @@ test("subscription review rejects unsupported output, forged citations and wrong
         },
       ],
     },
-    subscriptionResponse({ ...output, findings: [{ ...finding, evidence: "forged secret" }] }),
+    {
+      ...subscriptionResponse(),
+      choices: [
+        {
+          message: {
+            role: "assistant",
+            content: "Here is the review:\n```json\n" + JSON.stringify(output) + "\n```",
+          },
+          finish_reason: "stop",
+        },
+      ],
+    },
   ]) {
     const result = await review(context, subscriptionCfg, async () => response(raw));
     assert.equal(result.status, "failed");
     assert.deepEqual(result.findings, []);
     assert.doesNotMatch(JSON.stringify(result), /forged secret|not JSON secret/);
   }
+});
+
+test("subscription review accepts one Markdown fence and states text limits in its schema", async () => {
+  let sent;
+  const fenced = {
+    ...subscriptionResponse(),
+    choices: [
+      {
+        message: { role: "assistant", content: "```json\n" + JSON.stringify(output) + "\n```\n" },
+        finish_reason: "stop",
+      },
+    ],
+  };
+  const result = await review(context, subscriptionCfg, async (_url, options) => {
+    sent = JSON.parse(options.body);
+    return response(fenced);
+  });
+  assert.equal(result.status, "completed");
+  assert.equal(result.findings.length, 1);
+  const instructions = sent.messages[0].content;
+  assert.match(instructions, /without Markdown fences/);
+  for (const limit of ['"maxLength":120', '"maxLength":1000', '"maxLength":500'])
+    assert.ok(instructions.includes(limit), limit);
+});
+
+test("one invalid subscription finding is withheld without discarding valid ones", async () => {
+  const forged = { ...finding, title: "Forged", evidence: "forged secret" };
+  const oversized = { ...finding, title: "Oversized", explanation: "x".repeat(1001) };
+  const result = await review(context, subscriptionCfg, async () =>
+    response(subscriptionResponse({ ...output, findings: [forged, finding, oversized] })),
+  );
+  assert.equal(result.status, "incomplete");
+  assert.deepEqual(result.findings, output.findings);
+  assert.match(
+    result.reason,
+    /2 finding\(s\) withheld after failing validation \[evidence_mismatch, output_schema\]/,
+  );
+  assert.doesNotMatch(JSON.stringify(result), /forged secret|Forged|Oversized/);
+  validateReport(result);
+  const none = await review(context, subscriptionCfg, async () =>
+    response(subscriptionResponse({ ...output, findings: [forged] })),
+  );
+  assert.equal(none.status, "incomplete");
+  assert.deepEqual(none.findings, []);
+  assert.throws(() => validateFindings({ ...output, findings: [forged] }, context));
 });
 
 const jobId = "0f8fad5b-d9cb-469f-a165-70867728950e";
