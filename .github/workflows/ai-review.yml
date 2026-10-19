@@ -24,8 +24,7 @@ concurrency:
 
 jobs:
   # The review spends the maintainer's subscription, so it runs automatically only for PRs from
-  # consultants added to the repository below admin. Administrators and anyone else can still
-  # have a maintainer dispatch it.
+  # people added to the repository (any role). Anyone else can still have a maintainer dispatch it.
   trust:
     if: >-
       (github.event_name == 'pull_request_target' &&
@@ -58,8 +57,7 @@ jobs:
           else
             role=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$AUTHOR/permission" --jq .role_name 2>/dev/null || echo unknown)
             case "$role" in
-              read | triage | write | maintain) reason="" ;;
-              admin) reason="is an administrator; administrators start a review manually when they want one" ;;
+              read | triage | write | maintain | admin) reason="" ;;
               *) reason="has the $role role" ;;
             esac
           fi
@@ -98,7 +96,8 @@ jobs:
   review:
     needs: pending
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Room for a queued review plus one retry (scripts/ai-review/core.mjs SUBSCRIPTION_LIMITS).
+    timeout-minutes: 15
     # Separate environment contains ONLY project-scoped provider keys.
     # Configure environment deployment-branch restrictions to protected main.
     environment: ai-review

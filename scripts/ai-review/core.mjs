@@ -12,14 +12,18 @@ export const LIMITS = Object.freeze({
 });
 // Must match the gateway's /ci/slice/review route: 400,000 characters, 640 KB and 300 s of inference.
 // Reviews run as gateway jobs because Cloudflare ends a request with no response after 125 s.
-// waitMs leaves room for a queued review inside the workflow's 10-minute job timeout; the
+// waitMs leaves room for a queued review and one retry inside the workflow's job timeout; the
 // gateway cancels a job nobody checks on for two minutes, so an abandoned run stops spending.
 export const SUBSCRIPTION_LIMITS = Object.freeze({
   characters: 400000,
   bodyBytes: 640000,
   requestTimeoutMs: 30000,
   pollIntervalMs: 10000,
-  waitMs: 480000,
+  // Shared by both attempts; the review job's 15-minute timeout leaves room for setup.
+  waitMs: 720000,
+  attempts: 2,
+  // Only retry when enough of the deadline remains for a typical review.
+  retryMinMs: 180000,
 });
 const JOB_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const pause = (ms) => delay(ms);
@@ -433,74 +437,52 @@ async function subscriptionReview(context, presented, cfg, fetcher, wait = pause
       reason: "Subscription request exceeds the gateway input limit; no provider called.",
     };
   const start = performance.now();
+  const deadline = start + SUBSCRIPTION_LIMITS.waitMs;
   report.gpt = metadata("failed", cfg.gptModel);
-  let stage = "provider_transport";
-  try {
-    const headers = {
-      Authorization: "Bearer " + cfg.gptKey,
-      "CF-Access-Client-Id": cfg.accessId,
-      "CF-Access-Client-Secret": cfg.accessSecret,
-    };
-    const submitted = await fetcher(SUBSCRIPTION_ENDPOINT, {
-      method: "POST",
-      redirect: "error",
-      signal: AbortSignal.timeout(SUBSCRIPTION_LIMITS.requestTimeoutMs),
-      headers: { ...headers, "Content-Type": "application/json", Prefer: "respond-async" },
-      body: serialized,
-    });
-    let raw = await boundedJson(submitted);
-    // 202 means the gateway queued a job; a plain 200 is a gateway without jobs answering directly.
-    if (submitted.status === 202) {
-      const id = raw.id;
-      if (typeof id !== "string" || !JOB_ID.test(id)) throw new Error("Invalid review job");
-      const deadline = performance.now() + SUBSCRIPTION_LIMITS.waitMs;
-      const maxPolls = Math.floor(SUBSCRIPTION_LIMITS.waitMs / SUBSCRIPTION_LIMITS.pollIntervalMs);
-      let job = raw;
-      for (let polls = 0; job.status === "queued" || job.status === "running"; polls++) {
-        if (polls >= maxPolls || performance.now() + SUBSCRIPTION_LIMITS.pollIntervalMs > deadline)
-          throw new Error("Review job did not finish in time");
-        await wait(SUBSCRIPTION_LIMITS.pollIntervalMs);
-        job = await boundedJson(
-          await fetcher(SUBSCRIPTION_ENDPOINT + "?job=" + id, {
-            method: "GET",
-            redirect: "error",
-            signal: AbortSignal.timeout(SUBSCRIPTION_LIMITS.requestTimeoutMs),
-            headers,
-          }),
-          LIMITS.responseBytes + 4096,
-        );
-        if (job.id !== id) throw new Error("Mismatched review job");
-      }
-      if (job.status !== "completed" || !job.result || typeof job.result !== "object")
-        throw new Error("Review job failed");
-      raw = job.result;
+  const headers = {
+    Authorization: "Bearer " + cfg.gptKey,
+    "CF-Access-Client-Id": cfg.accessId,
+    "CF-Access-Client-Secret": cfg.accessSecret,
+  };
+  // A reply that fails the checks gets one fresh review. Transport and provider failures are
+  // never retried: the first request may already have used the subscription allowance.
+  let best;
+  let failure = "provider_transport";
+  let attempts = 0;
+  while (attempts < SUBSCRIPTION_LIMITS.attempts) {
+    attempts++;
+    let stage = "provider_transport";
+    try {
+      const raw = await requestReview(serialized, headers, deadline, fetcher, wait);
+      stage = "provider_model";
+      if (raw.model !== cfg.gptModel) throw new Error("Unexpected requested route");
+      stage = "provider_output";
+      const content = completionText(raw);
+      stage = "output_schema";
+      const { withheld, ...valid } = validateFindings(parseReply(content), context, {
+        withhold: true,
+      });
+      if (!best || valid.findings.length > best.valid.findings.length || !withheld.length)
+        best = { valid, withheld };
+      if (!withheld.length) break;
+    } catch (error) {
+      failure = error instanceof FindingValidationError ? error.code : stage;
+      if (stage !== "output_schema") break;
     }
-    stage = "provider_model";
-    if (raw.model !== cfg.gptModel) throw new Error("Unexpected requested route");
-    stage = "provider_output";
-    if (raw.object !== "chat.completion" || !Array.isArray(raw.choices) || raw.choices.length !== 1)
-      throw new Error("Invalid completion");
-    const choice = raw.choices[0];
-    if (
-      choice.finish_reason !== "stop" ||
-      choice.message?.role !== "assistant" ||
-      choice.message?.tool_calls ||
-      choice.message?.refusal ||
-      typeof choice.message?.content !== "string"
-    )
-      throw new Error("Incomplete or unsupported completion");
-    stage = "output_schema";
-    const { withheld, ...valid } = validateFindings(parseReply(choice.message.content), context, {
-      withhold: true,
-    });
-    // A withheld finding means the published result is partial, so it is never shown as complete.
+    if (deadline - performance.now() < SUBSCRIPTION_LIMITS.retryMinMs) break;
+  }
+  if (best) {
+    const { valid, withheld } = best;
+    // After the retry, a remaining invalid finding is withheld rather than losing the review.
     if (withheld.length) valid.status = "incomplete";
-    const notes = withheld.length
-      ? withheld.length +
-        " finding(s) withheld after failing validation [" +
-        [...new Set(withheld)].join(", ") +
-        "]. "
-      : "";
+    const notes =
+      (attempts > 1 ? "Retried once after a reply failed validation. " : "") +
+      (withheld.length
+        ? withheld.length +
+          " finding(s) withheld after failing validation [" +
+          [...new Set(withheld)].join(", ") +
+          "]. "
+        : "");
     Object.assign(report, valid, {
       reason:
         notes +
@@ -509,11 +491,10 @@ async function subscriptionReview(context, presented, cfg, fetcher, wait = pause
           : "Subscription route requested Claude Opus 5.5. Upstream model identity, token usage and cost are not independently reported by the gateway."),
     });
     report.gpt.status = valid.status;
-  } catch (error) {
-    const category = error instanceof FindingValidationError ? error.code : stage;
+  } else {
     Object.assign(report, {
       status: "failed",
-      reason: "Subscription review failed [" + category + "]; no findings published.",
+      reason: "Subscription review failed [" + failure + "]; no findings published.",
       findings: [],
     });
   }
@@ -521,6 +502,57 @@ async function subscriptionReview(context, presented, cfg, fetcher, wait = pause
   // estimatedUsd stays null, and reservedUsd=0 is not a subscription spending cap.
   report.gpt.latencyMs = Math.round(performance.now() - start);
   return report;
+}
+
+// Submits one review job and checks it until it finishes, within the shared deadline.
+async function requestReview(serialized, headers, deadline, fetcher, wait) {
+  const submitted = await fetcher(SUBSCRIPTION_ENDPOINT, {
+    method: "POST",
+    redirect: "error",
+    signal: AbortSignal.timeout(SUBSCRIPTION_LIMITS.requestTimeoutMs),
+    headers: { ...headers, "Content-Type": "application/json", Prefer: "respond-async" },
+    body: serialized,
+  });
+  const raw = await boundedJson(submitted);
+  // 202 means the gateway queued a job; a plain 200 is a gateway without jobs answering directly.
+  if (submitted.status !== 202) return raw;
+  const id = raw.id;
+  if (typeof id !== "string" || !JOB_ID.test(id)) throw new Error("Invalid review job");
+  const maxPolls = Math.floor(SUBSCRIPTION_LIMITS.waitMs / SUBSCRIPTION_LIMITS.pollIntervalMs);
+  let job = raw;
+  for (let polls = 0; job.status === "queued" || job.status === "running"; polls++) {
+    if (polls >= maxPolls || performance.now() + SUBSCRIPTION_LIMITS.pollIntervalMs > deadline)
+      throw new Error("Review job did not finish in time");
+    await wait(SUBSCRIPTION_LIMITS.pollIntervalMs);
+    job = await boundedJson(
+      await fetcher(SUBSCRIPTION_ENDPOINT + "?job=" + id, {
+        method: "GET",
+        redirect: "error",
+        signal: AbortSignal.timeout(SUBSCRIPTION_LIMITS.requestTimeoutMs),
+        headers,
+      }),
+      LIMITS.responseBytes + 4096,
+    );
+    if (job.id !== id) throw new Error("Mismatched review job");
+  }
+  if (job.status !== "completed" || !job.result || typeof job.result !== "object")
+    throw new Error("Review job failed");
+  return job.result;
+}
+
+function completionText(raw) {
+  if (raw.object !== "chat.completion" || !Array.isArray(raw.choices) || raw.choices.length !== 1)
+    throw new Error("Invalid completion");
+  const choice = raw.choices[0];
+  if (
+    choice.finish_reason !== "stop" ||
+    choice.message?.role !== "assistant" ||
+    choice.message?.tool_calls ||
+    choice.message?.refusal ||
+    typeof choice.message?.content !== "string"
+  )
+    throw new Error("Incomplete or unsupported completion");
+  return choice.message.content;
 }
 
 export async function review(context, cfg, fetcher = fetch, wait = pause) {

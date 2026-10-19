@@ -847,6 +847,70 @@ test("one invalid subscription finding is withheld without discarding valid ones
   assert.throws(() => validateFindings({ ...output, findings: [forged] }, context));
 });
 
+test("a reply that fails the checks gets one fresh review", async () => {
+  const forged = { ...finding, title: "Forged", evidence: "forged secret" };
+  const text = (content) => ({
+    ...subscriptionResponse(),
+    choices: [{ message: { role: "assistant", content }, finish_reason: "stop" }],
+  });
+  const cases = [
+    // Unreadable first reply, clean second: the second is published.
+    [text("Here you go: not JSON"), subscriptionResponse()],
+    // One invalid finding first, clean second: nothing is withheld.
+    [subscriptionResponse({ ...output, findings: [forged, finding] }), subscriptionResponse()],
+  ];
+  for (const replies of cases) {
+    let posts = 0;
+    const result = await review(context, subscriptionCfg, async () => {
+      posts++;
+      return response(replies.shift());
+    });
+    assert.equal(posts, 2);
+    assert.equal(result.status, "completed");
+    assert.deepEqual(result.findings, [finding]);
+    assert.match(result.reason, /^Retried once after a reply failed validation\./);
+    assert.doesNotMatch(result.reason, /withheld/);
+    assert.doesNotMatch(JSON.stringify(result), /forged secret|not JSON/);
+  }
+  let posts = 0;
+  const clean = await review(context, subscriptionCfg, async () => {
+    posts++;
+    return response(subscriptionResponse());
+  });
+  assert.equal(posts, 1);
+  assert.doesNotMatch(clean.reason, /Retried/);
+});
+
+test("after the retry, the better attempt is kept and remaining invalid findings are withheld", async () => {
+  const forged = { ...finding, title: "Forged", evidence: "forged secret" };
+  const replies = [
+    subscriptionResponse({ ...output, findings: [forged, finding] }),
+    subscriptionResponse({ ...output, findings: [forged] }),
+  ];
+  let posts = 0;
+  const result = await review(context, subscriptionCfg, async () => {
+    posts++;
+    return response(replies.shift());
+  });
+  assert.equal(posts, 2);
+  assert.equal(result.status, "incomplete");
+  assert.deepEqual(result.findings, [finding]);
+  assert.match(
+    result.reason,
+    /Retried once.*1 finding\(s\) withheld after failing validation \[evidence_mismatch\]/,
+  );
+  const unreadable = await review(context, subscriptionCfg, async () =>
+    response({
+      ...subscriptionResponse(),
+      choices: [
+        { message: { role: "assistant", content: "still not JSON" }, finish_reason: "stop" },
+      ],
+    }),
+  );
+  assert.equal(unreadable.status, "failed");
+  assert.match(unreadable.reason, /\[output_schema\]/);
+});
+
 const jobId = "0f8fad5b-d9cb-469f-a165-70867728950e";
 const jobResponse = (value) => new Response(JSON.stringify(value), { status: 202 });
 const noWait = async () => {};
