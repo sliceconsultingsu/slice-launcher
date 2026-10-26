@@ -21,7 +21,10 @@
     "test:migrations": "pnpm --filter @slice/launcher test:migrations",
     "app:create": "node scripts/platform-apps.mjs create",
     "apps:sync": "node scripts/platform-apps.mjs sync",
-    "check:platform": "node scripts/platform-apps.mjs check"
+    "check:platform": "node scripts/platform-apps.mjs check",
+    "team:workspace": "node scripts/team-workspace.mjs",
+    "team:dev": "pnpm --filter @slice/launcher team:dev",
+    "test:team": "pnpm --filter @slice/launcher test:team"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
