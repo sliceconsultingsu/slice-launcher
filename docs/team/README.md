@@ -34,7 +34,7 @@ Ivan owns the common schema, app entry point, permission declarations, migration
 
 - Start from current `main` once the starter PR is merged. Before that, use the starter PR's branch as the task base and mark your PR as dependent; do not merge a dependent task ahead of the starter.
 - Use a short-lived branch for each task. A branch is your proposed set of changes. Keep one task in progress per person and open a draft PR early. Update with merged work between tasks; ask for help with conflicts instead of replacing someone else's changes.
-- Read the task brief and [shared contracts](contracts.md). Explain the expected result before generating code. Your agent should read root `AGENTS.md` and the app's README.
+- Read the task brief and [shared contracts](../../platform/apps/alumni/README.md#common-interfaces). Explain the expected result before generating code. Your agent should read root `AGENTS.md` and the app's README.
 - Keep the change within the task. Use only fictional data in code, prompts, screenshots, issues and PRs. Do not add a new database, login system, deployment, dependency or scraping source as a shortcut.
 - Run the task's focused checks as you work. Before review, run the full [contributor checks](../../CONTRIBUTING.md#4-implement-and-check), including `corepack pnpm test:team`.
 - Demonstrate the result and one failure case. Explain what changed, why it works, and what is unfinished. A green test or an agent's claim alone is not a demo.
@@ -42,7 +42,7 @@ Ivan owns the common schema, app entry point, permission declarations, migration
 
 ## A task prompt to copy
 
-> Read AGENTS.md, platform/apps/alumni/README.md, docs/team/contracts.md, and my task brief. Explain the user-visible result and the files you will change. Work on my task branch in my workspace. Add a test for the requested behavior, implement the smallest change, and run the relevant checks. Keep shared contracts, permissions and platform files unchanged unless the task explicitly includes an agreed integration change. Use fictional data only. Show me how to demonstrate the result and explain anything still unfinished. Prepare a PR for Ivan's review; do not merge or deploy.
+> Read AGENTS.md, platform/apps/alumni/README.md, platform/apps/alumni/README.md, and my task brief. Explain the user-visible result and the files you will change. Work on my task branch in my workspace. Add a test for the requested behavior, implement the smallest change, and run the relevant checks. Keep shared contracts, permissions and platform files unchanged unless the task explicitly includes an agreed integration change. Use fictional data only. Show me how to demonstrate the result and explain anything still unfinished. Prepare a PR for Ivan's review; do not merge or deploy.
 
 ## Team check-in
 
@@ -54,4 +54,27 @@ The issue's examples work; its failure case is covered; current checks pass; the
 
 ## See the starter
 
-[Desktop screenshot](images/desktop.png) · [Mobile screenshot](images/mobile.png). Both show fictional data. The preview and editable source are included in this repository; see the [artifact index](images/README.md).
+[Desktop screenshot](images/desktop.png) · [Mobile screenshot](images/mobile.png). Both PNG files show fictional data and open in a browser or image viewer. Desktop uses a 1440px viewport; mobile uses 390px. Reproduce them with `corepack pnpm team:dev`. Editable source and the runnable preview are included in this repository.
+
+## Setup implementation record
+
+### Agreed outcome
+
+Five beginner contributors can work on the alumni database, directory/student profiles, matching, MCP, and refresh runner simultaneously. Each starts with synthetic records, explicit shared contracts, a small acceptance-tested task, an isolated checkout and a reproducible preview. Ivan retains shared architecture and integration ownership. Real data sources, final matching criteria, team identities and remote access are pending.
+
+### Implementation
+
+1. Scaffold `platform/apps/alumni` once. Add bounded alumni/student schemas, synthetic fixtures, a read-only repository interface and a guarded records API. Validate malformed records, rejected writes and missing permissions.
+2. Add the directory client used by the real app and the learning preview. Test successful loading, failure/empty states and desktop/mobile accessibility.
+3. Add a loopback-only synthetic preview under `platform/tests/team`, reusing the real dispatcher and signed identity verifier with disposable membership storage. Keep its identity keys in memory. Verify foreign hosts/origins are denied and production credentials are unnecessary. No production auth bypass or live data connection.
+4. Add workspace creation tooling: five independent clones, branches and ports; refuse existing destinations and invalid slot/ref values. No account provisioning, copied credentials, public tunnels or destructive resets. Verify isolation with temporary repositories.
+5. Publish the beginner guide, common interface specification, five task briefs, task issue template and session checklist. Connect existing CI to the new browser checks without weakening current checks. Create five unassigned GitHub starter issues after their source is pushed.
+6. Run full repository validation, browser checks, build and smoke test; review the branch; push and open a PR. Provision five prepared SSD checkouts from the verified revision. Named task assignment and individual remote access depend on contributor details.
+
+### Integration decisions
+
+- The starter is explicitly synthetic and read-only; importing real data, computed matching, MCP alumni tools and scheduled refresh are team deliverables, not completed claims.
+- App business code stays in the existing module contract. MCP will use the existing shared adapter. A production refresh scheduler needs a reviewed platform extension; no separate app Worker is introduced.
+- A proposed development schema is a coordination baseline, not final client acceptance. Shared changes need Ivan's review.
+- Separate checkouts prevent accidental edit collisions; they do not isolate operating-system accounts. Remote contributors need individually provisioned access, not Ivan's credentials.
+- All app owners test their own changes. Integration is a shared activity coordinated by Ivan.

@@ -8,7 +8,7 @@ Compare one fictional incoming update to an existing alumni record and show a re
 
 ## Scope
 
-Create `platform/apps/alumni/refresh/propose.ts` and `propose.test.ts`. Implement `proposeRefresh(current, candidate)` from [shared contracts](../contracts.md). Define a strict candidate schema with exact alumni ID, HTTPS source URL, ISO retrieval time and bounded optional company/role/industry/expertise fields. Use reserved `example.test` URLs in tests. Do not modify shared schema, storage or deployment files.
+Create `platform/apps/alumni/refresh/propose.ts` and `propose.test.ts`. Implement `proposeRefresh(current, candidate)` from [shared contracts](../../../platform/apps/alumni/README.md#common-interfaces). Define a strict candidate schema with exact alumni ID, HTTPS source URL, ISO retrieval time and bounded optional company/role/industry/expertise fields. Use reserved `example.test` URLs in tests. Do not modify shared schema, storage or deployment files.
 
 ## Acceptance examples
 

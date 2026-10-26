@@ -8,7 +8,7 @@ Given a fictional student, return alumni whose industry matches a stated interes
 
 ## Scope
 
-Create `platform/apps/alumni/matching/recommend.ts` and `recommend.test.ts`. Implement `recommendMatches(student, alumni)` from [shared contracts](../contracts.md). Use the existing types; no API, new dependency, network call, model provider or UI change in this first PR.
+Create `platform/apps/alumni/matching/recommend.ts` and `recommend.test.ts`. Implement `recommendMatches(student, alumni)` from [shared contracts](../../../platform/apps/alumni/README.md#common-interfaces). Use the existing types; no API, new dependency, network call, model provider or UI change in this first PR.
 
 ## Acceptance examples
 

@@ -8,7 +8,7 @@ An authorized MCP client can search the same sample alumni records used by the d
 
 ## Scope
 
-Create `platform/apps/alumni/mcp/tools.ts` and `tools.test.ts`. Use the existing `defineAppTool` helper and repository adapter. Export the `search_alumni` tool definition. Coordinate its registration in `server.tsx` with Ivan; do not edit the shared adapter or install an MCP SDK. Follow [the MCP guide](../../mcp.md) and [shared contracts](../contracts.md).
+Create `platform/apps/alumni/mcp/tools.ts` and `tools.test.ts`. Use the existing `defineAppTool` helper and repository adapter. Export the `search_alumni` tool definition. Coordinate its registration in `server.tsx` with Ivan; do not edit the shared adapter or install an MCP SDK. Follow [the MCP guide](../../mcp.md) and [shared contracts](../../../platform/apps/alumni/README.md#common-interfaces).
 
 ## Acceptance examples
 

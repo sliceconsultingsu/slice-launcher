@@ -8,7 +8,7 @@ A maintainer can inspect a proposed import and see which fictional rows are vali
 
 ## Scope
 
-Create `platform/apps/alumni/data/import.ts` and `import.test.ts`. Implement `validateImport(rows, existing)` with the exact `ImportReport` contract in [shared contracts](../contracts.md). Reuse `alumniSchema`. Do not change `contracts.ts`, `data.ts`, `server.tsx`, migrations or permission files without an agreed integration change.
+Create `platform/apps/alumni/data/import.ts` and `import.test.ts`. Implement `validateImport(rows, existing)` with the exact `ImportReport` contract in [shared contracts](../../../platform/apps/alumni/README.md#common-interfaces). Reuse `alumniSchema`. Do not change `contracts.ts`, `data.ts`, `server.tsx`, migrations or permission files without an agreed integration change.
 
 ## Acceptance examples
 
