@@ -1,6 +1,7 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+vi.mock("./apps", () => ({ apps: [], getAppUrl: (app: { id: string }) => `/apps/${app.id}` }));
 import Home from "../../app/page";
 
 it("shows a useful empty state before any apps are published", () => {

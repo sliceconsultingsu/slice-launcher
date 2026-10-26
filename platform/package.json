@@ -48,6 +48,8 @@
     "test:e2e": "playwright test --config playwright.config.ts",
     "test:coverage": "vitest run --config vitest.config.ts --coverage",
     "test:migrations": "vitest run --config vitest.config.ts src/membership/migrations.test.ts",
-    "test:e2e:server": "tsx tests/e2e/server.ts"
+    "test:e2e:server": "tsx tests/e2e/server.ts",
+    "team:dev": "tsx tests/team/server.ts",
+    "test:team": "playwright test --config playwright.team.config.ts"
   }
 }

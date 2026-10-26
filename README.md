@@ -6,6 +6,8 @@ One home for Slice Consulting's internal tools. Consultants sign in once; each t
 
 **Live app:** [slice-launcher.ivan27chen.workers.dev](https://slice-launcher.ivan27chen.workers.dev) — sign in with your approved Slice account.
 
+**Joining the alumni team? Start with [the beginner team guide](docs/team/README.md).** It includes your workspace, first task and review routine.
+
 **Building an app? Start in [platform/apps/](platform/apps/README.md).** Each app gets its own folder there. The shared login, launcher and administration live elsewhere in `platform/`.
 
 ## Start here
@@ -30,7 +32,7 @@ Your agent should explain work in clear business language and help you learn as 
 
 ## What is ready?
 
-The launcher, member approval, access levels, activity history, shared app routes, shared MCP adapter and CI/deployment pipeline are implemented. **There are no business apps yet**; the alumni directory is planned, not built.
+The launcher, member approval, access levels, activity history, shared app routes, shared MCP adapter and CI/deployment pipeline are implemented. **The alumni app is a read-only learning starter with fictional records.** Persistent alumni data, matching, alumni MCP tools and refresh jobs remain to be built.
 
 An ordinary Member can view the member directory by default. Admin permissions come from ownership or explicitly assigned permissions. Owners have full admin access even if their **base access level** is called Member. The account screen distinguishes the effective organization role from that base level. See [how access works](docs/membership.md).
 
@@ -69,10 +71,10 @@ Open the local address printed in the terminal. This starts the launcher; local 
 To create an app:
 
 ```sh
-pnpm app:create alumni "Alumni directory"
+pnpm app:create my-tool "My tool"
 ```
 
-This creates `platform/apps/alumni/` and registers `/apps/alumni`. It creates a starter, not a finished directory. Follow [the app guide](docs/adding-an-app.md) to add features and grant access.
+This creates `platform/apps/my-tool/` and registers `/apps/my-tool`. It creates a starter, not a finished directory. Follow [the app guide](docs/adding-an-app.md) to add features and grant access.
 
 ## Before submitting work
 

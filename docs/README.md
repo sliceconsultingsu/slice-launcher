@@ -2,6 +2,8 @@
 
 Start with the [main README](../README.md) and [contribution walkthrough](../CONTRIBUTING.md). The guides below describe the current implementation; completed experiments and old plans are kept separately as evidence.
 
+Start building the alumni app with the [team onboarding guide](team/README.md), [workspace setup](team/workspaces.md), and [shared interfaces](team/contracts.md).
+
 ## Current guides
 
 | Guide                                 | What it answers                                     |

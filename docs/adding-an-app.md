@@ -8,11 +8,11 @@ From the repository root:
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm app:create alumni "Alumni directory"
+pnpm app:create my-tool "My tool"
 pnpm dev
 ```
 
-The command creates `platform/apps/alumni/server.tsx`, creates its `app.json` settings and README, and updates the generated catalog and server registry. The app is served at `/apps/alumni`; its optional API is `/api/apps/alumni/...`. All URLs stay on the platform origin and use the existing sign-in session. The catalog in this release is empty; creating this starter does not implement an alumni database.
+The command creates `platform/apps/my-tool/server.tsx`, creates its `app.json` settings and README, and updates the generated catalog and server registry. The app is served at `/apps/my-tool`; its optional API is `/api/apps/my-tool/...`. All URLs stay on the platform origin and use the existing sign-in session. The catalog includes the synthetic alumni learning starter. For that project, use [the team guide](team/README.md) rather than creating it again.
 
 Build the UI in the module's `Page` and any API in `api`. Import `AppModule` and context types from `../../src/platform/contracts`. Client components can be colocated; keep data reads and writes in guarded server handlers. The host owns routing and the page shell. Don't add server actions or unguarded Next route handlers for a module.
 

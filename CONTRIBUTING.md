@@ -2,6 +2,8 @@
 
 You do not need to understand the whole platform to contribute an app. Start with a small, agreed task and work in that app's folder. You are responsible for the changes you submit, including work produced by an AI agent.
 
+For the alumni project, start with the [beginner team guide](docs/team/README.md). The alumni starter already exists; use your own prepared workspace instead of scaffolding it again.
+
 ## 1. Find the right place
 
 - **App features:** `platform/apps/<app-name>/`. Start with [the apps folder](platform/apps/README.md).
@@ -24,7 +26,7 @@ pnpm dev
 Create a feature branch before editing. Keep other contributors' changes. If you need a new app, run this from the repository root:
 
 ```sh
-pnpm app:create alumni "Alumni directory"
+pnpm app:create my-tool "My tool"
 ```
 
 The command creates its folder, app settings, starter screen and README. Follow [adding an app](docs/adding-an-app.md). Edit that app's `app.json` to change its public name or declared permissions, then run `pnpm apps:sync`. Generated catalog/import files are not edited by hand. Every app inherits the platform's sign-in, permission checks, MCP adapter and deployment.
@@ -56,6 +58,7 @@ pnpm test:coverage
 pnpm test:migrations
 pnpm --filter @slice/launcher exec playwright install chromium
 pnpm test:e2e
+pnpm test:team
 pnpm build
 pnpm smoke:launcher
 ```
