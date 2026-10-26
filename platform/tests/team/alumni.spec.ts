@@ -54,3 +54,7 @@ test("preview rejects cross-site callers and private files; API stays read-only"
   expect((await request.get("/.env")).status()).toBeGreaterThanOrEqual(400);
   expect((await request.get("/../.git/config")).status()).toBeGreaterThanOrEqual(400);
 });
+
+test("malformed API paths return a client error", async ({ request }) => {
+  expect((await request.get("/api/apps/alumni/%E0")).status()).toBe(400);
+});

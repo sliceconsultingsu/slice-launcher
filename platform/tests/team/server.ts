@@ -93,6 +93,14 @@ server.on("request", async (req, res) => {
     }
     const url = new URL(req.url, origin);
     if (url.pathname.startsWith("/api/apps/alumni/")) {
+      let path: string[];
+      try {
+        path = url.pathname.slice("/api/apps/alumni/".length).split("/").map(decodeURIComponent);
+      } catch {
+        res.writeHead(400);
+        res.end("Invalid API path encoding.");
+        return;
+      }
       // No production credentials: an ephemeral, server-only key signs the fictional learner.
       const jwt = await new SignJWT({ sub: "learner", email, type: "app" })
         .setProtectedHeader({ alg: "RS256", kid: "learning-only" })
@@ -131,7 +139,7 @@ server.on("request", async (req, res) => {
       const response = await platform.api(
         new Request(url, { method: req.method, headers, body }),
         "alumni",
-        url.pathname.slice("/api/apps/alumni/".length).split("/").map(decodeURIComponent),
+        path,
       );
       res.writeHead(response.status, Object.fromEntries(response.headers));
       res.end(await response.text());

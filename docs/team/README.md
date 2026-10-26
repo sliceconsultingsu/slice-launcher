@@ -42,7 +42,7 @@ Ivan owns the common schema, app entry point, permission declarations, migration
 
 ## A task prompt to copy
 
-> Read AGENTS.md, platform/apps/alumni/README.md, platform/apps/alumni/README.md, and my task brief. Explain the user-visible result and the files you will change. Work on my task branch in my workspace. Add a test for the requested behavior, implement the smallest change, and run the relevant checks. Keep shared contracts, permissions and platform files unchanged unless the task explicitly includes an agreed integration change. Use fictional data only. Show me how to demonstrate the result and explain anything still unfinished. Prepare a PR for Ivan's review; do not merge or deploy.
+> Read AGENTS.md, platform/apps/alumni/README.md, docs/team/workspaces.md, and my task brief. Explain the user-visible result and the files you will change. Work on my task branch in my workspace. Add a test for the requested behavior, implement the smallest change, and run the relevant checks. Keep shared contracts, permissions and platform files unchanged unless the task explicitly includes an agreed integration change. Use fictional data only. Show me how to demonstrate the result and explain anything still unfinished. Prepare a PR for Ivan's review; do not merge or deploy.
 
 ## Team check-in
 
