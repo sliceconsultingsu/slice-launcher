@@ -1,3 +1,5 @@
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -33,10 +35,7 @@ test("empty results are understandable", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("No alumni found.")).toBeVisible();
 });
-test("preview rejects cross-site callers and private files; API stays read-only", async ({
-  request,
-  baseURL,
-}) => {
+test("preview rejects cross-site callers; API stays read-only", async ({ request, baseURL }) => {
   expect(
     (
       await request.get("/api/apps/alumni/records", { headers: { origin: "https://evil.example" } })
@@ -51,10 +50,50 @@ test("preview rejects cross-site callers and private files; API stays read-only"
       })
     ).status(),
   ).toBe(405);
-  expect((await request.get("/.env")).status()).toBeGreaterThanOrEqual(400);
-  expect((await request.get("/../.git/config")).status()).toBeGreaterThanOrEqual(400);
 });
 
 test("malformed API paths return a client error", async ({ request }) => {
   expect((await request.get("/api/apps/alumni/%E0")).status()).toBe(400);
+});
+
+test("preview requires this run's credentials before serving API or source", async ({
+  baseURL,
+}) => {
+  for (const path of ["/", "/api/apps/alumni/records", "/tests/team/main.tsx"]) {
+    const url = new URL(path, baseURL);
+    expect((await fetch(url)).status).toBe(401);
+    expect(
+      (await fetch(url, { headers: { authorization: "Basic bGVhcm5lcjp3cm9uZw==" } })).status,
+    ).toBe(401);
+  }
+});
+
+test("existing private files are denied while an ordinary fixture is reachable", async ({
+  request,
+}) => {
+  const folder = await mkdtemp(fileURLToPath(new URL("./private-check-", import.meta.url)));
+  const publicPath = `/tests/team/${folder.split("/").at(-1)}`;
+  try {
+    await writeFile(`${folder}/control.txt`, "fictional-public-control");
+    for (const name of [
+      ".env",
+      ".dev.vars",
+      "example.pem",
+      "example.key",
+      "example.crt",
+      ".slice-workspace.json",
+    ]) {
+      await writeFile(`${folder}/${name}`, "fictional-private-sentinel");
+      for (const path of [`${publicPath}/${name}`, `/@fs${folder}/${name}`]) {
+        const response = await request.get(path);
+        expect(response.status()).toBeGreaterThanOrEqual(400);
+        expect(await response.text()).not.toContain("fictional-private-sentinel");
+      }
+    }
+    expect(await (await request.get(`${publicPath}/control.txt`)).text()).toBe(
+      "fictional-public-control",
+    );
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
 });

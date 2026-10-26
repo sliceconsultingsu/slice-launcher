@@ -8,7 +8,7 @@ The goal is an alumni database that helps students find relevant alumni, with MC
 
 1. Sign in to your own GitHub account. Accept the repository invitation from the maintainer. If you have no invitation, give the maintainer your GitHub username; do not share a password or personal token. Reading this public repository does not grant permission to push a branch.
 2. Get a person number (1–5), a task and an approved development workspace from Ivan. [Workspace setup](workspaces.md) explains the maintainer preparation and remote connection. GitHub access and development-host access are separate.
-3. Open **your own** workspace. Run `corepack pnpm install --frozen-lockfile` once. Run `corepack pnpm team:dev` to start the fictional-data preview. Leave that terminal running. Open the address through your SSH port forward as described in the workspace guide.
+3. Open **your own** workspace. Run `corepack pnpm install --frozen-lockfile` once. Run `corepack pnpm team:dev` to start the fictional-data preview. Leave that terminal running. Open the address through your SSH port forward as described in the workspace guide, then enter `learner` and the temporary password shown in your terminal.
 4. Confirm you can see Alex Example and Casey Example, and the “Learning preview” notice. If you see a real sign-in screen, you started `dev` instead of `team:dev`. Stop and check the command; do not request production credentials.
 5. Start with a tiny practice change: improve one sentence in your task's README. Ask your coding agent to explain the change, show the diff, and open a draft PR. Ivan reviews this first contribution before you start a larger feature.
 

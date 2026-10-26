@@ -41,7 +41,7 @@ corepack pnpm install --frozen-lockfile
 corepack pnpm team:dev
 ```
 
-Open `http://127.0.0.1:4311` on your computer. Use your own port from the table. This address works on your computer only while the SSH forward and remote preview are running. The server binds loopback only; do not expose it on a LAN, public tunnel or public hostname. It automatically uses a fictional owner inside the disposable learning environment, so it is not an authenticated multiuser service.
+Open `http://127.0.0.1:4311` on your computer. Use your own port from the table. This address works on your computer only while the SSH forward and remote preview are running. The server binds loopback only; do not expose it on a LAN, public tunnel or public hostname. The browser asks for username `learner` and the temporary password printed in **your own** preview terminal. Each restart generates a new password; do not share it or put it in a URL, screenshot, issue or commit. All HTTP requests, including source files, require it before the preview uses a fictional owner in the disposable environment. It is not a production sign-in or a multiuser service. A loopback port alone does not isolate local users; retain separate OS accounts and workspace filesystem permissions.
 
 For a standalone approved checkout without workspace settings, `corepack pnpm team:dev` uses port 4310. Override with `corepack pnpm team:dev --port 4312`. Keep the local and remote forwarded port equal. If a port is occupied, stop only your own previous server or agree on a new port; the server will not silently move to a different address.
 
@@ -51,8 +51,10 @@ Stop with Ctrl+C. Restarting creates a fresh disposable membership database and 
 
 ## Checks and limits
 
-- The UI reloads when edited. The preview loads the current app server module for API requests. Restart after changing app registration or contracts that affect startup.
+- Reload the browser after editing the UI. Automatic reload/WebSocket transport is disabled so it cannot bypass the preview password. The preview loads the current app server module for API requests. Restart after changing app registration or contracts that affect startup.
 - The preview exercises real UI/API behavior; it is not a full Cloudflare deployment or a real Google/OAuth sign-in test. MCP client acceptance, scheduling and production data migrations require separate validation.
 - Run `corepack pnpm --filter @slice/launcher exec playwright install chromium` once before browser tests, then `corepack pnpm test:team`.
 - Prepared workspaces use separate test ports too: platform tests use preview port + 100 (4411–4415), and alumni tests use preview port + 200 (4511–4515). A standalone checkout uses 4173 and 4399. Run only one copy of each suite per workspace; teammates can run their suites simultaneously.
 - GitHub write access is required to push PR branches; a repository invitation must be accepted first. Verify the author identity before committing. Do not borrow another person's account to bypass access setup.
+
+Browser tests generate their own random per-run password using `SLICE_TEAM_TEST_PASSWORD`; do not set this variable for normal contributor sessions or reuse the test value.

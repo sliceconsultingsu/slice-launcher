@@ -1,4 +1,5 @@
 // Development-only entry: never imported by an app, Worker, or production route.
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import { createServer as createViteServer } from "vite";
@@ -20,6 +21,11 @@ if (args.length && (args.length !== 2 || args[0] !== "--port"))
 const port = args.length ? Number(args[1]) : defaultPort;
 if (!Number.isInteger(port) || port < 1024 || port > 65535)
   throw new Error("Use a port between 1024 and 65535.");
+const testPassword = process.env.SLICE_TEAM_TEST_PASSWORD;
+if (testPassword && !/^[a-f0-9]{64}$/.test(testPassword))
+  throw new Error("The browser test password must be 32 random bytes encoded as hex.");
+const password = testPassword ?? randomBytes(32).toString("hex");
+const authorization = Buffer.from(`Basic ${Buffer.from(`learner:${password}`).toString("base64")}`);
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const fixture = await database();
 await migrate(fixture.db);
@@ -47,13 +53,21 @@ const vite = await createViteServer({
   configFile: false,
   envDir: false,
   root,
+  cacheDir: "node_modules/.vite-team",
+  resolve: { dedupe: ["react", "react-dom"] },
+  optimizeDeps: {
+    noDiscovery: true,
+    include: ["react", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime"],
+  },
   plugins: [react()],
   appType: "custom",
   server: {
     middlewareMode: true,
     host: "127.0.0.1",
     allowedHosts: ["localhost"],
-    hmr: { server },
+    // No unauthenticated WebSocket path; contributors reload after editing.
+    hmr: false,
+    ws: false,
     fs: {
       strict: true,
       allow: [
@@ -89,6 +103,15 @@ server.on("request", async (req, res) => {
     if (!req.url?.startsWith("/") || req.url.startsWith("//")) {
       res.writeHead(400);
       res.end();
+      return;
+    }
+    const provided = Buffer.from(req.headers.authorization ?? "");
+    if (provided.length !== authorization.length || !timingSafeEqual(provided, authorization)) {
+      res.writeHead(401, {
+        "WWW-Authenticate": `Basic realm="Slice learning preview ${port}", charset="UTF-8"`,
+        "Cache-Control": "no-store",
+      });
+      res.end("Use learner and the temporary password printed in your own preview terminal.");
       return;
     }
     const url = new URL(req.url, origin);
@@ -185,10 +208,11 @@ server.on("error", (error) => {
   );
   void close(1);
 });
-server.listen(port, "127.0.0.1", () =>
+server.listen(port, "127.0.0.1", () => {
+  if (!testPassword) console.log(`Preview username: learner\nTemporary password: ${password}`);
   console.log(
     `Slice learning preview: http://127.0.0.1:${port}\nFictional data only. Remote users must forward this port over their own approved SSH connection. Stop with Ctrl+C; restart resets this workspace's disposable database.`,
-  ),
-);
+  );
+});
 process.on("SIGINT", () => void close());
 process.on("SIGTERM", () => void close());
