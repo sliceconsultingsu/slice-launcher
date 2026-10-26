@@ -1,6 +1,9 @@
 // Development-only entry: never imported by an app, Worker, or production route.
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer as createViteServer } from "vite";
 import react from "@vitejs/plugin-react";
@@ -25,6 +28,14 @@ const testPassword = process.env.SLICE_TEAM_TEST_PASSWORD;
 if (testPassword !== undefined && !/^[a-f0-9]{64}$/.test(testPassword))
   throw new Error("The browser test password must be 32 random bytes encoded as hex.");
 const password = testPassword ?? randomBytes(32).toString("hex");
+const credentialsDirectory =
+  testPassword === undefined ? await mkdtemp(join(tmpdir(), "slice-preview-")) : undefined;
+if (credentialsDirectory)
+  await writeFile(
+    join(credentialsDirectory, "credentials.txt"),
+    `Username: learner\nPassword: ${password}\n`,
+    { mode: 0o600, flag: "wx" },
+  );
 const authorization = Buffer.from(`Basic ${Buffer.from(`learner:${password}`).toString("base64")}`);
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const fixture = await database();
@@ -111,7 +122,7 @@ server.on("request", async (req, res) => {
         "WWW-Authenticate": `Basic realm="Slice learning preview ${port}", charset="UTF-8"`,
         "Cache-Control": "no-store",
       });
-      res.end("Use learner and the temporary password printed in your own preview terminal.");
+      res.end("Use learner and the temporary password file named in your own preview terminal.");
       return;
     }
     const url = new URL(req.url, origin);
@@ -200,6 +211,7 @@ async function close(code = 0) {
   server.closeAllConnections();
   await vite.close();
   await fixture.runtime.dispose();
+  if (credentialsDirectory) await rm(credentialsDirectory, { recursive: true, force: true });
   process.exit(code);
 }
 server.on("error", (error) => {
@@ -209,7 +221,10 @@ server.on("error", (error) => {
   void close(1);
 });
 server.listen(port, "127.0.0.1", () => {
-  if (!testPassword) console.log(`Preview username: learner\nTemporary password: ${password}`);
+  if (credentialsDirectory)
+    console.log(
+      `Read your owner-only temporary credentials file: ${join(credentialsDirectory, "credentials.txt")}`,
+    );
   console.log(
     `Slice learning preview: http://127.0.0.1:${port}\nFictional data only. Remote users must forward this port over their own approved SSH connection. Stop with Ctrl+C; restart resets this workspace's disposable database.`,
   );
