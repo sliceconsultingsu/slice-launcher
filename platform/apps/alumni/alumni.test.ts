@@ -4,6 +4,8 @@ import type { State } from "../../src/membership/contracts";
 import descriptor from "./app.json";
 import alumni from "./server";
 import { directorySchema } from "./contracts";
+import { createSampleRepository, readDirectory } from "./data";
+import type { AppContext } from "../../src/platform/contracts";
 
 function host(permissions = ["app.alumni.open", "app.alumni.records.read"]) {
   const state: State = {
@@ -69,4 +71,29 @@ it("HEAD returns no body", async () => {
   const response = await host().api(request("", "HEAD"), "alumni", ["records"]);
   expect(response.status).toBe(200);
   expect(await response.text()).toBe("");
+});
+
+it("requires record permission on the page as well as the API", async () => {
+  await expect(
+    host(["app.alumni.open"]).page(request(), "alumni", { path: [], searchParams: {} }),
+  ).rejects.toMatchObject({ status: 403 });
+});
+it("rejects unexpected fields from storage instead of leaking them to the client", async () => {
+  const sample = createSampleRepository();
+  const context: AppContext = {
+    appId: "alumni",
+    member: { id: "learner", name: "Learner", email: "learner@example.test" },
+    permissions: ["app.alumni.records.read"],
+    requirePermission() {},
+  };
+  await expect(
+    readDirectory(context, {
+      ...sample,
+      listAlumni: async () =>
+        (await sample.listAlumni()).map((record) => ({
+          ...record,
+          privateContact: "not-for-client@example.test",
+        })),
+    }),
+  ).rejects.toThrow();
 });

@@ -4,7 +4,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { AppDescriptor } from "../platform/contracts";
 import catalog from "../platform/catalog.generated.json";
 const { entries } = vi.hoisted(() => ({ entries: [] as AppDescriptor[] }));
-vi.mock("./apps", () => ({ apps: entries, getAppUrl: (app: { id: string }) => `/apps/${app.id}` }));
+vi.mock("./apps", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./apps")>()),
+  apps: entries,
+}));
 import Home from "../../app/page";
 
 afterEach(() => {
