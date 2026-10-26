@@ -1,7 +1,8 @@
 // Development-only entry: never imported by an app, Worker, or production route.
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { rmSync } from "node:fs";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,6 +37,9 @@ if (credentialsDirectory)
     `Username: learner\nPassword: ${password}\n`,
     { mode: 0o600, flag: "wx" },
   );
+process.once("exit", () => {
+  if (credentialsDirectory) rmSync(credentialsDirectory, { recursive: true, force: true });
+});
 const authorization = Buffer.from(`Basic ${Buffer.from(`learner:${password}`).toString("base64")}`);
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const fixture = await database();
@@ -211,7 +215,6 @@ async function close(code = 0) {
   server.closeAllConnections();
   await vite.close();
   await fixture.runtime.dispose();
-  if (credentialsDirectory) await rm(credentialsDirectory, { recursive: true, force: true });
   process.exit(code);
 }
 server.on("error", (error) => {
