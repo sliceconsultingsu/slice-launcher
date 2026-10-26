@@ -22,7 +22,7 @@ const port = args.length ? Number(args[1]) : defaultPort;
 if (!Number.isInteger(port) || port < 1024 || port > 65535)
   throw new Error("Use a port between 1024 and 65535.");
 const testPassword = process.env.SLICE_TEAM_TEST_PASSWORD;
-if (testPassword && !/^[a-f0-9]{64}$/.test(testPassword))
+if (testPassword !== undefined && !/^[a-f0-9]{64}$/.test(testPassword))
   throw new Error("The browser test password must be 32 random bytes encoded as hex.");
 const password = testPassword ?? randomBytes(32).toString("hex");
 const authorization = Buffer.from(`Basic ${Buffer.from(`learner:${password}`).toString("base64")}`);

@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
@@ -96,4 +97,18 @@ test("existing private files are denied while an ordinary fixture is reachable",
   } finally {
     await rm(folder, { recursive: true, force: true });
   }
+});
+
+test("an empty test password cannot start an unauthenticated preview", () => {
+  const result = spawnSync(
+    process.execPath,
+    ["--import", "tsx", fileURLToPath(new URL("./server.ts", import.meta.url))],
+    {
+      env: { ...process.env, SLICE_TEAM_TEST_PASSWORD: "" },
+      encoding: "utf8",
+      timeout: 10_000,
+    },
+  );
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain("browser test password must be 32 random bytes");
 });
