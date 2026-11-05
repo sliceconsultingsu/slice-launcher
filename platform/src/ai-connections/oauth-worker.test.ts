@@ -273,6 +273,24 @@ describe("Slice OAuth for AI apps", () => {
     expect((await listTools(second.access_token)).status).toBe(200);
   });
 
+  it("disconnect stops the pass and its renewal", async () => {
+    const { clientId, access_token, refresh_token } = await connect();
+    expect((await listTools(access_token)).status).toBe(200);
+    await call("/__test/revoke", { method: "POST" });
+    expect((await listTools(access_token)).status).toBe(401);
+    const renewal = await call("/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token,
+        client_id: clientId,
+      }),
+    });
+    expect(renewal.status).toBe(400);
+    expect(await renewal.json()).toMatchObject({ error: "invalid_grant" });
+  });
+
   it("register refuses a plain http redirect outside this computer", async () => {
     expect((await register("http://evil.example/cb")).status).toBe(400);
     expect((await register("http://127.0.0.1:5555/cb")).status).toBe(201);
