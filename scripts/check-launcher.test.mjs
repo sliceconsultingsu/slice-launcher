@@ -259,3 +259,54 @@ test("MCP release checks require the route to reject CI service credentials", as
     await assert.rejects(checkMcpDenied(url, options));
   }
 });
+
+test("Slice OAuth challenge on /mcp is accepted while pages still redirect to Access", async (t) => {
+  const { checkAccessBoundary } = await import("./check-launcher.mjs");
+  let mode = "valid";
+  const url = await probeServer(t, (request, response) => {
+    if (request.url === "/.well-known/oauth-protected-resource/mcp") {
+      response.setHeader("Content-Type", "application/json");
+      response.end(
+        JSON.stringify({
+          resource: mode === "foreign-resource" ? "https://evil.invalid/mcp" : `${url}/mcp`,
+          authorization_servers: [mode === "foreign-server" ? "https://evil.invalid" : url],
+        }),
+      );
+      return;
+    }
+    if (request.url === "/mcp" || mode === "challenge-everywhere") {
+      response.writeHead(401, {
+        "WWW-Authenticate": `Bearer resource_metadata="${url}/.well-known/oauth-protected-resource/mcp"`,
+      });
+      response.end();
+      return;
+    }
+    response.writeHead(302, {
+      location: "https://fixture.cloudflareaccess.com/cdn-cgi/access/login/example",
+    });
+    response.end();
+  });
+  await checkAccessBoundary(url, "https://fixture.cloudflareaccess.com");
+  for (const value of ["foreign-resource", "foreign-server", "challenge-everywhere"]) {
+    mode = value;
+    await assert.rejects(checkAccessBoundary(url, "https://fixture.cloudflareaccess.com"));
+  }
+});
+
+test("MCP release checks accept the Slice challenge and reject one pointing elsewhere", async (t) => {
+  const { checkMcpDenied } = await import("./check-launcher.mjs");
+  let metadata = "";
+  const url = await probeServer(t, (_request, response) => {
+    response.writeHead(401, {
+      "Content-Type": "application/json",
+      "Cache-Control": "private, no-store",
+      "WWW-Authenticate": `Bearer resource_metadata="${metadata}"`,
+    });
+    response.end(JSON.stringify({ error: "invalid_token" }));
+  });
+  const options = { access: { id: "synthetic", secret: "synthetic" }, timeoutMs: 0 };
+  metadata = `${url}/.well-known/oauth-protected-resource/mcp`;
+  await checkMcpDenied(url, options);
+  metadata = "https://evil.invalid/.well-known/oauth-protected-resource/mcp";
+  await assert.rejects(checkMcpDenied(url, options), /origin/);
+});

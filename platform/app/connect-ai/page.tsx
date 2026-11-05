@@ -1,4 +1,6 @@
+import { SetupNotice } from "../../src/ai-connections/setup-notice";
 import { CopyField } from "../../src/connect-ai/copy-field";
+import { ConnectionStatus } from "../../src/ai-connections/connection-status";
 import {
   agentGuideUrl,
   agentInstructions,
@@ -22,6 +24,7 @@ export default function ConnectAiPage() {
         </a>
         <div className="header-divider" aria-hidden="true" />
         <span className="workspace-label">App Launcher</span>
+        <ConnectionStatus />
         <a className="account-link" href="/">
           Applications
         </a>
@@ -33,14 +36,7 @@ export default function ConnectAiPage() {
           Let your AI help with Slice tools using the access you already have. Your AI can guide you
           through setup; you complete the sign-in.
         </p>
-        <div className="notice">
-          <strong>Awaiting platform setup</strong>
-          <p>
-            Remote AI sign-in is not ready to use yet. You can check your account and share these
-            instructions now. Wait for the Slice maintainer to confirm availability before
-            connecting.
-          </p>
-        </div>
+        <SetupNotice />
         <div className="connection-columns">
           <section className="account-card" aria-labelledby="connection-steps">
             <h2 id="connection-steps">How to get connected</h2>
@@ -54,18 +50,27 @@ export default function ConnectAiPage() {
                 </p>
               </li>
               <li>
-                <h3>Ask your AI to guide you</h3>
+                <h3>Add Slice to your AI app</h3>
                 <p>
-                  Copy the instructions on this page into your approved AI app. It should explain
-                  where to add a connection and check that your app supports this kind of sign-in.
+                  In your AI app, add a custom connector (also called an MCP server) with the
+                  address below. See <a href="#where-to-add">where to add it</a> for Claude and
+                  ChatGPT, or copy the instructions on this page into your AI and let it guide you.
                 </p>
               </li>
               <li>
-                <h3>Sign in, then check the connection</h3>
+                <h3>Sign in and choose Allow</h3>
                 <p>
-                  Once setup is available, follow your AI app’s connection flow. Sign in through
-                  Cloudflare with the same Slice account, review the request, and return to your AI
-                  app. Ask it to list your available Slice apps.
+                  Your AI app opens a browser. Sign in with your Slice account if asked. Slice shows
+                  an approval page naming the app and where it returns to. Check both, then choose
+                  Allow.
+                </p>
+              </li>
+              <li>
+                <h3>Check it worked</h3>
+                <p>
+                  Back in the launcher, the top bar shows <strong>AI connected</strong>. Ask your AI
+                  to list your Slice apps. You can see and disconnect connected apps from{" "}
+                  <a href="/account#connected-apps">your account</a>.
                 </p>
               </li>
             </ol>
@@ -104,12 +109,35 @@ export default function ConnectAiPage() {
             </details>
           </section>
         </div>
+        <section className="connection-boundary" aria-labelledby="where-to-add">
+          <h2 id="where-to-add">Where to add it</h2>
+          <ul className="connection-clients">
+            <li>
+              <strong>Claude</strong> (web and desktop): Customize → Connectors → Add → Add custom
+              connector. Enter the name Slice and the address. Free plans allow one custom
+              connector. On Team and Enterprise plans, an owner adds it for the organization first.
+            </li>
+            <li>
+              <strong>ChatGPT</strong>: Plugins → + → Add custom MCP server, with OAuth sign-in.
+              Full support is on Business, Enterprise and Edu plans; other plans may be limited to
+              reading.
+            </li>
+            <li>
+              <strong>Claude Code</strong>: run <code>claude mcp add --transport http slice</code>{" "}
+              followed by the address, then sign in when asked.
+            </li>
+          </ul>
+          <p className="field-note">
+            Menu names checked against Anthropic and OpenAI help pages on November 5, 2026. Apps
+            change; if a menu differs, ask your AI to check its current instructions.
+          </p>
+        </section>
         <section className="connection-boundary" aria-labelledby="connection-access">
           <h2 id="connection-access">You stay in control</h2>
           <p>
-            Use a Slice-approved AI client. Information returned by its tools may go to that AI
-            provider. Enter passwords and verification codes only in the sign-in window, never in
-            the AI chat.
+            Any AI app that supports MCP sign-in can connect, so choose one you trust with Slice
+            information: what Slice tools return goes to that app and its AI provider. Enter
+            passwords and verification codes only in the sign-in window, never in the AI chat.
           </p>
           <p>
             Your AI only receives tools allowed for your account. There are no business apps

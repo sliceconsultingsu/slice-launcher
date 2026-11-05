@@ -8,7 +8,7 @@
   "workers_dev": true,
   "preview_urls": false,
   "compatibility_date": "2026-10-02",
-  "main": "vinext/server/fetch-handler",
+  "main": "./worker/index.ts",
   "assets": {
     "directory": "dist/client",
     "not_found_handling": "none",
@@ -25,7 +25,26 @@
   "vars": {
     "ACCESS_TEAM_DOMAIN": "https://snowy-voice-36a1.cloudflareaccess.com",
     "ACCESS_AUD": "a176f7f76272a49ac4575fe315783b6cf1c5129bbdd95f666ebe3c046da7008f",
+    // AI connection status and the connected-apps list stay hidden until production AI sign-in
+    // is verified. Only the exact value "true" turns them on. See docs/mcp.md.
+    "AI_CONNECTIONS_ENABLED": "false",
   },
+  // Grants, passes and AI activity records for Slice's own AI sign-in (namespace
+  // "slice-launcher-oauth", created November 5, 2026). Never share it with another app.
+  "kv_namespaces": [
+    {
+      "binding": "OAUTH_KV",
+      "id": "8a8e78a4b2184dca965ed1fea05e680d",
+    },
+  ],
+  // Per-address limit for AI app registration and pass requests (20 a minute).
+  "ratelimits": [
+    {
+      "name": "OAUTH_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 20, "period": 60 },
+    },
+  ],
   "images": {
     "binding": "IMAGES",
   },

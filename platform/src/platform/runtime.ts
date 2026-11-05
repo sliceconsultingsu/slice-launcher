@@ -4,7 +4,6 @@ import { Repository } from "../membership/repository";
 import { apps } from "../lib/apps";
 import { modules } from "./registry.generated";
 import { createPlatform } from "./dispatch";
-import { createMcpAdapter } from "./mcp";
 
 export function platform() {
   const dependencies = {
@@ -17,5 +16,5 @@ export function platform() {
       }),
     loadState: () => new Repository(env.MEMBERSHIP_DB).load(),
   };
-  return { ...createPlatform(dependencies), mcp: createMcpAdapter(dependencies) };
+  return createPlatform(dependencies);
 }

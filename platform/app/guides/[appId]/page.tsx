@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Markdown from "react-markdown";
 import { AppIcon, WorkInProgressBadge } from "@slice/ui";
 import { AccountNav } from "../../../src/membership/account-nav";
+import { ConnectionStatus } from "../../../src/ai-connections/connection-status";
 import { apps, getAppUrl } from "../../../src/lib/apps";
 import { findGuide } from "../../../src/lib/guides";
 
@@ -44,6 +45,7 @@ export default async function GuidePage({ params }: { params: Promise<{ appId: s
           <AppIcon src={app.icon} size={20} />
           {app.name}
         </span>
+        <ConnectionStatus />
         <AccountNav />
       </header>
       <main id="main" className="workspace-main">

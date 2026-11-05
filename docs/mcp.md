@@ -2,7 +2,7 @@
 
 Slice owns one remote MCP endpoint at `/mcp`. Consultants connect with an OAuth-capable Streamable HTTP client and sign in as themselves. App modules inherit identity, current membership, app/action permissions, transport and deployment. Apps register tools; they do not operate MCP servers or OAuth clients.
 
-The checked-in catalog is empty, so the endpoint initially exposes only `slice_apps`, which returns the apps the current member may open. No membership administration or arbitrary API proxy is exposed. Code availability and production client access are separate: the operator must enable and verify managed OAuth as described below before advertising this endpoint to consultants.
+The checked-in catalog is empty, so the endpoint initially exposes only `slice_apps`, which returns the apps the current member may open. No membership administration or arbitrary API proxy is exposed. Code availability and production client access are separate: the operator must complete the activation steps below before advertising this endpoint to consultants.
 
 Consultants and their agents should start with [Connect your AI](connect-your-ai.md), also linked from the launcher. That guide explains setup and troubleshooting without granting access.
 
@@ -10,16 +10,28 @@ Consultants and their agents should start with [Connect your AI](connect-your-ai
 
 ```mermaid
 flowchart TD
-  Client[Consultant's remote MCP client] --> OAuth[Cloudflare Access managed OAuth / existing Google sign-in]
-  OAuth --> Route[Platform /mcp]
-  Route --> Identity[Verify signed Access human identity]
-  Identity --> Membership[Load current D1 membership]
+  Client[Consultant's remote MCP client] --> OAuth[Slice OAuth: register, /authorize approval, token]
+  OAuth --> Approval[/authorize behind Cloudflare Access: signed-in active member chooses Allow]
+  Client --> Route[Platform /mcp with a Slice pass]
+  Route --> Grant[OAuth library checks the pass; grant carries Access subject + email]
+  Grant --> Membership[Load current D1 membership]
   Membership --> Gate[Active member + app.open + declared action]
   Gate --> Tool[App tool with scoped AppContext]
   Tool --> Rules[App record access and business rules]
 ```
 
-Cloudflare handles OAuth discovery, authorization-code flow with PKCE, tokens and refresh. The Worker verifies the resulting `Cf-Access-Jwt-Assertion` using the same issuer, audience, signature and human-identity checks as the browser/API. A client-supplied email, role or plain bearer token is not an application identity. CI service credentials are rejected by the application even if Access admits them at the perimeter.
+Slice runs its own OAuth server for AI apps with `@cloudflare/workers-oauth-provider`, the approach Deal Toy uses (design: [AI connections](superpowers/specs/2026-11-05-ai-connections-design.md)). The Worker entry (`platform/worker/index.ts`, `src/ai-connections/oauth.ts`) serves:
+
+- `/mcp`, which requires a Slice-issued pass and never accepts a `Cf-Access-Jwt-Assertion`;
+- discovery metadata at `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`;
+- dynamic client registration at `/oauth/register` (HTTPS callbacks, or loopback for apps on the person's computer; rate-limited per address);
+- passes at `/oauth/token`: authorization code with PKCE, 7-day access passes, renewal passes that rotate and lapse after 30 days without renewal.
+
+Those four paths are the only ones Cloudflare Access bypasses. Everything else, including the `/authorize` approval page, stays behind Access. The approval page (`src/ai-connections/consent.ts`) verifies the Access sign-in and active membership, shows the app's self-declared name and its return address, and records a grant whose props hold the member's Access subject and email. The grant's user ID is a digest of the subject, so no email or subject appears in codes or passes. Grants, passes and per-grant activity (last use, last renewal) are stored in the `OAUTH_KV` namespace.
+
+Screenshots of the approval page, the top-bar states and the connected-apps list are in [docs/images/ai-connections](images/ai-connections/).
+
+Members list and disconnect their connected apps on the account page (`/api/membership/connections`); the launcher's top bar shows connection status. Both stay hidden until `AI_CONNECTIONS_ENABLED` is `"true"`. A client-supplied email, role or plain bearer token is not an application identity, and CI service credentials never become one.
 
 Each protocol request loads current membership. Tool discovery includes only tools for which the active member has both `app.<id>.open` and the tool's declared action. A call reloads membership and checks both permissions again immediately before invoking app code. Pending, invited, suspended, unknown or rebound identities cannot use MCP. MCP does not enroll members: first visit the browser account page and complete the existing approval process. Revocation prevents subsequent dispatch; it cannot cancel a business operation already running.
 
@@ -59,24 +71,26 @@ For an app named `alumni`, this tool is advertised as `alumni__search`. Tool nam
 
 The transport accepts POST only, JSON responses, requests up to 16 KiB and serialized tool payloads up to 64 KiB. Protocol envelopes add overhead. It provides no persistent sessions, SSE subscriptions, resources, prompts or background tasks. Successful mutations must handle retries safely where duplicate execution would matter. Private responses are no-store and exceptions return generic messages. Add application audit history where required; the adapter does not automatically audit business operations.
 
-CI rejects app imports of the MCP SDK and additional routes beneath `/mcp`. Use `defineAppTool` and the shared `AppContext`. Modules remain trusted code in one Worker, not sandboxes. Private tool results leave Slice for the selected MCP client/model provider; use only approved clients and disclose only necessary data. See [data boundaries](data-boundary.md).
+CI rejects app imports of the MCP SDK and additional routes beneath `/mcp`. Use `defineAppTool` and the shared `AppContext`. Modules remain trusted code in one Worker, not sandboxes. Private tool results leave Slice for the selected MCP client and its model provider. Any MCP-capable app may connect, so approved apps are guidance, not enforcement: disclose only necessary data. See [data boundaries](data-boundary.md).
 
 ## Activate remote sign-in
 
-This is a production Access configuration change and needs maintainer authorization. It requires no new D1 schema, application credentials or app-specific login configuration.
+Each step below is a production change and needs maintainer authorization at the time. No D1 migration is needed.
 
-1. Verify the merged Worker release and the existing self-hosted Access application protecting the whole platform hostname, including `/mcp`. Preserve its identity provider, audience, allowed domain, policies and CI service rule. Save its current configuration for rollback.
-2. In Cloudflare Zero Trust, edit that application under **Access controls → Applications → Advanced settings → Managed OAuth**. Enable managed OAuth. Configure only the intended client redirect URIs; use exact HTTPS callbacks for hosted clients and the documented localhost/loopback callbacks for desktop clients. Do not allow arbitrary redirect destinations. If using the API, read the current application and preserve its complete configuration when setting `oauth_configuration.enabled=true`.
-3. Without credentials, request `/mcp` and verify a Bearer challenge with same-origin protected-resource metadata and the intended Access authorization server. A normal HTML login redirect alone does not establish remote OAuth compatibility. Keep the application behind Access; do not add a bypass to make discovery work.
-4. In an approved OAuth-capable MCP client, add the production origin followed by `/mcp` as a Streamable HTTP server. Complete the browser sign-in with the consultant's existing account. The client must support the OAuth resource indicator (RFC 8707). This setup is client-dependent; do not distribute a shared token or copy an Access cookie into client configuration.
-5. With an active member, initialize, list tools and call `slice_apps`. Confirm tool visibility/calls match that member's app/action grants, then revoke a grant and verify subsequent calls fail. Test a suspended member and the CI service identity. Confirm ordinary browser login and release smoke still work. Record the tested client/version and release; synthetic tests do not establish this live OAuth evidence.
+1. **Create resources.** Done November 5, 2026: the production namespace `slice-launcher-oauth` is bound as `OAUTH_KV` in `platform/wrangler.jsonc`. For a new environment, create a separate namespace (never reuse another app's, such as Deal Toy's) and set its ID through a reviewed PR. The rate limit binding (`OAUTH_LIMITER`, 20 requests a minute per address) needs no separate resource.
+2. **Release with the feature off.** Deploy through the normal workflow with `AI_CONNECTIONS_ENABLED` set to `"false"`. While Access still fronts `/mcp`, AI apps cannot connect, and the post-deploy check accepts either an Access redirect or Slice's challenge on `/mcp`.
+3. **Add the narrow Access bypass.** Save the current Access application configuration for rollback. Add a bypass only for `/mcp`, `/oauth/token`, `/oauth/register`, `/.well-known/oauth-protected-resource*` and `/.well-known/oauth-authorization-server*`. Keep every other path, including `/authorize`, `/api/*` and pages, behind the existing application, its identity provider and CI service rule. Leave Access managed OAuth disabled.
+4. **Check discovery.** Without credentials, `/mcp` must return 401 with a `WWW-Authenticate` Bearer challenge whose metadata is on the launcher's own origin, names the launcher as authorization server and `<origin>/mcp` as resource. Pages and `/api/membership` must still redirect to Access.
+5. **Connect real clients.** In Claude and ChatGPT (see [Connect your AI](connect-your-ai.md) for menus), add `<origin>/mcp`, sign in, choose **Allow** on the approval page, list tools and call `slice_apps`. Confirm tool visibility matches the member's grants.
+6. **Turn on the UI.** Set `AI_CONNECTIONS_ENABLED` to `"true"` through a reviewed PR and release. Confirm the top bar shows **AI connected** and the account page lists the app.
+7. **Check revocation.** Disconnect the app from the account page and confirm its next request fails. Suspend a synthetic test member and confirm their connected app stops. Confirm browser sign-in and the release smoke checks still pass. Record the tested client versions and release, and remove the "awaiting setup" wording from Connect your AI and its agent instructions.
 
-If activation fails, restore the saved Access configuration and disable managed OAuth while investigating. The Worker route can stay protected; code rollback follows the shared [release procedure](deployment.md). Coordinate access-policy rollback separately from Worker rollback. Do not loosen membership or token validation to accommodate an incompatible client.
+**Rollback.** Removing the Access bypass makes `/mcp` fail closed (Access redirects again). A code rollback to a release that expected Access identities on `/mcp` also fails closed, because bypassed requests carry no Access identity. Neither exposes tools. Turning `AI_CONNECTIONS_ENABLED` off hides the status and list without revoking anything; revoke grants by disconnecting them.
 
-Official references: [Cloudflare Access managed OAuth](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/managed-oauth/) and the [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk). This implementation pins the SDK version in the launcher manifest and uses its Workers-compatible transport/validator.
+Official references: [`@cloudflare/workers-oauth-provider`](https://github.com/cloudflare/workers-oauth-provider) and the [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk). Versions are pinned in the launcher manifest.
 
 ## Validation
 
-`src/platform/mcp.test.ts` exercises the real SDK client, signed synthetic identities and isolated D1 membership: filtered discovery, dispatch, revocation, cross-user isolation, service/forged identity rejection, bounded input/output and error handling. `mcp-worker.test.ts` separately bundles the adapter and performs signed discovery/calls in workerd, using a test-only identity key and state. Production build smoke checks that the compiled `/mcp` route rejects a synthetic service identity. None of these tests contacts production OAuth or uses real private data.
+`src/platform/mcp.test.ts` exercises the real SDK client, signed synthetic identities and isolated D1 membership: filtered discovery, dispatch, revocation, cross-user isolation, service/forged identity rejection, bounded input/output and error handling. `mcp-worker.test.ts` separately bundles the adapter and performs signed discovery/calls in workerd, using a test-only identity key and state. Production build smoke checks that the compiled `/mcp` route rejects a synthetic service identity. `src/ai-connections/oauth-worker.test.ts` runs the real Slice OAuth Worker in workerd: discovery, registration rules and rate limits, PKCE sign-in, pass lifetime, renewal, revocation, suspension, identity rebinding, refusal of Access headers on `/mcp`, and that passes contain no email or subject. `consent.test.ts` covers the approval page, including replayed and cross-site approvals and hostile app names. None of these tests contacts production OAuth or uses real private data.
 
 Run the full gate in [AGENTS.md](../AGENTS.md). App authors must add tests for their own schema, business rules, record ownership, restricted actions and denied/revoked access. The forward deployment check also requires the CI service identity to receive a private HTTP 401 from `/mcp`; rollback remains compatible with verified older releases that did not have this route.

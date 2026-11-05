@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { ConnectionStatus } from "../../../../src/ai-connections/connection-status";
 import { notFound, redirect } from "next/navigation";
 import { platform } from "../../../../src/platform/runtime";
 import { MembershipError } from "../../../../src/membership/contracts";
@@ -30,6 +31,7 @@ export default async function AppPage({
     <div className="workspace-shell">
       <header className="site-header">
         <a href="/">Slice Consulting</a>
+        <ConnectionStatus />
         <a href="/account">My account</a>
       </header>
       <main className="workspace-main">{content}</main>

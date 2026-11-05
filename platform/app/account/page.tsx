@@ -1,4 +1,5 @@
 import { MembershipWorkspace } from "../../src/membership/workspace";
+import { ConnectionStatus } from "../../src/ai-connections/connection-status";
 export default function AccountPage() {
   return (
     <div className="workspace-shell">
@@ -16,6 +17,7 @@ export default function AccountPage() {
         </a>
         <div className="header-divider" aria-hidden="true" />
         <span className="workspace-label">App Launcher</span>
+        <ConnectionStatus />
         <a className="account-link" href="/">
           Applications
         </a>

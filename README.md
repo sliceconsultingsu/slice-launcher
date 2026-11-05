@@ -36,7 +36,7 @@ The launcher, member approval, access levels, activity history, shared app route
 
 An ordinary Member can view the member directory by default. Admin permissions come from ownership or explicitly assigned permissions. Owners have full admin access even if their **base access level** is called Member. The account screen distinguishes the effective organization role from that base level. See [how access works](docs/membership.md).
 
-Remote MCP clients use consultants' own identities and permissions. Live client use requires Cloudflare managed OAuth activation and a real sign-in check; a successful code deployment does not prove that setup is complete.
+Remote MCP clients (AI apps) sign in through Slice's own OAuth and act with consultants' own identities and permissions. Members see connection status in the top bar and manage connected apps on their account page. Live use requires the activation steps in [MCP](docs/mcp.md#activate-remote-sign-in) and a real sign-in check; a successful code deployment does not prove that setup is complete.
 
 ## Where things go
 
