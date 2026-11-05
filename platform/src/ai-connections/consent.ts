@@ -1,5 +1,5 @@
-// The approval page at /authorize. Cloudflare Access already signed the person in, so the page
-// knows who they are; it shows which AI app is asking and where it returns to, then Allow or
+// The approval page at /authorize. The person's Slice session says who they are (signing in
+// with Google first if needed); it shows which AI app is asking and where it returns to, then Allow or
 // Cancel. The library's consent handle and binding cookie tie the approval to this browser, once.
 import {
   AuthorizationError,
@@ -80,12 +80,16 @@ const expired = () =>
   );
 
 /** The active member behind this Access sign-in, or null when they may not connect apps. */
-async function activeMember(request: Request, deps: ConsentDeps): Promise<Identity | null> {
+/** The active member signed in on this browser; "signed-out" without a session; null otherwise. */
+async function activeMember(
+  request: Request,
+  deps: ConsentDeps,
+): Promise<Identity | "signed-out" | null> {
   let identity: Identity;
   try {
     identity = await deps.identify(request);
   } catch {
-    return null;
+    return "signed-out";
   }
   const member = (await deps.loadState()).members.find((m) => m.subject === identity.subject);
   if (!member || member.email !== identity.email || member.status !== "active") return null;
@@ -165,6 +169,11 @@ export async function authorize(request: Request, deps: ConsentDeps): Promise<Re
       );
     }
     const member = await activeMember(request, deps);
+    // Sign in with Google, then come straight back to this approval.
+    if (member === "signed-out")
+      return redirect(
+        `/api/auth/google/start?next=${encodeURIComponent(url.pathname + url.search)}`,
+      );
     if (!member) return membershipRequired(authRequest);
     const description = await helpers.describeConsent(authRequest);
     const { handle, headers } = await helpers.beginConsent(authRequest);
@@ -182,6 +191,8 @@ export async function authorize(request: Request, deps: ConsentDeps): Promise<Re
   if (!form) return expired();
   const handle = form.get("handle") ?? "";
   const member = await activeMember(request, deps);
+  if (member === "signed-out")
+    return message(401, "Signed out", "Sign in to Slice again, then reconnect from your AI app.");
   if (!member)
     return message(
       403,

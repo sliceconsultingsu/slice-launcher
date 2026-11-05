@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { SignInCard } from "./sign-in-card";
 import { ConnectedApps } from "../ai-connections/connected-apps";
 import type { Audit, Command, Member, View } from "./contracts";
 import { AddMember, LevelEditor, MemberEditor, ProfileEditor } from "./editors";
@@ -134,13 +135,13 @@ export function MembershipWorkspace() {
       )}
       {loading && <p role="status">Loading your account…</p>}
       {!loading && !view && !enroll && (
-        <section className="account-card sign-in-card">
-          <h2>Sign in to Slice</h2>
-          <p>Use your verified email to access your profile and organization.</p>
-          <a className="primary-button" href="/api/membership/login">
-            Sign in
-          </a>
-        </section>
+        <SignInCard
+          error={
+            typeof window === "undefined"
+              ? null
+              : new URLSearchParams(window.location.search).get("sign_in_error")
+          }
+        />
       )}
       {!loading && enroll && (
         <section className="account-card sign-in-card">
@@ -193,9 +194,11 @@ export function MembershipWorkspace() {
                     ? "As an owner, you have full administrative access, regardless of your base access level."
                     : "Your access comes from your assigned level and any individual permissions."}
                 </p>
-                <a className="text-button" href="/cdn-cgi/access/logout">
-                  Sign out
-                </a>
+                <form method="post" action="/api/auth/logout">
+                  <button type="submit" className="text-button">
+                    Sign out
+                  </button>
+                </form>
               </aside>
               <div>
                 {view.me.status === "pending" && (

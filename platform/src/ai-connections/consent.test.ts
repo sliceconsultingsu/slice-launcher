@@ -124,6 +124,28 @@ describe("approval page", () => {
     },
   );
 
+  it("someone not signed in is sent to Google sign-in and back to this page", async () => {
+    const { helpers } = fakeHelpers();
+    const response = await authorize(page(), deps(helpers, memberState(), null));
+    expect(response.status).toBe(302);
+    const location = new URL(response.headers.get("location") ?? "", origin);
+    expect(location.pathname).toBe("/api/auth/google/start");
+    expect(location.searchParams.get("next")).toBe(
+      "/authorize?client_id=client-1&response_type=code",
+    );
+  });
+
+  it("an approval sent after signing out asks the person to sign in again", async () => {
+    const { helpers, completed } = fakeHelpers();
+    const response = await authorize(
+      post({ action: "allow", handle: "handle-1", account: identity.email }),
+      deps(helpers, memberState(), null),
+    );
+    expect(response.status).toBe(401);
+    expect(await response.text()).toContain("Signed out");
+    expect(completed).toHaveLength(0);
+  });
+
   it("someone with no Slice profile is treated like a pending member", async () => {
     const { helpers } = fakeHelpers();
     const response = await authorize(page(), deps(helpers, emptyState(null)));

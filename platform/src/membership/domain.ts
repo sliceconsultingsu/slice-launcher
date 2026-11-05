@@ -80,6 +80,33 @@ export function enroll(
   if (!invited) state.members.push(member);
   return finish(state, meta, member.id, "member.signin", member.id, before, member);
 }
+/**
+ * Moves a member from their old Cloudflare Access identity to their Google identity on first
+ * Google sign-in. Only a member whose subject still carries the legacy Access issuer is moved, and
+ * only to a Google identity nobody else holds, so an account already on Google is never re-linked
+ * by email. Returns null when there is nothing to migrate.
+ */
+export function migrateLegacyIdentity(
+  original: State,
+  identity: Identity,
+  legacyIssuer: string,
+  meta: Meta,
+): Mutation | null {
+  if (!legacyIssuer || original.members.some((m) => m.subject === identity.subject)) return null;
+  const email = identity.email.toLowerCase();
+  const prefix = `${legacyIssuer}|`;
+  const index = original.members.findIndex(
+    (m) => m.email.toLowerCase() === email && m.subject?.startsWith(prefix),
+  );
+  if (index < 0) return null;
+  const state = structuredClone(original);
+  const member = state.members[index];
+  const before = { subject: member.subject };
+  member.subject = identity.subject;
+  return finish(state, meta, member.id, "member.identity_migrated", member.id, before, {
+    subject: member.subject,
+  });
+}
 export function applyCommand(
   original: State,
   subject: string,
