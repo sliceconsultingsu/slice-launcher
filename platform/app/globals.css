@@ -877,3 +877,44 @@ button.member-row:hover,
     font-size: 26px;
   }
 }
+
+/* Connected apps on the account page (src/ai-connections/connected-apps.tsx). */
+.connected-apps {
+  margin-top: 24px;
+}
+.connected-apps-table {
+  overflow-x: auto;
+}
+.connected-apps table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.connected-apps th,
+.connected-apps td {
+  padding: 10px 12px 10px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+.connected-apps thead th {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.connected-apps tbody th {
+  max-width: 260px;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+.connected-apps td:last-child {
+  padding-right: 0;
+  text-align: right;
+}
+.connected-apps .danger-text {
+  color: var(--accent);
+}
+.connected-apps-empty a {
+  color: var(--accent);
+}

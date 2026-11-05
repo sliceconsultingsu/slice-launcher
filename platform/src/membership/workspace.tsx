@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { ConnectedApps } from "../ai-connections/connected-apps";
 import type { Audit, Command, Member, View } from "./contracts";
 import { AddMember, LevelEditor, MemberEditor, ProfileEditor } from "./editors";
 import { organizationRole } from "./access-summary";
@@ -209,6 +210,7 @@ export function MembershipWorkspace() {
                   </p>
                 )}
                 <ProfileEditor key={view.revision} view={view} save={save} busy={busy} />
+                {view.me.status === "active" && <ConnectedApps />}
               </div>
             </div>
           )}
