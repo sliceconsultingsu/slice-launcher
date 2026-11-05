@@ -1,4 +1,5 @@
 import { CopyField } from "../../src/connect-ai/copy-field";
+import { ConnectionStatus } from "../../src/ai-connections/connection-status";
 import {
   agentGuideUrl,
   agentInstructions,
@@ -22,6 +23,7 @@ export default function ConnectAiPage() {
         </a>
         <div className="header-divider" aria-hidden="true" />
         <span className="workspace-label">App Launcher</span>
+        <ConnectionStatus />
         <a className="account-link" href="/">
           Applications
         </a>

@@ -1,4 +1,5 @@
 import { AccountNav } from "../src/membership/account-nav";
+import { ConnectionStatus } from "../src/ai-connections/connection-status";
 import { AppCard } from "@slice/ui";
 import { apps, getAppUrl, getGuideUrl } from "../src/lib/apps";
 
@@ -38,6 +39,7 @@ export default function Home() {
         </a>
         <div className="header-divider" aria-hidden="true" />
         <span className="workspace-label">App Launcher</span>
+        <ConnectionStatus />
         <AccountNav />
       </header>
       <main id="main" className="workspace-main">

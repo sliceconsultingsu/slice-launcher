@@ -191,6 +191,67 @@ h1 {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* AI connection status in the top bar (src/ai-connections/connection-status.tsx). */
+.connection-status {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 40%;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.connection-status:hover {
+  border-color: var(--accent);
+}
+.connection-status:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.connection-status + .account-nav {
+  margin-left: 0;
+}
+.connection-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #8a8d86;
+}
+.connection-status[data-kind="active"] .connection-dot {
+  background: #2f7d4f;
+}
+.connection-status[data-kind="ending"] .connection-dot {
+  background: var(--accent);
+}
+.connection-status[data-kind="connect"] .connection-dot {
+  background: transparent;
+  border: 1.5px solid var(--muted);
+}
+.connection-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.connection-detail {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .connection-status {
+    max-width: none;
+  }
+  .connection-detail {
+    display: none;
+  }
+}
 .member-avatar,
 .profile-avatar,
 .account-avatar {
