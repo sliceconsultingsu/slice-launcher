@@ -44,15 +44,15 @@ All interface text below meets WCAG 2.1 AA (4.5:1) on its intended background. R
 | Role                      | Value     | CSS variable today | Use                                                         | Contrast                     |
 | ------------------------- | --------- | ------------------ | ----------------------------------------------------------- | ---------------------------- |
 | Page background           | `#faf9f6` | none (on `:root`)  | Whole-page background                                       | —                            |
-| Surface                   | `#fffefb` | none               | Cards, tiles, empty states, secondary buttons               | —                            |
+| Surface                   | `#fffefb` | `--surface`        | App cards, empty states, secondary buttons                  | —                            |
 | Ink                       | `#292c30` | `--ink`            | Body text and headings                                      | 13.3:1 on page               |
 | Muted text                | `#666962` | `--muted`          | Secondary text, notes, timestamps, inactive tabs            | 5.3:1 on page, 5.5:1 surface |
 | Accent                    | `#a4461c` | `--accent`         | Primary action fill, current tab, text links, focus outline | 5.8:1 on page                |
-| Accent hover              | `#853915` | none               | Primary button hover                                        | white text 8.1:1             |
-| Accent tint               | `#fff0e3` | none               | App tile initial background                                 | accent text 5.4:1            |
+| Accent hover              | `#853915` | `--accent-hover`   | Primary button hover, including **Open** on app cards       | white text 8.1:1             |
+| Accent tint               | `#fff0e3` | none               | Accent-tinted backgrounds                                   | accent text 5.4:1            |
 | Line                      | `#e5e4df` | `--line`           | Dividers and card borders (decorative only)                 | 1.2:1, decorative            |
 | Control border            | `#cfcec6` | none               | Text input and select borders                               | 1.6:1 — see known gaps       |
-| Selected row              | `#f3efe7` | none               | Hovered or selected list row                                | —                            |
+| Selected row              | `#f3efe7` | `--selected`       | Hovered or selected row, secondary-button hover, code       | —                            |
 | Text selection            | `#ffd8b7` | none               | `::selection` background                                    | —                            |
 | Notice                    | `#f6f3e9` | none               | Informational notice background, border `#ddd9c9`           | ink 12.6:1                   |
 | Error notice              | `#fff0ea` | none               | Error notice background, border `#e9baa6`                   | ink 12.6:1                   |
@@ -60,7 +60,6 @@ All interface text below meets WCAG 2.1 AA (4.5:1) on its intended background. R
 | Status: active            | `#3c573b` | none               | Badge text on `#e8efe5`                                     | 6.8:1                        |
 | Status: pending / invited | `#735124` | none               | Badge text on `#f5ebd9`                                     | 6.1:1                        |
 | Status: suspended         | `#914833` | none               | Badge text on `#f6e6e1`                                     | 5.5:1                        |
-| Launch button             | `#30372e` | none               | "Open app" on app tiles only; hover `#465140`               | white text 12.3:1            |
 
 Rules:
 
@@ -92,7 +91,7 @@ Rules: one `h1` per page, headings in order, sentence case everywhere ("Save acc
 - **Radii:** 6px badges · 7–8px inputs and buttons · 9px notices · 14px account cards and icon tiles · 16px app tiles and empty states · 50% avatars.
 - **Borders:** 1px solid. No drop shadows, gradients or blur.
 - **Shell:** content is centered with `max-width: 1440px` and 6% side margins in `.site-header`, `.workspace-main` and `.site-footer`.
-- **Grids:** app tiles use `repeat(auto-fit, minmax(min(100%, 280px), 1fr))` with a 20px gap. Two-panel layouts (`.profile-grid`, `.management-grid`) collapse to one column at ≤800px.
+- **Grids:** app cards use `repeat(auto-fill, minmax(min(100%, 280px), 1fr))` with a 20px gap, so a lone card keeps its column width instead of stretching across the page. Two-panel layouts (`.profile-grid`, `.management-grid`) collapse to one column at ≤800px.
 - **Breakpoints:** 800px (two panels stack), 650px (smaller header and title), 500px (account header compacts, toolbars stack). Do not add others without a reason.
 - **Touch targets:** buttons and inputs are at least 42–44px tall. Keep new interactive controls at 44px or larger.
 
@@ -113,6 +112,22 @@ App modules render inside `main`. The host owns routing and the shell, so an app
 
 Keep the launcher focused on Applications. **Connect your AI** belongs in the footer's `.project-links` beside the contributor resources, using the same muted, underlined text and 44px touch target. Its setup guide stays on a separate page; do not promote it with a banner above the apps.
 
+## App icons
+
+Every app shows its own icon on the launcher card and its guide page. Colour and personality live in app icons; the interface around them stays quiet. The style is up to the app's designer.
+
+- Put exactly one `icon.svg` or `icon.png` in `platform/apps/<id>/`, replacing the grey starter from `pnpm app:create`, then run `pnpm apps:sync`.
+- **Square and full-bleed.** The artwork covers the whole square; the platform rounds the corners. SVG: `viewBox` width equals height, at most 32 KiB. PNG: 512×512 RGB with no transparency, at most 150 KiB.
+- **Safe.** SVG icons may use shapes, paths, groups, gradients, clip paths and masks only. Scripts, styles, event handlers, embedded images, links to other files and animation are rejected. PNG icons cannot carry text metadata or animation.
+- Record how the icon was made in an `## Icon` section of the app README: original, adapted from a named source, or generated with a named tool, plus its licence and author. Only original or permissively licensed artwork (MIT, ISC, Apache-2.0, CC0, CC-BY); no real people's faces and no other organisations' logos.
+- Tips: check it at 20px, make it easy to tell apart from other apps' icons, and keep important detail away from the corners.
+
+`pnpm lint` enforces the file, size, safety and README rules and rejects the unchanged starter. Quality is judged in review.
+
+## App guides
+
+Every app ships `platform/apps/<id>/guide.md`, shown at `/guides/<id>` behind the card's **Guide** button. Write it for consultants: what the app is for, its main tasks step by step, and how to get access. Start with a `# ` title. Use Markdown only; raw HTML is rejected and never rendered. Guides are public catalog information, like `app.json`, readable before someone is granted the app, so they must never contain private data.
+
 ## Components
 
 Use these before creating anything new. Classes live in `platform/app/globals.css`; React components in `packages/ui/src`.
@@ -122,7 +137,8 @@ Use these before creating anything new. Classes live in `platform/app/globals.cs
 | Main action on a screen         | `.primary-button`                                 | One per view or form. Verb first: "Save access", "Add member".                            |
 | Other actions                   | `.secondary-button`                               | Cancel, Refresh, secondary navigation.                                                    |
 | Low-emphasis inline action      | `.text-button`                                    | "Reload latest changes", "Sign out". Underlined accent text.                              |
-| App in the launcher grid        | `AppTile` from `@slice/ui`                        | Shows initial, name, description and "Open app", or "Coming soon" when there is no link.  |
+| App in the launcher grid        | `AppCard` from `@slice/ui`                        | 40px icon, bold name, description (three lines max), **Open** and **Guide** pill buttons. |
+| An app's icon anywhere else     | `AppIcon` from `@slice/ui`                        | `<img alt="">` at 20, 32, 40 or 48px with rounded corners. Never inline the SVG.          |
 | Grouped content                 | `.account-card`                                   | Surface, 1px line, 14px radius, 28px padding (22px on mobile).                            |
 | Section switcher                | `nav.account-tabs` with `aria-current` on current | Accent underline on the current tab. Horizontal scroll, never wrapping.                   |
 | Heading row with an action      | `.account-heading` or `.section-toolbar`          | Toolbar stacks at ≤500px.                                                                 |
@@ -135,7 +151,7 @@ Use these before creating anything new. Classes live in `platform/app/globals.cs
 | Nothing to show yet             | `.empty-catalog` pattern                          | Line icon in `.empty-icon`, one short heading.                                            |
 | Waiting for data                | `<p role="status">Loading your account…</p>`      | Text, not spinners or skeletons.                                                          |
 | History or audit entries        | `.activity-list`                                  | `time` in muted 12px; raw detail inside `details`.                                        |
-| Icons                           | Inline SVG, 24px viewBox, 1.5px `currentColor`    | Decorative icons get `aria-hidden="true"`. Do not add an icon library.                    |
+| Interface icons                 | Inline SVG, 24px viewBox, 1.5px `currentColor`    | Decorative icons get `aria-hidden="true"`. Do not add an icon library. Not for app icons. |
 
 If a pattern you need is missing, build it once in the shared place, using the tokens above, and add a row to this table in the same PR.
 
@@ -143,7 +159,7 @@ If a pattern you need is missing, build it once in the shared place, using the t
 
 Follow the [communication standard](../AGENTS.md#communicate-as-a-business-partner-and-teacher) in AGENTS.md: plain business language, outcome first.
 
-- **Buttons** are verbs describing the result: "Open app", "Save access", "Add member". Avoid "Submit", "OK" and "Click here".
+- **Buttons** are verbs describing the result: "Open", "Save access", "Add member". Avoid "Submit", "OK" and "Click here".
 - **Headings** name the thing: "Applications", "Organization", "Recent activity".
 - **Errors** say what happened and what to do next, without technical detail or private data, for example "We couldn't save these changes. Reload latest changes and try again." Never show stack traces, IDs from the database or raw provider messages.
 - **Permission messages** say who can act: "An owner must make changes to this member."

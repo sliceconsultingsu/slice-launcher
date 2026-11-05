@@ -1,6 +1,6 @@
 import { AccountNav } from "../src/membership/account-nav";
-import { AppTile } from "@slice/ui";
-import { apps, getAppUrl } from "../src/lib/apps";
+import { AppCard } from "@slice/ui";
+import { apps, getAppUrl, getGuideUrl } from "../src/lib/apps";
 
 function GridIcon() {
   return (
@@ -53,11 +53,13 @@ export default function Home() {
           ) : (
             <div className="app-grid">
               {apps.map((app) => (
-                <AppTile
+                <AppCard
                   key={app.id}
                   name={app.name}
                   description={app.description}
+                  icon={app.icon}
                   href={getAppUrl(app)}
+                  guideHref={getGuideUrl(app)}
                 />
               ))}
             </div>

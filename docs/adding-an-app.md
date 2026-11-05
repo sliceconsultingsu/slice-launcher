@@ -12,9 +12,20 @@ pnpm app:create my-tool "My tool"
 pnpm dev
 ```
 
-The command creates `platform/apps/my-tool/server.tsx`, creates its `app.json` settings and README, and updates the generated catalog and server registry. The app is served at `/apps/my-tool`; its optional API is `/api/apps/my-tool/...`. All URLs stay on the platform origin and use the existing sign-in session. The catalog includes the synthetic alumni learning starter. For that project, use [the team guide](team/README.md) rather than creating it again.
+The command creates `platform/apps/my-tool/server.tsx`, its `app.json` settings, README, a grey starter `icon.svg` and a starter `guide.md`, and updates the generated catalog, server registry, published icons and guides. The app is served at `/apps/my-tool`; its optional API is `/api/apps/my-tool/...`. All URLs stay on the platform origin and use the existing sign-in session. The catalog includes the synthetic alumni learning starter. For that project, use [the team guide](team/README.md) rather than creating it again.
 
 Build the UI in the module's `Page` and any API in `api`. Import `AppModule` and context types from `../../src/platform/contracts`. Client components can be colocated; keep data reads and writes in guarded server handlers. The host owns routing and the page shell. Don't add server actions or unguarded Next route handlers for a module.
+
+## Icon and guide
+
+The launcher shows each app as a card with its icon, name, description, and **Open** and **Guide** buttons. Before opening a PR:
+
+1. Replace `icon.svg` with the app's own square icon (or use `icon.png`), following [app icons](design-profile.md#app-icons).
+2. Fill in the README's `## Icon` section: who made it, how, and its licence.
+3. Rewrite `guide.md` for consultants, following [app guides](design-profile.md#app-guides).
+4. Run `pnpm apps:sync` to publish the icon and guide, then `pnpm lint`.
+
+`pnpm lint` fails while the starter icon, starter guide or README placeholder remain, so a half-finished app cannot ship unnoticed.
 
 ## Permissions
 
@@ -60,6 +71,6 @@ pnpm build
 pnpm smoke:launcher
 ```
 
-`check:platform` rejects stale registries, unknown modules, duplicate IDs/permissions, per-module deployment files, and server actions bypassing the platform API. The architecture checker blocks client imports of server entry points. CI still requires app-specific tests and reviewer judgment; these checks are not a sandbox.
+`check:platform` rejects stale registries, catalogs, guides and published icons, unsafe or starter icons, starter guides, unknown modules, duplicate IDs/permissions, per-module deployment files, and server actions bypassing the platform API. The architecture checker blocks client imports of server entry points. CI still requires app-specific tests and reviewer judgment; these checks are not a sandbox.
 
 Open a PR. Once approved and merged, the existing pipeline builds one artifact containing all apps, validates it, and deploys it using the platform's production environment. All modules share release and rollback. No app-specific cloud credentials or deployment workflow is needed. Schema changes and private storage remain explicitly reviewed platform resources.
