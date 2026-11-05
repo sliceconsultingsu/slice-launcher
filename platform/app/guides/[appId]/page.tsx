@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Markdown from "react-markdown";
-import { AppIcon } from "@slice/ui";
+import { AppIcon, WorkInProgressBadge } from "@slice/ui";
 import { AccountNav } from "../../../src/membership/account-nav";
 import { apps, getAppUrl } from "../../../src/lib/apps";
 import { findGuide } from "../../../src/lib/guides";
@@ -51,6 +51,7 @@ export default async function GuidePage({ params }: { params: Promise<{ appId: s
           <a className="guide-back" href="/">
             <span aria-hidden="true">←</span> Applications
           </a>
+          {app.workInProgress && <WorkInProgressBadge />}
           <a className="guide-open" href={getAppUrl(app)}>
             Open<span className="sr-only"> {app.name}</span>
           </a>

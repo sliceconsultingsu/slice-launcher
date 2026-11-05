@@ -33,9 +33,10 @@ export function DirectoryView() {
       <p className="alumni-intro">
         Explore alumni experience and the goals students bring to the conversation.
       </p>
-      <aside className="alumni-notice" aria-label="Sample data notice">
-        <strong>Learning preview</strong> · These people and companies are fictional. Records are
-        read-only. Matching, MCP tools and automatic refresh are not available yet.
+      <aside className="alumni-notice" aria-label="Work in progress notice">
+        <strong>Work in progress</strong> · This directory is still being built and will change.
+        These people and companies are fictional. Records are read-only. Matching, MCP tools and
+        automatic refresh are not available yet.
       </aside>
       {error ? (
         <div role="alert">
