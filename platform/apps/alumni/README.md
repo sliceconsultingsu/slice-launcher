@@ -38,6 +38,10 @@ Before a PR run all [contributor checks](../../../CONTRIBUTING.md#4-implement-an
 
 `GET /api/apps/alumni/records` loads validated fixture copies; writes are rejected. The page and API require `records.read`. All examples are synthetic and safe for this public repository. Do not replace fixture files with real data. Persistent storage, field visibility, record ownership and import/update permissions require agreed requirements and reviewed integration before real data is introduced.
 
+## Icon
+
+Original artwork created for this repository by Ivan Chen: two overlapping circles for a student and an alumnus making a connection. Released under the repository's MIT licence.
+
 ## Common interfaces
 
 These are the development baseline for parallel work, not final client-approved requirements. Propose shared changes to Ivan before implementing them in multiple branches.
