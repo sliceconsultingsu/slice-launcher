@@ -1,6 +1,6 @@
 # Membership administration
 
-Cloudflare Access proves who signed in. The launcher's private D1 database determines what that person can do. This release supports one organization, Slice Consulting.
+Slice's own Google sign-in proves who signed in: only verified accounts in the allowed domain (`g.syr.edu`), held in a 30-day Slice session cookie. The launcher's private D1 database determines what that person can do. This release supports one organization, Slice Consulting.
 
 ## Member workflow
 
@@ -24,23 +24,33 @@ If an account unexpectedly has administrative access, inspect its ownership flag
 
 ## Production activation checklist
 
-Production uses a Slice-specific Worker Access application, Google sign-in, and the exact `g.syr.edu` email domain. Other verified users of that domain start pending unless invited. The initial owner is configured privately in D1. The issuer and audience are pinned in Wrangler; missing configuration fails closed. Complete these steps for a new environment or account transfer.
+Sign-in is Slice's own Google sign-in (design: [in-app sign-in](superpowers/specs/2026-11-05-in-app-sign-in-design.md)). It replaced Cloudflare Access on November 5, 2026. Each step below changes production and needs maintainer authorization.
 
-1. Obtain the confirmed initial owner's email and the agreed identity provider. Never derive ownership from whoever visits first or from a developer's Cloudflare session.
-2. Apply `0001_membership.sql` to the private `slice-membership` database using Wrangler and an operator account with D1 write permission. From the repository root: `pnpm --filter @slice/launcher exec wrangler d1 migrations apply slice-membership --remote`. Check the target account before confirming. The existing Worker-only CI token is not a database migration credential.
-3. Before enabling sign-in, set the singleton organization's `owner_email` to the confirmed, normalized email using a private operator SQL file and `wrangler d1 execute`. Guard the update with `owner_claimed = 0` and an empty members table. Do not put real emails or this SQL file in Git. Verify exactly one organization row was updated. The matching first verified sign-in consumes this bootstrap once. If members already exist, stop and use a separately reviewed recovery procedure; changing the email alone does not promote an existing record.
-4. Configure a Cloudflare Access self-hosted application for the production hostname, using the approved identity provider. Its identity policy must allow intended new people to authenticate before membership approval. Unknown authenticated people can create pending profiles, but cannot read the directory or admin data. Do not use a Bypass policy for the membership API. Do not mistake an Access login for Slice membership.
-5. Set `ACCESS_TEAM_DOMAIN` to the full `https://<team>.cloudflareaccess.com` issuer and `ACCESS_AUD` to this application's audience tag in the deployment configuration. These identifiers are not credentials; tokens and client secrets must remain secret. Keep production and test identity configurations separate.
-6. The current Access application protects all traffic to the Slice Worker, including its production and preview URLs. A dedicated `slice-launcher-ci` service token is attached only to this app with a Service Auth policy. Store its Client ID and Secret as `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` in GitHub production secrets (expiration: October 4, 2027). The post-deploy smoke sends those headers to same-origin page, health, and asset requests, and asserts that the membership API rejects the service identity with 401. For a new environment, decide the protected hostname/path scope before enabling the Access application. Protecting the entire hostname changes the current unauthenticated CD smoke check: it will receive an Access redirect. Provide a narrowly scoped CI service-auth policy and secret headers for the public-shell smoke check, or deliberately preserve public shell/health paths and protect all membership API paths (including `/api/membership/login`). Never add a broad bypass solely to keep CI green. The membership API rejects service identities even if Access admits a CI service token to the shell.
-7. Deploy through the normal pull-request gate. Check a real owner sign-in, a second pending person's sign-in, approval, restricted directory, per-user revocation, suspension with an existing session, and logout. Check direct API requests without valid JWTs are denied. Do not claim production activation from synthetic/local tests.
+1. **Google OAuth client.** In Google Cloud, create a Web application OAuth client with the authorized redirect URI `https://slice-launcher.ivan27chen.workers.dev/api/auth/google/callback`. Put its client ID in `GOOGLE_CLIENT_ID` in `platform/wrangler.jsonc` through a reviewed PR. Set the secret yourself with `pnpm --filter @slice/launcher exec wrangler secret put GOOGLE_CLIENT_SECRET`, never in Git or chat. Until both exist, sign-in fails closed with "Sign-in is not set up yet".
+2. **Database.** Apply migrations to the private `slice-membership` database: `pnpm --filter @slice/launcher exec wrangler d1 migrations apply slice-membership --remote`. `0002_sessions.sql` adds the `sessions` table. Check the target account before confirming.
+3. **Initial owner (new environments only).** Set the singleton organization's `owner_email` to the confirmed, normalized email with a private operator SQL file and `wrangler d1 execute`. Guard it with `owner_claimed = 0` and an empty members table. Never derive ownership from whoever visits first, and keep real emails and that SQL out of Git.
+4. **Release.** Deploy through the normal pull-request gate. The post-deploy check accepts both the Access redirect and in-app sign-in, so this works before and after Access is switched off.
+5. **Switch off Cloudflare Access.** In Workers & Pages → slice-launcher → Settings → Domains & Routes → `workers.dev`, disable Cloudflare Access, then delete the Access application. Existing members are moved from their old Access identity (`LEGACY_ACCESS_ISSUER`) to their Google identity on their first Google sign-in, with an audit record.
+6. **Verify with real accounts.**
+   - The owner signs in and keeps owner access.
+   - A second existing member signs in and keeps their access.
+   - A new person starts pending.
+   - A non-`g.syr.edu` account is refused.
+   - Approval, revocation, suspension with an existing session, and Sign out all work.
+   - Direct API requests without a session are denied.
+   - Do not claim activation from synthetic tests.
 
-The D1 database ID and application code may be public. Member records, JWTs, secrets, and operator bootstrap data must remain private.
+**Retire Access leftovers afterwards.** Once Access is off, a follow-up PR removes the `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` secrets from the workflows and the Access branches of `scripts/check-launcher.mjs`. Revoke the `slice-launcher-ci` service token in Cloudflare.
+
+**Rollback.** Before step 5, revert the code. After step 5, re-enable Access before rolling back to a release that expects Access identities; those releases fail closed without it. Members already moved to Google identities would need their previous subjects restored from the audit history.
+
+The D1 database ID and application code may be public. Member records, session tokens, the Google client secret and operator bootstrap data must remain private.
 
 ## Local verification
 
 Run `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`, and `pnpm smoke:launcher`. Integration tests create disposable Miniflare D1 databases and synthetic signed identities. They exercise pending enrollment, invitations, approval, directory privacy, stale writes, audit rollback, suspension, wrong-audience tokens, forged tokens, service tokens, request size, and same-origin writes.
 
-For local Wrangler storage, run `pnpm --filter @slice/launcher exec wrangler d1 migrations apply slice-membership --local`. A blank Access issuer/audience deliberately returns 503 from the API; it does not enable a development identity shortcut. The deployed route has no unsigned test-user header or first-visitor owner mode.
+For local Wrangler storage, run `pnpm --filter @slice/launcher exec wrangler d1 migrations apply slice-membership --local`. Without `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, sign-in fails closed with a clear message; there is no development identity shortcut. The deployed route has no unsigned test-user header or first-visitor owner mode.
 
 ## Future apps and recovery
 
@@ -52,4 +62,4 @@ Email/identity changes and loss of the last owner's sign-in require an operator 
 
 ## Remote MCP clients
 
-Consultants using the shared `/mcp` endpoint connect through Slice's own OAuth sign-in: their AI app opens the `/authorize` approval page, which sits behind Access, and they choose **Allow**. The grant carries their Access subject and email, so every request reloads current D1 membership. Suspending or revoking a member stops their connected apps on the next request, and members can disconnect apps under **Connected apps** on their account page; no separate MCP role database or shared service login exists. Tools require app access plus their declared action, and calls recheck permissions immediately before dispatch. MCP does not enroll a new member; use the browser account/approval flow first. See [MCP setup and tool contracts](mcp.md).
+Consultants using the shared `/mcp` endpoint connect through Slice's own OAuth sign-in: their AI app opens the `/authorize` approval page, which uses their Slice session (signing in with Google first if needed), and they choose **Allow**. The grant carries their Access subject and email, so every request reloads current D1 membership. Suspending or revoking a member stops their connected apps on the next request, and members can disconnect apps under **Connected apps** on their account page; no separate MCP role database or shared service login exists. Tools require app access plus their declared action, and calls recheck permissions immediately before dispatch. MCP does not enroll a new member; use the browser account/approval flow first. See [MCP setup and tool contracts](mcp.md).

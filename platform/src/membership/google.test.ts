@@ -42,7 +42,13 @@ function env(overrides: Partial<GoogleEnv> = {}): GoogleEnv {
 }
 
 async function idToken(claims: Record<string, unknown>) {
-  return new SignJWT({ email: "ana@g.syr.edu", email_verified: true, name: "Ana", ...claims })
+  return new SignJWT({
+    email: "ana@g.syr.edu",
+    email_verified: true,
+    hd: "g.syr.edu",
+    name: "Ana",
+    ...claims,
+  })
     .setProtectedHeader({ alg: "RS256", kid: "test" })
     .setIssuer("https://accounts.google.com")
     .setAudience(typeof claims.aud === "string" ? claims.aud : "client-id")
@@ -134,6 +140,8 @@ describe("Google sign-in", () => {
     ["unverified email", { email_verified: false }, "unverified"],
     ["another email domain", { email: "ana@gmail.com" }, "domain"],
     ["a lookalike domain", { email: "ana@evilg.syr.edu" }, "domain"],
+    ["a personal Google account using a Syracuse address", { hd: undefined }, "domain"],
+    ["another Workspace organization", { hd: "other.edu" }, "domain"],
     ["a wrong nonce", { nonce: "replayed" }, "google"],
     ["a token for another app", { aud: "other-client" }, "google"],
   ])("refuses %s", async (_label, claims, code) => {

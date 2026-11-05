@@ -14,7 +14,7 @@ AI sign-in needs Access to exempt five paths. Cloudflare's documentation does no
 ## Decisions
 
 - **Sign-in.** "Sign in with Google" in the app, using Google OAuth 2.0 with PKCE, `state` and `nonce`. The callback verifies the ID token's signature against Google's keys, plus issuer, audience, expiry and nonce, and requires `email_verified`. This copies Deal Toy's `src/server/google.ts`.
-- **Who may sign in.** Only verified emails in `ALLOWED_EMAIL_DOMAIN` (`g.syr.edu`), the rule Access enforced before. Membership approval is unchanged: new people are pending until an administrator approves them.
+- **Who may sign in.** Only verified emails in `ALLOWED_EMAIL_DOMAIN` (`g.syr.edu`) whose ID token's hosted-domain claim (`hd`) is also exactly that domain, so personal Google accounts using a Syracuse address are refused. Access enforced the domain before. Membership approval is unchanged: new people are pending until an administrator approves them.
 - **Identity.** `Identity` stays `{ subject, email }`. The new subject is `https://accounts.google.com|<Google sub>`. Everything downstream (`authorizeMember`, enrollment, permissions, MCP grants) keeps working unchanged.
 - **Existing members.** They are linked to their old Access subject (`https://snowy-voice-36a1.cloudflareaccess.com|…`). On their first Google sign-in, a member whose email matches and whose subject still has that legacy prefix is re-linked to the Google subject once, with an audit record. A member already on a Google subject is never re-linked by email, so another Google account cannot take them over.
 - **Sessions.**

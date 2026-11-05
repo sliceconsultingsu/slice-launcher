@@ -155,7 +155,10 @@ export async function googleCallback(
     return fail("google");
   if (claims.email_verified !== true || typeof claims.email !== "string") return fail("unverified");
   const email = claims.email.toLowerCase();
-  if (email.split("@")[1] !== env.ALLOWED_EMAIL_DOMAIN.toLowerCase()) return fail("domain");
+  const domain = env.ALLOWED_EMAIL_DOMAIN.toLowerCase();
+  // Both the address and Google's hosted-domain claim must match: `hd` proves the account is
+  // managed by the Syracuse Workspace, not a personal Google account using a Syracuse address.
+  if (email.split("@")[1] !== domain || claims.hd !== domain) return fail("domain");
   const identity: Identity = { subject: `${GOOGLE_SUBJECT_PREFIX}${claims.sub}`, email };
   const repository = new Repository(env.MEMBERSHIP_DB);
   const state0 = await repository.load();

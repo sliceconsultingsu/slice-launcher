@@ -1,10 +1,10 @@
 # Connect your AI to Slice
 
-Use this guide when a consultant asks an AI agent to connect to Slice, is stopped at Cloudflare sign-in, or needs help checking a connection. Explain one step at a time in plain language. Ask only for the information needed for the next step.
+Use this guide when a consultant asks an AI agent to connect to Slice, is stopped at sign-in, or needs help checking a connection. Explain one step at a time in plain language. Ask only for the information needed for the next step.
 
 **Current status: awaiting platform setup.** The shared connection is implemented, but remote sign-in has not been activated and verified. Help the person check their account and prepare their client. Stop before connecting until the Slice maintainer confirms availability. Installing a client or opening the launcher does not prove a working connection.
 
-Use **Connect your AI** in the launcher’s footer to open the setup page and copy a message into your agent. This public repository guide is readable before sign-in; private application data remains behind Cloudflare Access.
+Use **Connect your AI** in the launcher’s footer to open the setup page and copy a message into your agent. This public repository guide is readable before sign-in; private application data requires a Slice sign-in.
 
 ## 1. Identify the AI client
 
@@ -16,7 +16,7 @@ Give the exact navigation steps for the verified client/version. Do not invent m
 
 ## 2. Check the person’s Slice account
 
-Direct the person to [their Slice account](https://slice-launcher.ivan27chen.workers.dev/account). Have them complete the Cloudflare sign-in using their approved Slice account. If asked, they should create their member profile and wait for approval. They must have active membership before using tools.
+Direct the person to [their Slice account](https://slice-launcher.ivan27chen.workers.dev/account). Have them choose **Sign in with Google** and use their Syracuse Google account (`g.syr.edu`). If asked, they should create their member profile and wait for approval. They must have active membership before using tools.
 
 The person enters their password, verification codes and any consent directly in the sign-in window. Never request these in chat, read or copy browser cookies, or ask for a shared service token. A sign-in identifies the person; membership determines what they can do.
 
