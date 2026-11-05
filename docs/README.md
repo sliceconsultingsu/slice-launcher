@@ -19,7 +19,7 @@ Start building the alumni app with the [team onboarding guide](team/README.md), 
 | [Deployment](deployment.md)           | How does a release or rollback work?                |
 | [Migrations](migrations.md)           | How are database changes applied safely?            |
 | [Security review](security-review.md) | What does security CI enforce?                      |
-| [AI review](ai-review.md)             | Where are review comments and what do they mean?    |
+| [AI review](ai-review.md)             | Why is AI review switched off, and how did it work? |
 | [Design profile](design-profile.md)   | How should screens look, read and behave?           |
 | [Brand assets](brand-assets.md)       | Where did the visual assets come from?              |
 

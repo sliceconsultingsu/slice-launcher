@@ -32,7 +32,7 @@ Read these references when changing the matching area:
 - Login, permissions, membership or private data: [membership](docs/membership.md), [data boundary](docs/data-boundary.md), [security review](docs/security-review.md).
 - MCP tools, clients or OAuth activation: [MCP contract and rollout](docs/mcp.md).
 - CI, releases, secrets, rollback or migrations: [deployment](docs/deployment.md), [security review](docs/security-review.md).
-- AI review or evaluation: [AI review](docs/ai-review.md). Preserve trusted-base execution, strict evidence validation and bounded cost.
+- AI review or evaluation: [AI review](docs/ai-review.md). The workflow is switched off; if it is re-enabled, preserve trusted-base execution, strict evidence validation and bounded cost.
 
 ## Platform rules
 
@@ -60,10 +60,10 @@ The authoritative CI sequence is `.github/workflows/validation.yml`; security sc
 
 ## Delivery and authority
 
-Before handoff, follow the [advisory review loop](docs/ai-review.md#recommended-review-loop): assess, fix, test, push to the same PR, and read the fresh review. Use up to two fix-and-review rounds; report unresolved issues.
+Before handoff, review the full diff yourself against the task, tests and these rules; fix supported problems, re-run the checks, push to the same PR, and report unresolved issues. The [advisory AI review](docs/ai-review.md#current-status) is switched off, so do not wait for or promise a review comment.
 
 - Review the diff, push the intended branch, and open or update a PR using its template. Describe the concrete problem, resulting behavior, tests actually run, unverified paths, and migration/release/rollback effects. Confirm the remote contains the intended commits.
-- Required `validate` and security checks must pass on the current revision; resolve review conversations. Ivan reviews other contributors' PRs; his own require no independent approval. AI review is advisory and cannot approve, waive checks, merge, or deploy. An unavailable/incomplete AI result is not a clean review.
+- Required `validate` and security checks must pass on the current revision; resolve review conversations. Ivan reviews other contributors' PRs; his own require no independent approval. AI review, when enabled, is advisory and cannot approve, waive checks, merge, or deploy. An unavailable/incomplete AI result is not a clean review.
 - Do not push implementation changes directly to `main`, force-push shared branches, bypass protection, merge your own contribution without the applicable maintainer review, or deploy directly from your laptop. Use the approved shared release workflow. Respect explicit draft/merge holds; obtain maintainer authorization before production access/configuration changes, migrations, destructive operations, or releases outside the normal approved workflow.
 - Report **pushed**, **awaiting review**, **merged**, and **deployed** as separate states, with PR/commit links and remaining work. A code rollback does not roll back data.
 
