@@ -2,8 +2,17 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    // The OAuth library imports WorkerEntrypoint from the Workers runtime; unit tests run in Node.
+    alias: {
+      "cloudflare:workers": new URL("./tests/stubs/cloudflare-workers.ts", import.meta.url)
+        .pathname,
+    },
+  },
   test: {
     environment: "node",
+    // Bundle the OAuth library so the cloudflare:workers alias above applies to it.
+    server: { deps: { inline: ["@cloudflare/workers-oauth-provider"] } },
     include: ["src/**/*.test.ts", "apps/**/*.test.ts"],
     coverage: {
       provider: "v8",
