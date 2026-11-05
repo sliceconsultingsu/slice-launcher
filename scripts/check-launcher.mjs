@@ -124,6 +124,14 @@ async function checkServiceDenied(
     assert.equal(response.status, 401, "Service identity must not access membership data");
     assert.match(response.headers.get("content-type") ?? "", /application\/json/);
     assert.match(response.headers.get("cache-control") ?? "", /no-store/);
+    // Slice's own AI sign-in adds an OAuth challenge; when present it must point back here.
+    if (response.headers.get("www-authenticate")) {
+      const target = challengeMetadata(response, baseUrl);
+      assert.ok(
+        target.pathname.startsWith("/.well-known/oauth-protected-resource"),
+        "Unexpected OAuth metadata path",
+      );
+    }
     await response.body?.cancel();
     console.log("Protected API rejects the CI service identity: " + path);
     return;
@@ -137,6 +145,41 @@ export function checkMcpDenied(baseUrl, options) {
   return checkServiceDenied(baseUrl, "/mcp", options);
 }
 
+/** The challenge's metadata address, which must stay on the launcher's own origin. */
+function challengeMetadata(response, baseUrl) {
+  const challenge = response.headers.get("www-authenticate") || "";
+  assert.match(challenge, /^Bearer\s/i);
+  const metadata = /resource_metadata="([^"]+)"/i.exec(challenge)?.[1];
+  assert.ok(metadata, "OAuth challenge must advertise resource metadata");
+  const target = new URL(metadata);
+  assert.equal(
+    target.origin,
+    new URL(baseUrl).origin,
+    "OAuth metadata must stay on the protected origin",
+  );
+  return target;
+}
+
+async function readMetadata(target) {
+  const info = await fetch(target, { redirect: "error", signal: AbortSignal.timeout(5000) });
+  assert.equal(info.status, 200, "OAuth metadata must be available");
+  const reader = info.body.getReader();
+  const chunks = [];
+  let bytes = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      assert.ok(bytes <= 16384, "OAuth metadata exceeds bound");
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    await reader.cancel();
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
 export async function checkAccessBoundary(baseUrl, accessDomain) {
   const domain = new URL(accessDomain);
   assert.equal(domain.protocol, "https:");
@@ -148,46 +191,36 @@ export async function checkAccessBoundary(baseUrl, accessDomain) {
     });
     await response.body?.cancel();
     if (response.status === 401) {
-      // Managed OAuth uses a challenge instead of a browser redirect. Verify its pinned issuer.
-      assert.match(response.headers.get("www-authenticate") || "", /^Bearer\s/i);
-      const metadata = /resource_metadata="([^"]+)"/i.exec(
-        response.headers.get("www-authenticate") || "",
-      )?.[1];
-      assert.ok(metadata, "Access OAuth challenge must advertise resource metadata");
-      const target = new URL(metadata);
-      assert.equal(
-        target.origin,
-        new URL(baseUrl).origin,
-        "OAuth metadata must stay on the protected origin",
-      );
-      assert.ok(target.pathname.startsWith("/.well-known/cloudflare-access-protected-resource/"));
-      const info = await fetch(target, { redirect: "error", signal: AbortSignal.timeout(5000) });
-      assert.equal(info.status, 200, "Access OAuth metadata must be available");
-      const reader = info.body.getReader();
-      const chunks = [];
-      let bytes = 0;
-      try {
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          bytes += value.byteLength;
-          assert.ok(bytes <= 16384, "OAuth metadata exceeds bound");
-          chunks.push(Buffer.from(value));
-        }
-      } finally {
-        await reader.cancel();
+      // AI sign-in answers with an OAuth challenge instead of a browser redirect. Two kinds are
+      // valid: Cloudflare Access managed OAuth (older releases, on every path) and Slice's own
+      // OAuth (current releases, /mcp only, while pages keep redirecting to Access).
+      const target = challengeMetadata(response, baseUrl);
+      const data = await readMetadata(target);
+      if (target.pathname.startsWith("/.well-known/cloudflare-access-protected-resource/")) {
+        assert.deepEqual(
+          data.authorization_servers,
+          [domain.origin],
+          "Unexpected OAuth authorization server",
+        );
+        assert.equal(
+          new URL(data.resource).origin,
+          new URL(baseUrl).origin,
+          "Unexpected OAuth resource",
+        );
+        continue;
       }
-      const data = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      assert.equal(path, "/mcp", "Only /mcp may answer with Slice's OAuth challenge");
+      assert.ok(
+        target.pathname.startsWith("/.well-known/oauth-protected-resource"),
+        "Unexpected OAuth metadata path",
+      );
+      const origin = new URL(baseUrl).origin;
       assert.deepEqual(
         data.authorization_servers,
-        [domain.origin],
+        [origin],
         "Unexpected OAuth authorization server",
       );
-      assert.equal(
-        new URL(data.resource).origin,
-        new URL(baseUrl).origin,
-        "Unexpected OAuth resource",
-      );
+      assert.equal(data.resource, `${origin}/mcp`, "Unexpected OAuth resource");
       continue;
     }
     assert.ok(
