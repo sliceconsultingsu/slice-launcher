@@ -1,0 +1,98 @@
+.alumni-workspace {
+  color: var(--ink);
+  padding: 24px 0 40px;
+  font-family: inherit;
+}
+.alumni-workspace h1 {
+  max-width: 760px;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.15;
+  letter-spacing: -1px;
+  margin: 12px 0 16px;
+}
+.alumni-eyebrow {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+.alumni-intro {
+  max-width: 680px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.alumni-notice {
+  margin: 24px 0 32px;
+  padding: 16px;
+  border: 1px solid #d8c9ad;
+  background: #fff8e9;
+  border-radius: 9px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.alumni-section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 24px 0 16px;
+}
+.alumni-section-title h2 {
+  margin: 0;
+  font-size: 22px;
+}
+.alumni-section-title span,
+.alumni-muted {
+  color: var(--muted);
+  font-size: 14px;
+}
+.alumni-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 20px;
+}
+.alumni-card {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px;
+  overflow-wrap: anywhere;
+}
+.alumni-card h3 {
+  margin: 16px 0 8px;
+  font-size: 18px;
+}
+.alumni-card h4 {
+  font-size: 13px;
+  margin: 24px 0 8px;
+}
+.alumni-card p,
+.alumni-card li {
+  line-height: 1.6;
+  font-size: 14px;
+}
+.alumni-card ul {
+  padding-left: 20px;
+  margin-bottom: 0;
+}
+.alumni-tag {
+  display: inline-block;
+  background: #f8edda;
+  color: var(--accent);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.alumni-button {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--accent);
+  cursor: pointer;
+}
+.alumni-button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}

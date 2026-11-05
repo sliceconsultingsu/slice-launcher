@@ -8,17 +8,17 @@ From the repository root:
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm app:create alumni "Alumni directory"
+pnpm app:create my-tool "My tool"
 pnpm dev
 ```
 
-The command creates `platform/apps/alumni/server.tsx`, creates its `app.json` settings and README, and updates the generated catalog and server registry. The app is served at `/apps/alumni`; its optional API is `/api/apps/alumni/...`. All URLs stay on the platform origin and use the existing sign-in session. The catalog in this release is empty; creating this starter does not implement an alumni database.
+The command creates `platform/apps/my-tool/server.tsx`, creates its `app.json` settings and README, and updates the generated catalog and server registry. The app is served at `/apps/my-tool`; its optional API is `/api/apps/my-tool/...`. All URLs stay on the platform origin and use the existing sign-in session. The catalog includes the synthetic alumni learning starter. For that project, use [the team guide](team/README.md) rather than creating it again.
 
 Build the UI in the module's `Page` and any API in `api`. Import `AppModule` and context types from `../../src/platform/contracts`. Client components can be colocated; keep data reads and writes in guarded server handlers. The host owns routing and the page shell. Don't add server actions or unguarded Next route handlers for a module.
 
 ## Permissions
 
-Registration automatically adds `app.alumni.open` to the existing permission editor. An active owner can open every registered app. Other members need an administrator to grant access through their level or individual permissions. Revocation takes precedence for nonowners. New sign-ins still follow the existing enrollment/approval flow.
+Registration automatically adds `app.my-tool.open` to the existing permission editor. An active owner can open every registered app. Other members need an administrator to grant access through their level or individual permissions. Revocation takes precedence for nonowners. New sign-ins still follow the existing enrollment/approval flow.
 
 Both page and API dispatch verify the Access token, load current membership from D1, and enforce the app capability before calling module code. Pending/suspended members are denied, including with an old valid session. Context exposes only the current member's ID/name/email and app-scoped permissions. App modules are trusted code in the same Worker, not a sandbox: server code could still import platform internals and read the membership database directly, and no automated check currently stops that. Use only the context and your app's own storage, and reviewers should reject any app that reaches into membership or platform internals. API responses are sent as `private, no-store`, and any `Set-Cookie` or `Clear-Site-Data` header an app sets is removed, because apps share the platform's origin and sign-in cookie.
 
@@ -26,14 +26,14 @@ Declare additional actions in that app's `app.json`:
 
 ```json
 {
-  "id": "alumni",
-  "name": "Alumni directory",
-  "description": "Approved alumni records",
-  "permissions": [{ "id": "records.edit", "label": "Edit alumni records" }]
+  "id": "my-tool",
+  "name": "My tool",
+  "description": "An internal team tool",
+  "permissions": [{ "id": "records.edit", "label": "Edit records" }]
 }
 ```
 
-Keep `app.json` as an ordinary file of at most 64 KiB; symbolic links are rejected. Run `pnpm apps:sync` after app settings changes. In a write handler, call `context.requirePermission("records.edit")` before changing records. This checks the full permission `app.alumni.records.edit`. Unknown or ungranted actions fail closed. Each app must also validate business inputs and enforce resource ownership; the platform cannot infer those rules.
+Keep `app.json` as an ordinary file of at most 64 KiB; symbolic links are rejected. Run `pnpm apps:sync` after app settings changes. In a write handler, call `context.requirePermission("records.edit")` before changing records. This checks the full permission `app.my-tool.records.edit`. Unknown or ungranted actions fail closed. Each app must also validate business inputs and enforce resource ownership; the platform cannot infer those rules.
 
 ## API contract
 

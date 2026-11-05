@@ -10,6 +10,9 @@ import { Repository } from "../../src/membership/repository";
 import { database, migrate, reset } from "../database";
 import { authConfig, keyPair, createIdentityKey } from "./identity";
 
+import { workspacePort } from "../../workspace-ports";
+const port = workspacePort(100, 4173);
+
 const fixture = await database();
 await migrate(fixture.db);
 await reset(fixture.db);
@@ -44,7 +47,7 @@ const server = createServer(async (req, res) => {
       const headers = new Headers();
       for (const [name, value] of Object.entries(req.headers))
         if (value) headers.set(name, Array.isArray(value) ? value.join(",") : value);
-      const request = new Request(`http://127.0.0.1:4173${req.url}`, {
+      const request = new Request(`http://127.0.0.1:${port}${req.url}`, {
         method: req.method,
         headers,
         body,
@@ -76,7 +79,7 @@ const server = createServer(async (req, res) => {
     res.end("Synthetic harness error");
   }
 });
-server.listen(4173, "127.0.0.1");
+server.listen(port, "127.0.0.1");
 async function close() {
   server.close();
   await vite.close();

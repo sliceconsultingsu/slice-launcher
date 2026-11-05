@@ -4,7 +4,7 @@ Applies throughout this repository. Read this before planning or editing. Read a
 
 ## Goal and scope
 
-Build useful, maintainable internal tools for Slice Consulting while helping consultants learn to deliver reliable software. Favor clear code that the next student team can understand and operate. Prioritize the shared platform and approved app requirements; the alumni directory is a planned application, not an implemented product. Do not expand a task into unrelated features, dependencies, rewrites, scraping, or new services without agreement.
+Build useful, maintainable internal tools for Slice Consulting while helping consultants learn to deliver reliable software. Favor clear code that the next student team can understand and operate. Prioritize the shared platform and approved app requirements; the alumni directory is a synthetic learning starter, not a production alumni database. See `docs/team/README.md` for the five contributor areas and shared integration ownership. Do not expand a task into unrelated features, dependencies, rewrites, scraping, or new services without agreement.
 
 This is a public repository. Source, documentation, fixtures, PRs, and build artifacts must be safe to publish. Private membership and business data stay in approved private storage.
 

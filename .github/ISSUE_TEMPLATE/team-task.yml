@@ -1,0 +1,32 @@
+name: Team build task
+description: A small, demonstrable alumni app contribution
+title: "[Alumni] "
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Who benefits and what changes?
+      description: Describe one behavior in plain language. Use fictional examples only.
+    validations:
+      required: true
+  - type: textarea
+    id: ownership
+    attributes:
+      label: Owner, files and dependencies
+      description: One owner, working folder, shared changes to coordinate, and any blocking issue or PR.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance examples
+      description: Give example inputs and expected results, including one failure case.
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: How to verify and demonstrate
+      description: List focused checks, the demo, and anything explicitly out of scope.
+    validations:
+      required: true

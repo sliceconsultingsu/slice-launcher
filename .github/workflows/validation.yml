@@ -48,6 +48,7 @@ jobs:
       - run: pnpm test:migrations
       - run: pnpm --filter @slice/launcher exec playwright install --with-deps chromium
       - run: pnpm test:e2e
+      - run: pnpm test:team
       - name: Confirm tests left the checkout unchanged
         run: |
           changes=$(git status --porcelain)

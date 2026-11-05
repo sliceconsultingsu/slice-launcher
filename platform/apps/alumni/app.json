@@ -1,0 +1,6 @@
+{
+  "id": "alumni",
+  "name": "Alumni directory",
+  "description": "A learning starter with fictional alumni and student profiles.",
+  "permissions": [{ "id": "records.read", "label": "Read sample alumni and student profiles" }]
+}

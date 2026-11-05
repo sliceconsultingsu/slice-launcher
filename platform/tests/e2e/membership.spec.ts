@@ -38,7 +38,7 @@ test("onboarding, approval, persistent profile, permission changes, revocation a
     expect(
       (
         await memberContext.request.post("/api/membership", {
-          headers: { origin: "http://127.0.0.1:4173" },
+          headers: { origin: new URL(member.url()).origin },
           data: {
             revision: pending.revision,
             command: { type: "level.save", name: "Escalation", permissions: ["members.manage"] },
@@ -83,7 +83,7 @@ test("onboarding, approval, persistent profile, permission changes, revocation a
       expect(
         (
           await memberContext.request.post("/api/membership", {
-            headers: { origin: "http://127.0.0.1:4173" },
+            headers: { origin: new URL(member.url()).origin },
             data: { revision: ordinary.revision, command },
           })
         ).status(),
@@ -132,7 +132,7 @@ test("onboarding, approval, persistent profile, permission changes, revocation a
     expect(
       (
         await memberContext.request.post("/api/membership", {
-          headers: { origin: "http://127.0.0.1:4173" },
+          headers: { origin: new URL(member.url()).origin },
           data: {
             revision: suspended.revision,
             command: { type: "profile.update", name: "Unauthorized", title: "" },
