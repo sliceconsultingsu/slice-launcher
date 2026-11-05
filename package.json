@@ -28,10 +28,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@slice/config": "workspace:*",
     "eslint": "^10.11.0",
     "prettier": "^3.9.9",
+    "saxes": "6.0.0",
     "typescript": "6.0.3",
-    "typescript-eslint": "^8.71.0",
-    "@slice/config": "workspace:*"
+    "typescript-eslint": "^8.71.0"
   }
 }

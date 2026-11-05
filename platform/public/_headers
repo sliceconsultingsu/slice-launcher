@@ -1,0 +1,6 @@
+# Published app icons are only ever shown through <img>. If someone opens one directly,
+# these headers stop it acting as a page on the Slice origin.
+/app-icons/*
+  Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox
+  X-Content-Type-Options: nosniff
+  Cache-Control: public, max-age=86400

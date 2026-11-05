@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import process from "node:process";
@@ -6,6 +7,16 @@ import console from "node:console";
 import { format } from "prettier";
 import ts from "typescript";
 import { readReleaseFile } from "./read-release-file.mjs";
+import {
+  GUIDE_LIMIT,
+  ICON_README_PLACEHOLDER,
+  PNG_LIMIT,
+  checkGuide,
+  checkIconReadme,
+  starterGuide,
+  starterIcon,
+  validateIcon,
+} from "./app-identity.mjs";
 
 const base = "platform/src";
 const idPattern = /^[a-z][a-z0-9-]{0,39}$/;
@@ -85,13 +96,58 @@ export async function registrySource(catalog) {
     { parser: "typescript", printWidth: 100 },
   );
 }
+const iconDirectory = "platform/public/app-icons";
+const iconPattern = /^icon\.(svg|png)$/;
+const publishedIconPattern = /^[a-z][a-z0-9-]{0,39}\.(?:svg|png)$/;
+
+/** Reads an app's icon and guide through the bounded no-follow reader. */
+async function readIdentity(root, app) {
+  const directory = join(root, "platform/apps", app.id);
+  const icons = readdirSync(directory).filter((name) => iconPattern.test(name));
+  if (icons.length !== 1)
+    throw new Error(`${app.id}: add exactly one icon.svg or icon.png to the app folder`);
+  const [file] = icons;
+  const icon = await readReleaseFile(join(directory, file), PNG_LIMIT);
+  validateIcon(file, icon);
+  let guide;
+  try {
+    guide = (await readReleaseFile(join(directory, "guide.md"), GUIDE_LIMIT)).toString("utf8");
+  } catch (error) {
+    if (error.code === "ENOENT")
+      throw new Error(`${app.id}: missing guide.md for consultants`, { cause: error });
+    throw error;
+  }
+  const extension = file.slice("icon.".length);
+  const version = createHash("sha256").update(icon).digest("hex").slice(0, 12);
+  return { file, icon, guide, published: `${app.id}.${extension}`, version };
+}
+async function generated(root, catalog) {
+  const identities = await Promise.all(catalog.map((app) => readIdentity(root, app)));
+  const entries = catalog.map((app, index) => ({
+    ...app,
+    // The version query makes browsers fetch a replaced icon instead of a cached copy.
+    icon: `/app-icons/${identities[index].published}?v=${identities[index].version}`,
+  }));
+  const guides = Object.fromEntries(catalog.map((app, index) => [app.id, identities[index].guide]));
+  return {
+    identities,
+    catalog: await format(JSON.stringify(entries), { parser: "json", printWidth: 100 }),
+    guides: await format(JSON.stringify(guides), { parser: "json", printWidth: 100 }),
+  };
+}
 export async function syncApps(root) {
   const catalog = await readCatalog(root);
+  const output = await generated(root, catalog);
   writeFileSync(join(root, base, "platform/registry.generated.ts"), await registrySource(catalog));
-  writeFileSync(
-    join(root, base, "platform/catalog.generated.json"),
-    await format(JSON.stringify(catalog), { parser: "json", printWidth: 100 }),
-  );
+  writeFileSync(join(root, base, "platform/catalog.generated.json"), output.catalog);
+  writeFileSync(join(root, base, "platform/guides.generated.json"), output.guides);
+  const icons = join(root, iconDirectory);
+  mkdirSync(icons, { recursive: true });
+  const keep = new Set(output.identities.map((identity) => identity.published));
+  for (const name of readdirSync(icons))
+    if (publishedIconPattern.test(name) && !keep.has(name)) rmSync(join(icons, name));
+  for (const identity of output.identities)
+    writeFileSync(join(icons, identity.published), identity.icon);
 }
 function walk(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -146,11 +202,26 @@ export async function checkApps(root) {
         "App routes must use the platform catch-all; direct routes can bypass authorization",
       );
   }
-  if (
-    readFileSync(join(root, base, "platform/catalog.generated.json"), "utf8") !==
-    (await format(JSON.stringify(catalog), { parser: "json", printWidth: 100 }))
-  )
+  const output = await generated(root, catalog);
+  const current = (file) => {
+    const path = join(root, base, "platform", file);
+    return existsSync(path) ? readFileSync(path, "utf8") : "";
+  };
+  if (current("catalog.generated.json") !== output.catalog)
     throw new Error("App catalog is stale. Run pnpm apps:sync");
+  if (current("guides.generated.json") !== output.guides)
+    throw new Error("App guides are stale. Run pnpm apps:sync");
+  const icons = join(root, iconDirectory);
+  const published = existsSync(icons) ? readdirSync(icons) : [];
+  if (
+    published.length !== output.identities.length ||
+    output.identities.some(
+      (identity) =>
+        !published.includes(identity.published) ||
+        !readFileSync(join(icons, identity.published)).equals(identity.icon),
+    )
+  )
+    throw new Error("Published app icons are stale. Run pnpm apps:sync");
   const modules = join(root, "platform/apps");
   const directories = existsSync(modules)
     ? readdirSync(modules, { withFileTypes: true }).filter((entry) => entry.name !== "README.md")
@@ -170,6 +241,10 @@ export async function checkApps(root) {
       throw new Error(`${app.id}: missing app README.md`);
     if (!existsSync(join(directory, "server.tsx")))
       throw new Error(`${app.id}: missing server.tsx`);
+    const identity = output.identities[catalog.indexOf(app)];
+    validateIcon(identity.file, identity.icon, { app: app.id });
+    checkGuide(app.id, identity.guide);
+    checkIconReadme(app.id, readFileSync(join(directory, "README.md"), "utf8"));
     for (const file of walk(directory)) {
       if (/\/(?:wrangler\.(?:jsonc?|toml)|package\.json)$/.test(file))
         throw new Error(`${app.id}: deployment and dependencies belong to the platform`);
@@ -227,6 +302,8 @@ export async function createApp(root, id, name = id) {
     join(directory, "server.tsx"),
     await format(source, { parser: "typescript", printWidth: 100 }),
   );
+  writeFileSync(join(directory, "icon.svg"), starterIcon);
+  writeFileSync(join(directory, "guide.md"), starterGuide(name));
   const app = { id, name, description: "", permissions: [] };
   writeFileSync(
     join(directory, "app.json"),
@@ -234,7 +311,7 @@ export async function createApp(root, id, name = id) {
   );
   writeFileSync(
     join(directory, "README.md"),
-    `# ${name.replace(/[\r\n]/g, " ")}\n\nStarter module; replace this description with what the app does and who it is for.\n\n## Files\n\n- \`server.tsx\`: screens, optional API and MCP tool handlers.\n- \`app.json\`: public name, description and action permissions. Run \`pnpm apps:sync\` after editing it.\n- Add tests beside the code as \`*.test.ts\`.\n\n## Access and data\n\nActive members need \`app.${id}.open\`. Document action permissions, record-level rules and private storage before adding business data. Login, MCP and deployment come from the platform.\n\n## Design\n\nUse the shared components, tokens and copy rules in the [design profile](../../../docs/design-profile.md). The platform provides the page header and footer.\n\n## Develop and verify\n\nFrom the repository root, run \`pnpm dev\`; this app is at \`/apps/${id}\`. Run the checks in [CONTRIBUTING.md](../../../CONTRIBUTING.md) before a PR.\n`,
+    `# ${name.replace(/[\r\n]/g, " ")}\n\nStarter module; replace this description with what the app does and who it is for.\n\n## Files\n\n- \`server.tsx\`: screens, optional API and MCP tool handlers.\n- \`app.json\`: public name, description and action permissions. Run \`pnpm apps:sync\` after editing it.\n- \`icon.svg\` or \`icon.png\`: the launcher icon. Replace the grey starter; see [app icons](../../../docs/design-profile.md#app-icons).\n- \`guide.md\`: the consultant guide behind the launcher's **Guide** button. Replace the starter text.\n- Add tests beside the code as \`*.test.ts\`.\n\n## Access and data\n\nActive members need \`app.${id}.open\`. Document action permissions, record-level rules and private storage before adding business data. Login, MCP and deployment come from the platform.\n\n## Icon\n\n${ICON_README_PLACEHOLDER}\n\n## Design\n\nUse the shared components, tokens and copy rules in the [design profile](../../../docs/design-profile.md). The platform provides the page header and footer.\n\n## Develop and verify\n\nFrom the repository root, run \`pnpm dev\`; this app is at \`/apps/${id}\`. Run the checks in [CONTRIBUTING.md](../../../CONTRIBUTING.md) before a PR.\n`,
   );
   await syncApps(root);
 }
