@@ -29,12 +29,12 @@
     // is verified. Only the exact value "true" turns them on. See docs/mcp.md.
     "AI_CONNECTIONS_ENABLED": "false",
   },
-  // Grants, passes and AI activity records for Slice's own AI sign-in. The production namespace is
-  // created by the maintainer before release; this placeholder makes a deploy fail until then.
+  // Grants, passes and AI activity records for Slice's own AI sign-in (namespace
+  // "slice-launcher-oauth", created November 5, 2026). Never share it with another app.
   "kv_namespaces": [
     {
       "binding": "OAUTH_KV",
-      "id": "replace-with-production-oauth-kv-id",
+      "id": "8a8e78a4b2184dca965ed1fea05e680d",
     },
   ],
   // Per-address limit for AI app registration and pass requests (20 a minute).
