@@ -6,6 +6,9 @@ export interface AppDescriptor {
   name: string;
   description: string;
   permissions: { id: string; label: string }[];
+  /** Shows a "Work in progress" label on the launcher card and guide page. The catalog check
+   * only accepts `true`; leave the field out once the app is ready. */
+  workInProgress?: boolean;
 }
 
 /** Constructed by the platform after verifying identity and current membership. */

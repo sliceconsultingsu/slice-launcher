@@ -99,6 +99,23 @@ test("catalog rejects external URLs, duplicate IDs and permission collisions", a
   }
 });
 
+test("apps can be marked work in progress, and only with the value true", async (t) => {
+  const root = await fixture(t);
+  await createApp(root, "alumni", "Alumni");
+  await finishIdentity(root, "alumni");
+  const file = join(root, "platform/apps/alumni/app.json");
+  const app = { id: "alumni", name: "Alumni", description: "", permissions: [] };
+  writeFileSync(file, JSON.stringify({ ...app, workInProgress: true }));
+  await syncApps(root);
+  const catalog = JSON.parse(
+    readFileSync(join(root, "platform/src/platform/catalog.generated.json"), "utf8"),
+  );
+  assert.equal(catalog[0].workInProgress, true);
+  for (const value of [false, "yes", 1]) {
+    writeFileSync(file, JSON.stringify({ ...app, workInProgress: value }));
+    await assert.rejects(syncApps(root), /workInProgress/);
+  }
+});
 test("CI rejects app routes shadowing the central permission guard", async (t) => {
   const root = await fixture(t);
   const directory = join(root, "platform/app/apps/alumni");

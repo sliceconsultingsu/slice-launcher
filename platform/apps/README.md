@@ -11,7 +11,7 @@ You will get:
 ```text
 platform/apps/my-tool/
   README.md     What this app does, its access rules, icon credit and how to test it
-  app.json      Public name, description and action permissions
+  app.json      Public name, description, action permissions and optional workInProgress
   icon.svg      Launcher icon (replace the grey starter; icon.png also works)
   guide.md      Consultant guide behind the launcher's Guide button
   server.tsx    Starter screen; optional API and MCP tool handlers

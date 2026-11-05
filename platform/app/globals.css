@@ -721,6 +721,10 @@ button.member-row:hover,
   gap: 16px;
   margin-bottom: 28px;
 }
+/* Keeps Open on the right when a work-in-progress label sits between the two links. */
+.guide-actions .guide-open {
+  margin-left: auto;
+}
 .guide-back {
   display: inline-flex;
   align-items: center;

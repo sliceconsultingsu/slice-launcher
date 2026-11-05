@@ -53,6 +53,17 @@ describe("AppCard", () => {
     expect(html).toContain('href="/guides/alumni"');
   });
 
+  it("labels work-in-progress apps without changing their actions", () => {
+    const plain = renderToStaticMarkup(createElement(AppCard, { ...card, href: "/apps/alumni" }));
+    expect(plain).not.toContain("Work in progress");
+    const html = renderToStaticMarkup(
+      createElement(AppCard, { ...card, href: "/apps/alumni", workInProgress: true }),
+    );
+    expect(html).toContain("Work in progress");
+    expect(html).toMatch(/href="\/apps\/alumni"[^>]*>Open/);
+    expect(html).toContain('href="/guides/alumni"');
+  });
+
   it("escapes app text instead of rendering it as markup", () => {
     const html = renderToStaticMarkup(
       createElement(AppCard, { ...card, name: "<script>x</script>", href: null }),
