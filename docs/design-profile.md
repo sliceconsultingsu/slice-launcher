@@ -132,26 +132,27 @@ Every app ships `platform/apps/<id>/guide.md`, shown at `/guides/<id>` behind th
 
 Use these before creating anything new. Classes live in `platform/app/globals.css`; React components in `packages/ui/src`.
 
-| Need                            | Use                                               | Notes                                                                                     |
-| ------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Main action on a screen         | `.primary-button`                                 | One per view or form. Verb first: "Save access", "Add member".                            |
-| Other actions                   | `.secondary-button`                               | Cancel, Refresh, secondary navigation.                                                    |
-| Low-emphasis inline action      | `.text-button`                                    | "Reload latest changes", "Sign out". Underlined accent text.                              |
-| App in the launcher grid        | `AppCard` from `@slice/ui`                        | 40px icon, bold name, description (three lines max), **Open** and **Guide** pill buttons. |
-| An app's icon anywhere else     | `AppIcon` from `@slice/ui`                        | `<img alt="">` at 20, 32, 40 or 48px with rounded corners. Never inline the SVG.          |
-| Grouped content                 | `.account-card`                                   | Surface, 1px line, 14px radius, 28px padding (22px on mobile).                            |
-| Section switcher                | `nav.account-tabs` with `aria-current` on current | Accent underline on the current tab. Horizontal scroll, never wrapping.                   |
-| Heading row with an action      | `.account-heading` or `.section-toolbar`          | Toolbar stacks at ≤500px.                                                                 |
-| Forms                           | `.form-stack` with `fieldset` and `legend`        | Label wraps the control; hints use `.field-note`. Checkboxes use `.check-label`.          |
-| Information the user should see | `p.notice` with `role="status"`                   | Calm background; keep it to one or two sentences.                                         |
-| Something went wrong            | `.notice.error-notice` with `role="alert"`        | Say what happened and offer a next step such as a "Reload latest changes" `.text-button`. |
-| Record status                   | `.status-badge.status-<state>`                    | States: active, pending, invited, suspended; neutral otherwise.                           |
-| Person                          | `.member-avatar`, `.profile-avatar`               | Initial on `#f0e7dc`; decorative, so `aria-hidden="true"`.                                |
-| Selectable list                 | `.member-list` with `button.member-row`           | `aria-pressed="true"` for the selected row.                                               |
-| Nothing to show yet             | `.empty-catalog` pattern                          | Line icon in `.empty-icon`, one short heading.                                            |
-| Waiting for data                | `<p role="status">Loading your account…</p>`      | Text, not spinners or skeletons.                                                          |
-| History or audit entries        | `.activity-list`                                  | `time` in muted 12px; raw detail inside `details`.                                        |
-| Interface icons                 | Inline SVG, 24px viewBox, 1.5px `currentColor`    | Decorative icons get `aria-hidden="true"`. Do not add an icon library. Not for app icons. |
+| Need                            | Use                                               | Notes                                                                                                                              |
+| ------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Main action on a screen         | `.primary-button`                                 | One per view or form. Verb first: "Save access", "Add member".                                                                     |
+| Other actions                   | `.secondary-button`                               | Cancel, Refresh, secondary navigation.                                                                                             |
+| Low-emphasis inline action      | `.text-button`                                    | "Reload latest changes", "Sign out". Underlined accent text.                                                                       |
+| App in the launcher grid        | `AppCard` from `@slice/ui`                        | 40px icon, bold name, description (three lines max), **Open** and **Guide** pill buttons.                                          |
+| App still being built           | `WorkInProgressBadge` from `@slice/ui`            | Accent-outlined pill reading **Work in progress**, shown on the card and guide page when `app.json` sets `"workInProgress": true`. |
+| An app's icon anywhere else     | `AppIcon` from `@slice/ui`                        | `<img alt="">` at 20, 32, 40 or 48px with rounded corners. Never inline the SVG.                                                   |
+| Grouped content                 | `.account-card`                                   | Surface, 1px line, 14px radius, 28px padding (22px on mobile).                                                                     |
+| Section switcher                | `nav.account-tabs` with `aria-current` on current | Accent underline on the current tab. Horizontal scroll, never wrapping.                                                            |
+| Heading row with an action      | `.account-heading` or `.section-toolbar`          | Toolbar stacks at ≤500px.                                                                                                          |
+| Forms                           | `.form-stack` with `fieldset` and `legend`        | Label wraps the control; hints use `.field-note`. Checkboxes use `.check-label`.                                                   |
+| Information the user should see | `p.notice` with `role="status"`                   | Calm background; keep it to one or two sentences.                                                                                  |
+| Something went wrong            | `.notice.error-notice` with `role="alert"`        | Say what happened and offer a next step such as a "Reload latest changes" `.text-button`.                                          |
+| Record status                   | `.status-badge.status-<state>`                    | States: active, pending, invited, suspended; neutral otherwise.                                                                    |
+| Person                          | `.member-avatar`, `.profile-avatar`               | Initial on `#f0e7dc`; decorative, so `aria-hidden="true"`.                                                                         |
+| Selectable list                 | `.member-list` with `button.member-row`           | `aria-pressed="true"` for the selected row.                                                                                        |
+| Nothing to show yet             | `.empty-catalog` pattern                          | Line icon in `.empty-icon`, one short heading.                                                                                     |
+| Waiting for data                | `<p role="status">Loading your account…</p>`      | Text, not spinners or skeletons.                                                                                                   |
+| History or audit entries        | `.activity-list`                                  | `time` in muted 12px; raw detail inside `details`.                                                                                 |
+| Interface icons                 | Inline SVG, 24px viewBox, 1.5px `currentColor`    | Decorative icons get `aria-hidden="true"`. Do not add an icon library. Not for app icons.                                          |
 
 If a pattern you need is missing, build it once in the shared place, using the tokens above, and add a row to this table in the same PR.
 

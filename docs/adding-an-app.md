@@ -44,6 +44,8 @@ Declare additional actions in that app's `app.json`:
 }
 ```
 
+While an app is still being built, add `"workInProgress": true`. The launcher card and guide page then show a **Work in progress** label; say the same inside the app itself. Remove the line when the app is ready. `true` is the only accepted value.
+
 Keep `app.json` as an ordinary file of at most 64 KiB; symbolic links are rejected. Run `pnpm apps:sync` after app settings changes. In a write handler, call `context.requirePermission("records.edit")` before changing records. This checks the full permission `app.my-tool.records.edit`. Unknown or ungranted actions fail closed. Each app must also validate business inputs and enforce resource ownership; the platform cannot infer those rules.
 
 ## API contract
