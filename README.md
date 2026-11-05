@@ -78,7 +78,7 @@ This creates `platform/apps/my-tool/` and registers `/apps/my-tool`. It creates 
 
 ## Before submitting work
 
-Use a branch and a pull request. The [contribution guide](CONTRIBUTING.md) walks through the process and lists the checks. Required CI must pass; the AI reviewer is advisory and can report an incomplete review. Merging into `main` runs the shared release pipeline for all apps. Maintainers handle production settings and database changes.
+Use a branch and a pull request. The [contribution guide](CONTRIBUTING.md) walks through the process and lists the checks. Required CI must pass. The advisory AI reviewer is switched off for now, so review your own diff before asking for review. Merging into `main` runs the shared release pipeline for all apps. Maintainers handle production settings and database changes.
 
 This repository is public. Keep member records, client data and credentials out of code, screenshots, issues and AI prompts. Read [data boundaries](docs/data-boundary.md).
 

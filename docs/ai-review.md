@@ -1,5 +1,15 @@
 # Advisory AI review
 
+## Current status
+
+**Switched off since November 5, 2026.** The `Advisory AI review` workflow is disabled in GitHub Actions, so it no longer runs on pull requests or by manual dispatch. Required checks and maintainer review are unchanged; only `validate` is required to merge.
+
+Why: across 17 PRs it completed 2 reviews, both with no findings. Most runs stopped before calling the model. The reviewer sends two full copies of every changed file (before and after) as numbered line records, which adds about 60% to their size, and abandons the whole review when that passes the 360,000-byte budget. Any changed file over 100 KB also stops it, so every PR that touches `pnpm-lock.yaml` fails. Other runs failed when the reply did not match the output schema. Ordinary PRs of 20 to 40 files exceed the budget.
+
+The code, the GitHub `ai-review` environment secrets, the Cloudflare service token and the Mac mini gateway route are left in place, so the workflow can be re-enabled from the repository's **Actions** page. Rebuilding it would mean sending changed hunks with surrounding lines instead of full files, skipping lockfiles and generated files instead of abandoning the review, and checking the gateway's size limit. To remove it entirely, follow the decommissioning steps in [subscription setup](ai-review-subscription.md#credentials-and-activation).
+
+The rest of this page describes the design as it ran.
+
 The workflow selects the personal Subscription API with a fixed `claude/claude-opus-5-5` request. The dedicated gateway route requests **High** reasoning and has tools disabled. See [subscription setup and limits](ai-review-subscription.md) for the protected connection, credentials and rollout. Code selection is not proof of activation: the gateway route, Cloudflare policy, secrets and a post-merge hosted run must all be verified.
 
 Jev remains disabled. AI review is advisory: it cannot approve, merge, deploy, edit code or replace required checks. Hosted results appear as one top-level PR comment; a successful workflow job is not necessarily a completed review. Findings still require exact source evidence.

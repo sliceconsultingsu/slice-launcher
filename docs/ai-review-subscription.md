@@ -1,5 +1,7 @@
 # Subscription review setup
 
+> **Switched off.** The review workflow has been disabled since November 5, 2026; see [current status](ai-review.md#current-status). The connection below is still provisioned.
+
 Slice's review job calls the owner's Subscription API to review public repository changes. Builds and tests still run on GitHub. The Mac mini handles only the text request through its signed-in Claude subscription.
 
 ## Connection and access

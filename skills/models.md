@@ -12,6 +12,6 @@ Prefer these models over weaker, lightweight or speed-focused alternatives for c
 
 Check the selected model and effort when your tool exposes them. If the recommended option is unavailable, or you cannot verify the setting, tell the contributor plainly; do not silently substitute a weaker model or claim to have switched it. Let them choose the appropriate available option. Documentation here does not automatically change anyone's model settings. Follow the tool's limits on model selection and delegation.
 
-Tests, review, privacy rules and release checks still apply regardless of model. This recommendation governs contributor agents; it does not change the separately configured advisory reviewer or its approval limits. Maintainers should review future model substitutions deliberately.
+Tests, review, privacy rules and release checks still apply regardless of model. This recommendation governs contributor agents; it does not change the separately configured advisory reviewer (currently switched off) or its approval limits. Maintainers should review future model substitutions deliberately.
 
 Names checked October 15, 2026 against [Anthropic's Opus overview](https://www.anthropic.com/claude/opus) and [OpenAI's GPT-6 Astra documentation](https://developers.openai.com/api/docs/models/gpt-6-astra). The effort choices above are Slice's working preference, not a vendor requirement.
