@@ -12,7 +12,7 @@ test("a beginner can open the real directory with synthetic data on desktop and 
     page.getByRole("heading", { name: "Find a connection. Build your next step." }),
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Alex Example", exact: true })).toBeVisible();
-  await expect(page.getByText("Learning preview", { exact: true })).toBeVisible();
+  await expect(page.getByText("Work in progress", { exact: true })).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("heading", { name: "Casey Example" })).toBeVisible();
