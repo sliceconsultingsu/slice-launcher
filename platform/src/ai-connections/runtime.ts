@@ -4,6 +4,7 @@ import { verifyIdentity } from "../membership/auth";
 import { Repository } from "../membership/repository";
 import { ActivityStore } from "./activity";
 import type { ConnectionDeps } from "./connections";
+import { aiConnectionsEnabled } from "./enabled";
 import { oauthHelpers } from "./oauth";
 
 export function identify(request: Request) {
@@ -15,7 +16,6 @@ export function connectionDeps(request: Request): ConnectionDeps {
     helpers: oauthHelpers(env, new URL(request.url).origin),
     activity: new ActivityStore(env.OAUTH_KV),
     loadState: () => new Repository(env.MEMBERSHIP_DB).load(),
-    // Typed as the configured literal; compare as a string so "true" can switch it on.
-    enabled: String(env.AI_CONNECTIONS_ENABLED) === "true",
+    enabled: aiConnectionsEnabled(),
   };
 }

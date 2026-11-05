@@ -917,4 +917,47 @@ button.member-row:hover,
 }
 .connected-apps-empty a {
   color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 640px) {
+  /* Each app becomes a small card so nothing hides behind a sideways scroll. */
+  .connected-apps thead {
+    display: none;
+  }
+  .connected-apps table,
+  .connected-apps tbody,
+  .connected-apps tr,
+  .connected-apps th,
+  .connected-apps td {
+    display: block;
+  }
+  .connected-apps tr {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .connected-apps th,
+  .connected-apps td {
+    padding: 2px 0;
+    border-bottom: 0;
+    white-space: normal;
+  }
+  .connected-apps tbody th {
+    max-width: none;
+  }
+  .connected-apps td[data-label]::before {
+    content: attr(data-label) ": ";
+    color: var(--muted);
+  }
+  .connected-apps td:last-child {
+    padding-top: 6px;
+    text-align: left;
+  }
+}
+.connection-clients {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  display: grid;
+  gap: 10px;
+  line-height: 1.6;
 }

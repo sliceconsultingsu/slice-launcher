@@ -21,7 +21,7 @@ The host declares lint/typecheck/test/build commands and operational documentati
 ```mermaid
 flowchart TD
   Browser --> Access[Cloudflare Access / Google sign-in]
-  Client[Remote MCP client] --> OAuth[Access managed OAuth]
+  Client[Remote MCP client] --> OAuth[Slice OAuth: /oauth/*, /mcp bypass Access]
   OAuth --> Host
   Access --> Host[Slice platform Worker]
   Host --> Gate[Verify signed identity and current D1 membership]
@@ -39,4 +39,4 @@ flowchart TD
 
 Modules share a trusted runtime and origin. This architecture does not sandbox malicious code, isolate an XSS vulnerability between apps, or replace app-specific record-level authorization. Review module changes accordingly.
 
-`/mcp` is the platform-owned remote client transport. It shares the signed identity verifier and current D1 permission model with pages/APIs, filters discovery and rechecks authorization before calls. Remote requests may omit Origin; any supplied Origin must match. Browser APIs retain their stricter same-origin mutation requirement. See [MCP](mcp.md) for the tool contract, transport limits and managed OAuth activation.
+`/mcp` is the platform-owned remote client transport. AI apps reach it with passes from Slice's own OAuth server (`platform/worker/index.ts`), which wraps vinext; `/mcp`, `/oauth/*` and the OAuth discovery documents are the only paths that bypass Cloudflare Access. Each pass's grant carries the member's Access subject and email from the `/authorize` approval page, so `/mcp` uses the same current D1 permission model as pages/APIs, filters discovery and rechecks authorization before calls. Remote requests may omit Origin; any supplied Origin must match. Browser APIs retain their stricter same-origin mutation requirement. See [MCP](mcp.md) for the tool contract, transport limits and AI sign-in activation.

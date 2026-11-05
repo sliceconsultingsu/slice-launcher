@@ -33,9 +33,17 @@ After the maintainer confirms remote sign-in is available, guide the person to t
 | Connection     | Remote / Streamable HTTP                            |
 | Sign-in        | OAuth through the client’s browser sign-in flow     |
 
-Explain before authorization that tool results can be sent to their AI client and model provider. Existing Slice permissions do not approve every provider for private data.
+Verified client menus, checked November 5, 2026 against Anthropic and OpenAI help pages:
 
-The client should open a browser sign-in window. Have the person use the same approved Slice account, review the authorization request, and return to the AI app. Follow the official flow; a browser session does not automatically sign in a separate agent. Do not supply the CI review token or change Access policies to get past a failure.
+- **Claude** (web and desktop): Customize → Connectors → Add → Add custom connector. Free plans allow one custom connector; on Team and Enterprise plans an owner adds it for the organization first, then each member connects.
+- **ChatGPT**: Plugins → + → Add custom MCP server, with OAuth. Full MCP support is on Business, Enterprise and Edu plans; other plans may be limited to read-only tools.
+- **Claude Code**: `claude mcp add --transport http slice https://slice-launcher.ivan27chen.workers.dev/mcp`, then sign in when prompted.
+
+Any MCP-capable app may connect. Slice does not keep a list of approved apps, so help the person choose one they trust with Slice information.
+
+Explain before authorization that tool results go to their AI app and its model provider. Existing Slice permissions do not approve every provider for private data.
+
+The client should open a browser window. If asked, the person signs in with their Slice account. Slice then shows its own approval page naming the app and the address it returns to; have the person check both and choose **Allow**, then return to the AI app. Follow the official flow; a browser session does not automatically sign in a separate agent. Do not supply the CI token or ask for Access policy changes to get past a failure.
 
 **Done when:** the client reports the connection is authorized. This alone is not the final verification.
 
@@ -45,18 +53,18 @@ Initialize the MCP connection, list its tools, and call `slice_apps`. Report suc
 
 Do not modify business records to test a connection. Use only the minimum data needed. Slice checks current membership and action permissions again on subsequent requests; an agent never receives broader access just because it is an agent.
 
-**Done when:** `slice_apps` succeeds and the person understands what is available, or a concrete failure and next step are reported. Never describe “configuration saved” as “connected.”
+**Done when:** `slice_apps` succeeds and the person understands what is available, or a concrete failure and next step are reported. Once AI connections are switched on, the launcher's top bar shows **AI connected** and the app appears under **Connected apps** on the account page. Never describe “configuration saved” as “connected.”
 
 ## If the person gets stuck
 
-| What happens                                                   | What the agent should explain and do                                                                                                                                                          |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Login page repeats, HTML is returned, or OAuth discovery fails | Stop retrying. Confirm the client/version and ask the maintainer to verify Managed OAuth and that client’s permitted callback. A normal web login redirect is not proof of MCP compatibility. |
-| No connection or sign-in option in the AI app                  | Recheck its official documentation and plan/version support; report the limitation.                                                                                                           |
-| Account is pending, suspended, or access is denied             | Direct the person to their account page and the maintainer. Do not try another person’s credentials or grant permissions.                                                                     |
-| Sign-in completes but a tool is missing or denied              | Check that the app offers that tool and the member has the necessary app/action permission. Ask the maintainer for access if appropriate.                                                     |
-| The guide or launcher still says setup is pending              | Prepare only; wait for confirmed activation.                                                                                                                                                  |
+| What happens                                                                   | What the agent should explain and do                                                                                                                                                        |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Login page repeats, HTML is returned, or OAuth discovery fails                 | Stop retrying. Confirm the client/version and ask the maintainer to check Slice's OAuth activation (docs/mcp.md). A normal web login redirect from `/mcp` means activation is not finished. |
+| No connection or sign-in option in the AI app                                  | Recheck its official documentation and plan/version support; report the limitation.                                                                                                         |
+| Account is pending, suspended, or the approval page says “Membership required” | Direct the person to their account page and the maintainer. Do not try another person’s credentials or grant permissions.                                                                   |
+| Sign-in completes but a tool is missing or denied                              | Check that the app offers that tool and the member has the necessary app/action permission. Ask the maintainer for access if appropriate.                                                   |
+| The guide or launcher still says setup is pending                              | Prepare only; wait for confirmed activation.                                                                                                                                                |
 
-When asking for help, share only the client name/version, the step, and a short redacted error. Exclude tokens, sign-in URLs containing codes, private records and unredacted logs. To disconnect, remove the Slice connection using the client’s documented controls; ask the maintainer if access also needs revoking.
+When asking for help, share only the client name/version, the step, and a short redacted error. Exclude tokens, sign-in URLs containing codes, private records and unredacted logs. To disconnect, choose **Disconnect** under **Connected apps** on the Slice account page; this stops the app at once. Removing the connector in the AI app as well keeps it from asking to reconnect.
 
-Platform maintainers: follow [MCP activation and verification](mcp.md#activate-remote-sign-in). After a verified rollout, update this status and the launcher’s connection page/instructions together with the tested client/version. The guidance page grants no access and does not change Cloudflare configuration.
+Platform maintainers: follow [MCP activation and verification](mcp.md#activate-remote-sign-in). After a verified rollout, update this status and the launcher’s connection page/instructions together with the tested client/version. The guidance page grants no access and changes no configuration.

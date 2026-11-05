@@ -94,9 +94,11 @@ export function ConnectedAppsView(props: {
               {response.connections.map((connection) => (
                 <tr key={connection.id}>
                   <th scope="row">{connection.name}</th>
-                  <td>{day(connection.connectedAt, timeZone)}</td>
-                  <td>{connection.lastUsedAt ? day(connection.lastUsedAt, timeZone) : "Never"}</td>
-                  <td>{day(connection.lapsesAt, timeZone)}</td>
+                  <td data-label="Connected">{day(connection.connectedAt, timeZone)}</td>
+                  <td data-label="Last used">
+                    {connection.lastUsedAt ? day(connection.lastUsedAt, timeZone) : "Never"}
+                  </td>
+                  <td data-label="Sign-in lapses">{day(connection.lapsesAt, timeZone)}</td>
                   <td>
                     <button
                       type="button"
