@@ -60,6 +60,7 @@ export default function Home() {
                   icon={app.icon}
                   href={getAppUrl(app)}
                   guideHref={getGuideUrl(app)}
+                  workInProgress={app.workInProgress}
                 />
               ))}
             </div>

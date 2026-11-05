@@ -1,9 +1,12 @@
 import { expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { createPlatform } from "../../src/platform/dispatch";
 import type { State } from "../../src/membership/contracts";
 import descriptor from "./app.json";
 import alumni from "./server";
 import { directorySchema } from "./contracts";
+import { DirectoryView } from "./ui/directory";
 import { createSampleRepository, readDirectory } from "./data";
 import type { AppContext } from "../../src/platform/contracts";
 
@@ -96,4 +99,10 @@ it("rejects unexpected fields from storage instead of leaking them to the client
         })),
     }),
   ).rejects.toThrow();
+});
+it("tells consultants the directory is a work in progress", () => {
+  expect(descriptor.workInProgress).toBe(true);
+  const html = renderToStaticMarkup(createElement(DirectoryView));
+  expect(html).toContain("Work in progress");
+  expect(html).toContain("fictional");
 });

@@ -53,10 +53,14 @@ export async function readCatalog(root) {
     if (!app || typeof app.id !== "string" || !idPattern.test(app.id) || ids.has(app.id))
       throw new Error("App IDs must be unique lowercase URL segments (maximum 40 characters)");
     ids.add(app.id);
-    if (Object.keys(app).sort().join() !== "description,id,name,permissions")
+    const keys = Object.keys(app).filter((key) => key !== "workInProgress");
+    if (keys.sort().join() !== "description,id,name,permissions")
       throw new Error(
-        `${app.id}: use id, name, description and permissions only; apps inherit deployment`,
+        `${app.id}: use id, name, description, permissions and optional workInProgress only; apps inherit deployment`,
       );
+    // Omit the field once the app is ready; false would be a second way to say the same thing.
+    if ("workInProgress" in app && app.workInProgress !== true)
+      throw new Error(`${app.id}: workInProgress must be true, or left out when the app is ready`);
     if (
       typeof app.name !== "string" ||
       !app.name.trim() ||

@@ -9,6 +9,7 @@ describe("findGuide", () => {
     const guide = findGuide("alumni");
     expect(guide?.app.name).toBe("Alumni directory");
     expect(guide?.markdown).toMatch(/^# Alumni directory/);
+    expect(guide?.app.workInProgress).toBe(true);
   });
   it.each(["missing", "../alumni", "constructor", "__proto__", ""])("rejects %s", (id) => {
     expect(findGuide(id)).toBeNull();
