@@ -31,6 +31,7 @@ From the November 5, 2026 conversation:
 4. **Connection status in the launcher's top bar.**
 5. **A place in the profile (account page) to manage connected apps**, with disconnect.
 6. **The workflow for connecting an agent** is part of this work: the **Connect your AI** page and its guide.
+7. **Any MCP app may connect**, as in Deal Toy. The approval page is the safeguard, not an allowlist of AI apps.
 
 ## Goals
 
@@ -57,7 +58,7 @@ From the November 5, 2026 conversation:
 ## Anti-goals (would count as failure even if it works)
 
 - Anyone reaching Slice's tools without an active Slice membership, or past a suspension.
-- An AI app connecting without the person seeing which app it is and where it returns to. That is the phishing path open registration creates.
+- An AI app connecting without the person seeing which app it is and where it returns to. Open registration makes this the main phishing path, so the approval page must never hide the return address.
 - A member's email or Access subject appearing in passes, URLs or AI app logs.
 - Hand-written OAuth, PKCE or token handling where the maintained library provides it.
 - A broad Cloudflare Access bypass. Only the exact AI sign-in paths below may skip Access.
@@ -178,12 +179,15 @@ Update `platform/app/connect-ai/page.tsx` and `docs/connect-your-ai.md` for Slic
 
 ### Which AI apps may register
 
-Open registration plus a clear approval page is Deal Toy's model. Slice's rules ask consultants to use approved AI clients. The design therefore allows registration only for redirect addresses that are:
+Any MCP-capable app may register, as in Deal Toy. What keeps this safe:
 
-- on a configurable allowlist of HTTPS hosts, initially Claude and ChatGPT's published connector callbacks; or
-- loopback (`127.0.0.1`, `localhost`), for desktop and command-line clients.
+- **Redirect addresses:** HTTPS addresses, or loopback (`127.0.0.1`, `localhost`) for desktop and command-line apps. Plain HTTP addresses elsewhere are refused.
+- **The approval page:** it always shows the app's self-declared name _and_ the real address it returns to. The app's name is labelled as "the name this app gave itself", so a misleading name can be checked against the address.
+- **Rate limits:** registration and the token endpoint are rate-limited per IP with a Workers rate limiting binding.
+- **Disconnect:** the person can see and disconnect any app at any time.
+- **Same access only:** an app never gets more than the person's own access.
 
-Registration and the token endpoint are rate-limited per IP with a Workers rate limiting binding. See open question 1.
+Slice's rule that consultants use approved AI apps for Slice data becomes guidance rather than something the site enforces. **Connect your AI**, `docs/connect-your-ai.md` and the data-boundary wording should say so plainly: tool results go to whichever AI app the person connects, and its provider.
 
 ## Documentation to update
 
@@ -192,6 +196,7 @@ Registration and the token endpoint are rate-limited per IP with a Workers rate 
 - `docs/membership.md` ("Remote MCP clients") and `docs/connect-your-ai.md`.
 - `AGENTS.md`: the MCP bullet still holds (the host owns `/mcp` and identity). Add that `/mcp` and the OAuth endpoints are the only Access-bypassed paths and must keep validating Slice passes.
 - `docs/security-review.md`: record the new trust boundary.
+- `docs/data-boundary.md` and the "approved clients" wording in `AGENTS.md` and `docs/mcp.md`: approved AI apps become guidance, not enforcement.
 
 ## Deployment and production activation
 
@@ -220,7 +225,7 @@ These need maintainer authorization at the time, as `AGENTS.md` requires. Approv
 Use the existing Vitest and workerd setup with a KV binding, synthetic identities and isolated D1:
 
 - **Discovery:** metadata documents and the 401 `WWW-Authenticate` challenge.
-- **Registration:** allowed and refused redirect addresses; the rate limit.
+- **Registration:** HTTPS and loopback redirect addresses accepted; plain HTTP elsewhere refused; the rate limit.
 - **Approval:**
   - requires a valid Access identity and active membership;
   - pending and suspended members get `access_denied`;
@@ -250,7 +255,7 @@ Use the existing Vitest and workerd setup with a KV binding, synthetic identitie
 - Module layout. Keep OAuth wiring, approval page, connection records and UI in separately testable modules.
 - Exact copy, within the [design profile](../../design-profile.md) and the README's plain tone.
 - How `OAUTH_KV` is provided in local development and tests.
-- The exact allowlisted callback hosts, verified from each client's current documentation.
+- Verified connection steps for at least Claude and ChatGPT on the Connect your AI page.
 
 ## Calls made in this document, not by Ivan
 
@@ -264,4 +269,4 @@ Use the existing Vitest and workerd setup with a KV binding, synthetic identitie
 
 ## Open questions for Ivan
 
-1. **Which AI apps may connect?** The design allows only Claude and ChatGPT (plus desktop and command-line apps on the person's own computer), matching "use approved AI clients". The alternative is any MCP-capable app, with the approval page as the only safeguard, as in Deal Toy.
+None. Ivan chose open registration for any MCP app on November 5, 2026.
