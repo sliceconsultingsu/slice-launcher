@@ -127,7 +127,7 @@ export function checkArchitecture(root) {
         (ref) => ref === "server-only" || ref === "cloudflare:workers" || ref.startsWith("node:"),
       ) ||
       /\/membership\/(auth|api|repository)\.ts$/.test(file) ||
-      /\/(?:src\/apps|platform\/apps)\/[^/]+\/server\.tsx$|\/src\/platform\/(runtime|dispatch|access|mcp|mcp-tool|registry\.generated)\.ts$/.test(
+      /\/(?:src\/apps|platform\/apps)\/[^/]+\/server\.tsx$|\/src\/platform\/(runtime|dispatch|access|mcp|mcp-tool|registry\.generated)\.ts$|\/src\/ai-connections\/(?!status\.ts$|contracts\.ts$)[^/]+\.ts$/.test(
         file,
       ) ||
       secretEnv;

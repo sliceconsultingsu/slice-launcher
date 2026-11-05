@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@cloudflare/workers-oauth-provider": "1.2.4",
     "@modelcontextprotocol/server": "2.3.1",
     "@slice/ui": "workspace:*",
     "@vinext/cloudflare": "1.0.1",
