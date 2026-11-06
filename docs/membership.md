@@ -40,9 +40,9 @@ Sign-in is Slice's own Google sign-in (design: [in-app sign-in](superpowers/spec
    - Direct API requests without a session are denied.
    - Do not claim activation from synthetic tests.
 
-**Retire Access leftovers afterwards.** Once Access is off, a follow-up PR removes the `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` secrets from the workflows and the Access branches of `scripts/check-launcher.mjs`. Revoke the `slice-launcher-ci` service token in Cloudflare.
+**Access leftovers.** Access was switched off on November 5, 2026, and the production checks no longer use the `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` service token. Delete those two secrets from the GitHub `production` environment and revoke the `slice-launcher-ci` service token in Cloudflare. Keep `LEGACY_ACCESS_ISSUER` until every member has signed in with Google once.
 
-**Rollback.** Before step 5, revert the code. After step 5, re-enable Access before rolling back to a release that expects Access identities; those releases fail closed without it. Members already moved to Google identities would need their previous subjects restored from the audit history.
+**Rollback.** Releases before PR #62 expect Access identities and fail closed without Access, so rolling back past it means re-enabling Access and restoring members' previous subjects by hand; the rollback workflow's checks refuse those targets. Members already moved to Google identities would need their previous subjects restored from the audit history.
 
 The D1 database ID and application code may be public. Member records, session tokens, the Google client secret and operator bootstrap data must remain private.
 

@@ -9,7 +9,7 @@ class RolloutPending extends Error {}
 
 export async function checkLauncher(
   baseUrl,
-  { signal, access, expectedRelease, timeoutMs = 30000, retryDelayMs = 500 } = {},
+  { signal, expectedRelease, timeoutMs = 30000, retryDelayMs = 500 } = {},
 ) {
   const base = new URL(baseUrl);
   const request = (path) => {
@@ -18,12 +18,7 @@ export async function checkLauncher(
     return fetch(target, {
       redirect: "error",
       signal: AbortSignal.any([AbortSignal.timeout(5000), ...(signal ? [signal] : [])]),
-      headers: {
-        "User-Agent": "slice-launcher-smoke/1.0",
-        ...(access
-          ? { "CF-Access-Client-Id": access.id, "CF-Access-Client-Secret": access.secret }
-          : {}),
-      },
+      headers: { "User-Agent": "slice-launcher-smoke/1.0" },
     });
   };
 
@@ -90,23 +85,20 @@ export async function checkLauncher(
   );
 }
 
-async function checkServiceDenied(
+async function checkAnonymousDenied(
   baseUrl,
   path,
-  { access, retryDelayMs = 1000, timeoutMs = 30000 },
+  { retryDelayMs = 1000, timeoutMs = 30000 } = {},
 ) {
   const deadline = Date.now() + timeoutMs;
   while (true) {
     const response = await fetch(new URL(path, baseUrl), {
       redirect: "error",
       signal: AbortSignal.timeout(5000),
-      headers: {
-        "CF-Access-Client-Id": access.id,
-        "CF-Access-Client-Secret": access.secret,
-        ...(path === "/mcp"
+      headers:
+        path === "/mcp"
           ? { "Content-Type": "application/json", Accept: "application/json, text/event-stream" }
-          : {}),
-      },
+          : {},
       ...(path === "/mcp"
         ? {
             method: "POST",
@@ -121,7 +113,7 @@ async function checkServiceDenied(
       await delay(retryDelayMs);
       continue;
     }
-    assert.equal(response.status, 401, "Service identity must not access membership data");
+    assert.equal(response.status, 401, "Anonymous requests must not access membership data");
     assert.match(response.headers.get("content-type") ?? "", /application\/json/);
     assert.match(response.headers.get("cache-control") ?? "", /no-store/);
     // Slice's own AI sign-in adds an OAuth challenge; when present it must point back here.
@@ -133,16 +125,16 @@ async function checkServiceDenied(
       );
     }
     await response.body?.cancel();
-    console.log("Protected API rejects the CI service identity: " + path);
+    console.log("Protected API refuses anonymous requests: " + path);
     return;
   }
 }
 
 export function checkMembershipDenied(baseUrl, options) {
-  return checkServiceDenied(baseUrl, "/api/membership", options);
+  return checkAnonymousDenied(baseUrl, "/api/membership", options);
 }
 export function checkMcpDenied(baseUrl, options) {
-  return checkServiceDenied(baseUrl, "/mcp", options);
+  return checkAnonymousDenied(baseUrl, "/mcp", options);
 }
 
 /** The challenge's metadata address, which must stay on the launcher's own origin. */
@@ -181,99 +173,47 @@ async function readMetadata(target) {
 }
 
 /**
- * Unauthenticated requests must never reach private data. Two states are valid while Slice moves
- * from Cloudflare Access to its own Google sign-in: Access redirects every path to its login, or
- * the app answers itself (public launcher shell, 401 from the membership API, Slice's OAuth
- * challenge on /mcp). Once Access is retired, the Access branches can be removed.
+ * Unauthenticated requests must never reach private data. Slice runs its own sign-in: the
+ * launcher shell is public, the membership API refuses anyone without a Slice session, and /mcp
+ * answers with Slice's OAuth challenge, whose metadata stays on this origin. A redirect anywhere
+ * (for example to a re-enabled Cloudflare Access) fails the check.
  */
-export async function checkAccessBoundary(baseUrl, accessDomain) {
-  const domain = new URL(accessDomain);
-  assert.equal(domain.protocol, "https:");
-  assert.ok(domain.hostname.endsWith(".cloudflareaccess.com"));
-  for (const path of ["/", "/api/membership", "/mcp"]) {
-    const response = await fetch(new URL(path, baseUrl), {
-      redirect: "manual",
-      signal: AbortSignal.timeout(5000),
-    });
-    // After the switch to Slice's own sign-in, the app answers directly: the launcher shell is
-    // public, and the membership API refuses anyone without a Slice session.
-    if (path === "/" && response.status === 200) {
-      await response.body?.cancel();
-      continue;
-    }
-    if (
-      path === "/api/membership" &&
-      response.status === 401 &&
-      !response.headers.get("www-authenticate")
-    ) {
-      assert.match(response.headers.get("content-type") ?? "", /application\/json/);
-      assert.match(response.headers.get("cache-control") ?? "", /no-store/);
-      await response.body?.cancel();
-      continue;
-    }
-    await response.body?.cancel();
-    if (response.status === 401) {
-      // AI sign-in answers with an OAuth challenge instead of a browser redirect. Two kinds are
-      // valid: Cloudflare Access managed OAuth (older releases, on every path) and Slice's own
-      // OAuth (current releases, /mcp only, while pages keep redirecting to Access).
-      const target = challengeMetadata(response, baseUrl);
-      const data = await readMetadata(target);
-      if (target.pathname.startsWith("/.well-known/cloudflare-access-protected-resource/")) {
-        assert.deepEqual(
-          data.authorization_servers,
-          [domain.origin],
-          "Unexpected OAuth authorization server",
-        );
-        assert.equal(
-          new URL(data.resource).origin,
-          new URL(baseUrl).origin,
-          "Unexpected OAuth resource",
-        );
-        continue;
-      }
-      assert.equal(path, "/mcp", "Only /mcp may answer with Slice's OAuth challenge");
-      assert.ok(
-        target.pathname.startsWith("/.well-known/oauth-protected-resource"),
-        "Unexpected OAuth metadata path",
-      );
-      const origin = new URL(baseUrl).origin;
-      assert.deepEqual(
-        data.authorization_servers,
-        [origin],
-        "Unexpected OAuth authorization server",
-      );
-      assert.equal(data.resource, `${origin}/mcp`, "Unexpected OAuth resource");
-      continue;
-    }
-    assert.ok(
-      [302, 303, 307].includes(response.status),
-      "Unauthenticated request must be redirected to Access or refused by Slice's sign-in",
-    );
-    const target = new URL(response.headers.get("location"));
-    assert.equal(target.origin, domain.origin, "Unexpected Access login origin");
-    assert.ok(target.pathname.startsWith("/cdn-cgi/access/login"), "Expected Access login");
-  }
+export async function checkSignInBoundary(baseUrl) {
+  const origin = new URL(baseUrl).origin;
+  const get = (path) =>
+    fetch(new URL(path, baseUrl), { redirect: "manual", signal: AbortSignal.timeout(5000) });
+
+  const page = await get("/");
+  await page.body?.cancel();
+  assert.equal(page.status, 200, "The launcher shell must be served by the app");
+
+  const api = await get("/api/membership");
+  await api.body?.cancel();
+  assert.equal(api.status, 401, "The membership API must refuse requests without a session");
+  assert.equal(api.headers.get("www-authenticate"), null, "The membership API is not OAuth");
+  assert.match(api.headers.get("content-type") ?? "", /application\/json/);
+  assert.match(api.headers.get("cache-control") ?? "", /no-store/);
+
+  const mcp = await get("/mcp");
+  await mcp.body?.cancel();
+  assert.equal(mcp.status, 401, "/mcp must answer with Slice's OAuth challenge");
+  const target = challengeMetadata(mcp, baseUrl);
+  assert.ok(
+    target.pathname.startsWith("/.well-known/oauth-protected-resource"),
+    "Unexpected OAuth metadata path",
+  );
+  const data = await readMetadata(target);
+  assert.deepEqual(data.authorization_servers, [origin], "Unexpected OAuth authorization server");
+  assert.equal(data.resource, `${origin}/mcp`, "Unexpected OAuth resource");
+  console.log("Sign-in boundary passed: public shell, 401 API, Slice OAuth on /mcp.");
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   assert.ok(process.argv[2], "Usage: node scripts/check-launcher.mjs <base-url>");
-  const id = process.env.CF_ACCESS_CLIENT_ID;
-  const secret = process.env.CF_ACCESS_CLIENT_SECRET;
-  assert.equal(Boolean(id), Boolean(secret), "Both Access service credentials are required");
-  if (id && secret) {
-    assert.ok(process.env.ACCESS_TEAM_DOMAIN, "Expected Access team domain is required");
-    await checkAccessBoundary(process.argv[2], process.env.ACCESS_TEAM_DOMAIN);
-    await checkMembershipDenied(process.argv[2], { access: { id, secret } });
-  }
-  await checkLauncher(process.argv[2], {
-    access: id && secret ? { id, secret } : undefined,
-    expectedRelease: process.env.EXPECTED_RELEASE_SHA,
-  });
-  if (id && secret) {
-    await checkMembershipDenied(process.argv[2], { access: { id, secret } });
-    // Forward releases must expose MCP behind the same human-only identity check.
-    // Older verified rollback targets predate this route and retain their original checks.
-    if (process.env.SLICE_MCP_REQUIRED === "true")
-      await checkMcpDenied(process.argv[2], { access: { id, secret } });
-  }
+  await checkLauncher(process.argv[2], { expectedRelease: process.env.EXPECTED_RELEASE_SHA });
+  await checkSignInBoundary(process.argv[2]);
+  await checkMembershipDenied(process.argv[2]);
+  // Forward releases must expose MCP behind Slice's AI sign-in. Older verified rollback targets
+  // predate this route and retain their original checks.
+  if (process.env.SLICE_MCP_REQUIRED === "true") await checkMcpDenied(process.argv[2]);
 }
