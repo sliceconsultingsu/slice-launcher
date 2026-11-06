@@ -56,24 +56,20 @@ test("fails a release when health works but a page asset is missing", async (t) 
   await assert.rejects(checkLauncher(await serve(t, true)), /Asset failed/);
 });
 
-test("sends the service credential to the page, health and assets", async (t) => {
+test("sends no credentials to the page, health and assets", async (t) => {
   const seen = [];
   const url = await serve(t, false, (request) => seen.push(request.headers));
-  await checkLauncher(url, { access: { id: "fixture-id", secret: "fixture-secret" } });
+  await checkLauncher(url);
   assert.equal(seen.length, 4);
   for (const headers of seen) {
-    assert.equal(headers["cf-access-client-id"], "fixture-id");
-    assert.equal(headers["cf-access-client-secret"], "fixture-secret");
+    assert.equal(headers["cf-access-client-id"], undefined);
+    assert.equal(headers["cf-access-client-secret"], undefined);
+    assert.equal(headers.authorization, undefined);
   }
 });
 
-test("never sends credentials to an asset on another origin", async (t) => {
-  await assert.rejects(
-    checkLauncher(await serve(t, false, () => {}, true), {
-      access: { id: "fixture-id", secret: "fixture-secret" },
-    }),
-    /same origin/,
-  );
+test("never fetches an asset on another origin", async (t) => {
+  await assert.rejects(checkLauncher(await serve(t, false, () => {}, true)), /same origin/);
 });
 
 test("waits for the new membership route during rollout", async (t) => {
@@ -90,13 +86,12 @@ test("waits for the new membership route during rollout", async (t) => {
   await once(server, "listening");
   t.after(() => new Promise((resolve) => server.close(resolve)));
   await checkMembershipDenied(`http://127.0.0.1:${server.address().port}`, {
-    access: { id: "fixture", secret: "fixture" },
     retryDelayMs: 1,
   });
   assert.equal(calls, 2);
 });
 
-test("never retries a successful service-identity data response", async (t) => {
+test("never retries a successful anonymous data response", async (t) => {
   let calls = 0;
   const server = createServer((_request, response) => {
     calls++;
@@ -108,10 +103,9 @@ test("never retries a successful service-identity data response", async (t) => {
   t.after(() => new Promise((resolve) => server.close(resolve)));
   await assert.rejects(
     checkMembershipDenied(`http://127.0.0.1:${server.address().port}`, {
-      access: { id: "fixture", secret: "fixture" },
       retryDelayMs: 1,
     }),
-    /Service identity/,
+    /Anonymous requests/,
   );
   assert.equal(calls, 1);
 });
@@ -126,11 +120,10 @@ test("fails if the membership route remains missing after the deadline", async (
   t.after(() => new Promise((resolve) => server.close(resolve)));
   await assert.rejects(
     checkMembershipDenied(`http://127.0.0.1:${server.address().port}`, {
-      access: { id: "fixture", secret: "fixture" },
       retryDelayMs: 1,
       timeoutMs: 5,
     }),
-    /Service identity/,
+    /Anonymous requests/,
   );
 });
 
@@ -141,38 +134,6 @@ async function probeServer(t, handler) {
   t.after(() => new Promise((resolve) => server.close(resolve)));
   return `http://127.0.0.1:${server.address().port}`;
 }
-
-test("unauthenticated requests must reach the configured Access login", async (t) => {
-  const { checkAccessBoundary } = await import("./check-launcher.mjs");
-  const requests = [];
-  const url = await probeServer(t, (request, response) => {
-    requests.push(request);
-    response.writeHead(302, {
-      location: "https://fixture.cloudflareaccess.com/cdn-cgi/access/login/example",
-    });
-    response.end();
-  });
-  await checkAccessBoundary(url, "https://fixture.cloudflareaccess.com");
-  assert.equal(requests.length, 3);
-  assert.ok(requests.every((request) => !request.headers["cf-access-client-secret"]));
-  await assert.rejects(checkAccessBoundary(url, "https://wrong.cloudflareaccess.com"), /origin/);
-});
-
-test("missing Access protection fails immediately", async (t) => {
-  const { checkAccessBoundary } = await import("./check-launcher.mjs");
-  let calls = 0;
-  const url = await probeServer(t, (_request, response) => {
-    calls++;
-    response.writeHead(200);
-    response.end("public");
-  });
-  // "/" may now be served by the app itself, but /api/membership must never answer publicly.
-  await assert.rejects(
-    checkAccessBoundary(url, "https://fixture.cloudflareaccess.com"),
-    /Access|sign-in/,
-  );
-  assert.equal(calls, 2);
-});
 
 test("a stale release never passes production verification", async (t) => {
   let calls = 0;
@@ -205,92 +166,24 @@ test("smoke checks inspect uppercase HTML asset tags", async (t) => {
   await assert.rejects(checkLauncher(await serve(t, true, () => {}, false, true)), /Asset failed/);
 });
 
-test("managed OAuth challenges require same-origin bounded metadata and the pinned Access issuer", async (t) => {
-  const { checkAccessBoundary } = await import("./check-launcher.mjs");
-  let mode = "valid";
-  const url = await probeServer(t, (request, response) => {
-    if (request.url.startsWith("/.well-known/")) {
-      response.setHeader("Content-Type", "application/json");
-      response.end(
-        mode === "oversized"
-          ? "x".repeat(17000)
-          : JSON.stringify({
-              resource: url,
-              authorization_servers: [
-                mode === "wrong-issuer"
-                  ? "https://wrong.cloudflareaccess.com"
-                  : "https://fixture.cloudflareaccess.com",
-              ],
-            }),
-      );
-      return;
-    }
-    response.writeHead(401, {
-      "WWW-Authenticate":
-        mode === "plain"
-          ? "Basic"
-          : `Bearer resource_metadata="${mode === "external" ? "https://evil.invalid" : url}/.well-known/cloudflare-access-protected-resource/mcp"`,
-    });
-    response.end();
-  });
-  await checkAccessBoundary(url, "https://fixture.cloudflareaccess.com");
-  for (const value of ["wrong-issuer", "external", "plain", "oversized"]) {
-    mode = value;
-    await assert.rejects(checkAccessBoundary(url, "https://fixture.cloudflareaccess.com"));
-  }
-});
-
-test("MCP release checks require the route to reject CI service credentials", async (t) => {
+test("MCP release checks require the route to refuse anonymous requests", async (t) => {
   const { checkMcpDenied } = await import("./check-launcher.mjs");
   let status = 401;
   const url = await probeServer(t, (request, response) => {
     assert.equal(request.url, "/mcp");
     assert.equal(request.method, "POST");
-    assert.equal(request.headers["cf-access-client-id"], "synthetic");
+    assert.equal(request.headers["cf-access-client-id"], undefined);
     response.writeHead(status, {
       "Content-Type": "application/json",
       "Cache-Control": "private, no-store",
     });
     response.end(JSON.stringify({ error: "Sign in required" }));
   });
-  const options = { access: { id: "synthetic", secret: "synthetic" }, timeoutMs: 0 };
+  const options = { timeoutMs: 0 };
   await checkMcpDenied(url, options);
   for (const code of [200, 404, 302]) {
     status = code;
     await assert.rejects(checkMcpDenied(url, options));
-  }
-});
-
-test("Slice OAuth challenge on /mcp is accepted while pages still redirect to Access", async (t) => {
-  const { checkAccessBoundary } = await import("./check-launcher.mjs");
-  let mode = "valid";
-  const url = await probeServer(t, (request, response) => {
-    if (request.url === "/.well-known/oauth-protected-resource/mcp") {
-      response.setHeader("Content-Type", "application/json");
-      response.end(
-        JSON.stringify({
-          resource: mode === "foreign-resource" ? "https://evil.invalid/mcp" : `${url}/mcp`,
-          authorization_servers: [mode === "foreign-server" ? "https://evil.invalid" : url],
-        }),
-      );
-      return;
-    }
-    if (request.url === "/mcp" || mode === "challenge-everywhere") {
-      response.writeHead(401, {
-        "WWW-Authenticate": `Bearer resource_metadata="${url}/.well-known/oauth-protected-resource/mcp"`,
-      });
-      response.end();
-      return;
-    }
-    response.writeHead(302, {
-      location: "https://fixture.cloudflareaccess.com/cdn-cgi/access/login/example",
-    });
-    response.end();
-  });
-  await checkAccessBoundary(url, "https://fixture.cloudflareaccess.com");
-  for (const value of ["foreign-resource", "foreign-server", "challenge-everywhere"]) {
-    mode = value;
-    await assert.rejects(checkAccessBoundary(url, "https://fixture.cloudflareaccess.com"));
   }
 });
 
@@ -305,41 +198,83 @@ test("MCP release checks accept the Slice challenge and reject one pointing else
     });
     response.end(JSON.stringify({ error: "invalid_token" }));
   });
-  const options = { access: { id: "synthetic", secret: "synthetic" }, timeoutMs: 0 };
+  const options = { timeoutMs: 0 };
   metadata = `${url}/.well-known/oauth-protected-resource/mcp`;
   await checkMcpDenied(url, options);
   metadata = "https://evil.invalid/.well-known/oauth-protected-resource/mcp";
   await assert.rejects(checkMcpDenied(url, options), /origin/);
 });
 
-test("in-app sign-in passes the boundary check once Access is switched off", async (t) => {
-  const { checkAccessBoundary } = await import("./check-launcher.mjs");
-  let membership = 401;
+/** A launcher that answers for itself: public shell, 401 API, Slice's OAuth challenge on /mcp. */
+async function inAppServer(t, mode = () => "valid") {
   const url = await probeServer(t, (request, response) => {
+    const m = mode();
     if (request.url === "/.well-known/oauth-protected-resource/mcp") {
+      if (m === "oversized") {
+        response.setHeader("Content-Type", "application/json");
+        response.end("x".repeat(17000));
+        return;
+      }
       response.setHeader("Content-Type", "application/json");
-      response.end(JSON.stringify({ resource: `${url}/mcp`, authorization_servers: [url] }));
+      response.end(
+        JSON.stringify({
+          resource: m === "foreign-resource" ? "https://evil.invalid/mcp" : `${url}/mcp`,
+          authorization_servers: [m === "foreign-server" ? "https://evil.invalid" : url],
+        }),
+      );
       return;
     }
     if (request.url === "/mcp") {
       response.writeHead(401, {
-        "WWW-Authenticate": `Bearer resource_metadata="${url}/.well-known/oauth-protected-resource/mcp"`,
+        "WWW-Authenticate":
+          m === "plain"
+            ? "Basic"
+            : `Bearer resource_metadata="${m === "external" ? "https://evil.invalid" : url}/.well-known/oauth-protected-resource/mcp"`,
       });
       response.end();
       return;
     }
     if (request.url === "/api/membership") {
-      response.writeHead(membership, {
+      response.writeHead(m === "public-api" ? 200 : 401, {
         "Content-Type": "application/json",
-        "Cache-Control": "private, no-store",
+        "Cache-Control": m === "cacheable-api" ? "public, max-age=60" : "private, no-store",
       });
       response.end(JSON.stringify({ error: "Sign in to Slice." }));
+      return;
+    }
+    if (m === "access") {
+      response.writeHead(302, {
+        location: "https://fixture.cloudflareaccess.com/cdn-cgi/access/login/example",
+      });
+      response.end();
       return;
     }
     response.writeHead(200, { "Content-Type": "text/html" });
     response.end("<h1>App Launcher</h1>");
   });
-  await checkAccessBoundary(url, "https://fixture.cloudflareaccess.com");
-  membership = 200;
-  await assert.rejects(checkAccessBoundary(url, "https://fixture.cloudflareaccess.com"));
+  return url;
+}
+
+test("the sign-in boundary accepts Slice's own sign-in", async (t) => {
+  const { checkSignInBoundary } = await import("./check-launcher.mjs");
+  await checkSignInBoundary(await inAppServer(t));
+});
+
+test("the sign-in boundary refuses public data, foreign OAuth metadata and redirects", async (t) => {
+  const { checkSignInBoundary } = await import("./check-launcher.mjs");
+  let mode = "valid";
+  const url = await inAppServer(t, () => mode);
+  for (const value of [
+    "public-api",
+    "cacheable-api",
+    "foreign-resource",
+    "foreign-server",
+    "external",
+    "plain",
+    "oversized",
+    "access",
+  ]) {
+    mode = value;
+    await assert.rejects(checkSignInBoundary(url), undefined, value);
+  }
 });
