@@ -17,8 +17,12 @@ const other: Identity = {
 const created = Date.parse("2026-11-01T09:00:00Z") / 1000;
 
 function state(status: "active" | "suspended" = "active"): State {
-  let next = enroll(emptyState(null), identity, { id: "connections", now: "synthetic" }).state;
-  next = enroll(next, other, { id: "other", now: "synthetic" }).state;
+  let next = enroll(
+    emptyState(null),
+    { ...identity, emailManaged: true },
+    { id: "connections", now: "synthetic" },
+  ).state;
+  next = enroll(next, { ...other, emailManaged: true }, { id: "other", now: "synthetic" }).state;
   next.members.forEach((member) => (member.status = "active"));
   next.members[0].status = status;
   return next;

@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { verifyIdentity } from "../membership/auth";
+import { identify } from "../membership/current";
 import { Repository } from "../membership/repository";
 import { apps } from "../lib/apps";
 import { modules } from "./registry.generated";
@@ -9,11 +9,7 @@ export function platform() {
   const dependencies = {
     catalog: apps,
     modules,
-    verify: (request: Request) =>
-      verifyIdentity(request, {
-        issuer: env.ACCESS_TEAM_DOMAIN,
-        audience: env.ACCESS_AUD,
-      }),
+    verify: identify,
     loadState: () => new Repository(env.MEMBERSHIP_DB).load(),
   };
   return createPlatform(dependencies);

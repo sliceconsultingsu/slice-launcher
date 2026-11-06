@@ -2,7 +2,7 @@
 
 ## Boundaries
 
-Apps are modules in `platform/apps/<id>`, bundled into one platform Worker. They inherit its Access session, permission enforcement, release artifact, credentials and rollback. Public metadata lives in `platform/apps/<id>/app.json`; a generated static server registry connects modules to guarded catch-all routes. Shared packages cannot import the host application. `scripts/check-architecture.mjs` parses TypeScript/JavaScript imports and re-exports, resolves aliases, checks workspace dependencies, and walks client import graphs. It rejects client paths reaching server-only modules, Cloudflare/Node server bindings, environment access, and nonliteral dynamic imports. Type-only contracts are allowed. Keep server modules marked with `server-only`; membership auth/API/repository are also recognized explicitly. This check supplements review and bundler isolation; it cannot prove arbitrary runtime code safe.
+Apps are modules in `platform/apps/<id>`, bundled into one platform Worker. They inherit its Slice session (Google sign-in), permission enforcement, release artifact, credentials and rollback. Public metadata lives in `platform/apps/<id>/app.json`; a generated static server registry connects modules to guarded catch-all routes. Shared packages cannot import the host application. `scripts/check-architecture.mjs` parses TypeScript/JavaScript imports and re-exports, resolves aliases, checks workspace dependencies, and walks client import graphs. It rejects client paths reaching server-only modules, Cloudflare/Node server bindings, environment access, and nonliteral dynamic imports. Type-only contracts are allowed. Keep server modules marked with `server-only`; membership auth/API/repository are also recognized explicitly. This check supplements review and bundler isolation; it cannot prove arbitrary runtime code safe.
 
 Common components and design tokens belong in `packages/ui`. Follow the [design profile](design-profile.md) for Slice's logo, typography, colors and accessible form conventions. App libraries belong in the host manifest; reusable libraries can become workspace packages. Avoid copy-pasting a design system into new apps.
 
@@ -20,10 +20,10 @@ The host declares lint/typecheck/test/build commands and operational documentati
 
 ```mermaid
 flowchart TD
-  Browser --> Access[Cloudflare Access / Google sign-in]
-  Client[Remote MCP client] --> OAuth[Slice OAuth: /oauth/*, /mcp bypass Access]
+  Browser --> SignIn[Slice Google sign-in + session cookie]
+  Client[Remote MCP client] --> OAuth[Slice OAuth: /oauth/*, /authorize, /mcp]
   OAuth --> Host
-  Access --> Host[Slice platform Worker]
+  SignIn --> Host[Slice platform Worker]
   Host --> Gate[Verify signed identity and current D1 membership]
   Gate --> Capability[Require app.id.open]
   Capability --> Page[App page module]
@@ -39,4 +39,4 @@ flowchart TD
 
 Modules share a trusted runtime and origin. This architecture does not sandbox malicious code, isolate an XSS vulnerability between apps, or replace app-specific record-level authorization. Review module changes accordingly.
 
-`/mcp` is the platform-owned remote client transport. AI apps reach it with passes from Slice's own OAuth server (`platform/worker/index.ts`), which wraps vinext; `/mcp`, `/oauth/*` and the OAuth discovery documents are the only paths that bypass Cloudflare Access. Each pass's grant carries the member's Access subject and email from the `/authorize` approval page, so `/mcp` uses the same current D1 permission model as pages/APIs, filters discovery and rechecks authorization before calls. Remote requests may omit Origin; any supplied Origin must match. Browser APIs retain their stricter same-origin mutation requirement. See [MCP](mcp.md) for the tool contract, transport limits and AI sign-in activation.
+`/mcp` is the platform-owned remote client transport. AI apps reach it with passes from Slice's own OAuth server (`platform/worker/index.ts`), which wraps vinext. Each pass's grant carries the member's identity (subject and email) from the `/authorize` approval page, so `/mcp` uses the same current D1 permission model as pages/APIs, filters discovery and rechecks authorization before calls. Remote requests may omit Origin; any supplied Origin must match. Browser APIs retain their stricter same-origin mutation requirement. See [MCP](mcp.md) for the tool contract, transport limits and AI sign-in activation.

@@ -1,7 +1,7 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import type { JWTVerifyGetKey } from "jose";
 import { emailSchema, MembershipError } from "./contracts";
-import type { Identity } from "./contracts";
+import type { SignedInIdentity } from "./contracts";
 export interface AuthConfig {
   issuer: string;
   audience: string;
@@ -11,7 +11,7 @@ export async function verifyIdentity(
   request: Request,
   config: AuthConfig,
   keys?: JWTVerifyGetKey,
-): Promise<Identity> {
+): Promise<SignedInIdentity> {
   if (!/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/.test(config.issuer) || !config.audience)
     throw new MembershipError(503, "Sign-in is not configured yet.");
   const token = request.headers.get("Cf-Access-Jwt-Assertion");
@@ -42,7 +42,9 @@ export async function verifyIdentity(
       payload.common_name
     )
       throw new Error("Human identity required");
-    return { subject: `${config.issuer}|${payload.sub}`, email: email.data };
+    // Cloudflare Access applied its own email policy before issuing this token. Production now
+    // uses Google sign-in; this verifier remains for the browser and team test harnesses.
+    return { subject: `${config.issuer}|${payload.sub}`, email: email.data, emailManaged: true };
   } catch {
     throw new MembershipError(401, "Your sign-in could not be verified. Sign in again.");
   }

@@ -180,6 +180,12 @@ async function readMetadata(target) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
+/**
+ * Unauthenticated requests must never reach private data. Two states are valid while Slice moves
+ * from Cloudflare Access to its own Google sign-in: Access redirects every path to its login, or
+ * the app answers itself (public launcher shell, 401 from the membership API, Slice's OAuth
+ * challenge on /mcp). Once Access is retired, the Access branches can be removed.
+ */
 export async function checkAccessBoundary(baseUrl, accessDomain) {
   const domain = new URL(accessDomain);
   assert.equal(domain.protocol, "https:");
@@ -189,6 +195,22 @@ export async function checkAccessBoundary(baseUrl, accessDomain) {
       redirect: "manual",
       signal: AbortSignal.timeout(5000),
     });
+    // After the switch to Slice's own sign-in, the app answers directly: the launcher shell is
+    // public, and the membership API refuses anyone without a Slice session.
+    if (path === "/" && response.status === 200) {
+      await response.body?.cancel();
+      continue;
+    }
+    if (
+      path === "/api/membership" &&
+      response.status === 401 &&
+      !response.headers.get("www-authenticate")
+    ) {
+      assert.match(response.headers.get("content-type") ?? "", /application\/json/);
+      assert.match(response.headers.get("cache-control") ?? "", /no-store/);
+      await response.body?.cancel();
+      continue;
+    }
     await response.body?.cancel();
     if (response.status === 401) {
       // AI sign-in answers with an OAuth challenge instead of a browser redirect. Two kinds are
@@ -225,7 +247,7 @@ export async function checkAccessBoundary(baseUrl, accessDomain) {
     }
     assert.ok(
       [302, 303, 307].includes(response.status),
-      "Unauthenticated request must be redirected to Access",
+      "Unauthenticated request must be redirected to Access or refused by Slice's sign-in",
     );
     const target = new URL(response.headers.get("location"));
     assert.equal(target.origin, domain.origin, "Unexpected Access login origin");

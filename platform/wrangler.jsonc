@@ -23,8 +23,12 @@
     },
   ],
   "vars": {
-    "ACCESS_TEAM_DOMAIN": "https://snowy-voice-36a1.cloudflareaccess.com",
-    "ACCESS_AUD": "a176f7f76272a49ac4575fe315783b6cf1c5129bbdd95f666ebe3c046da7008f",
+    // Slice's own Google sign-in (docs/membership.md). The client secret is a Worker secret
+    // (GOOGLE_CLIENT_SECRET), never in Git. Sign-in fails closed until both are set.
+    "GOOGLE_CLIENT_ID": "677700569745-phm73t1747rms1du0luqve1jbcoo9kvj.apps.googleusercontent.com",
+    // The retired Cloudflare Access issuer, used only to move existing members to their Google
+    // identity on first sign-in.
+    "LEGACY_ACCESS_ISSUER": "https://snowy-voice-36a1.cloudflareaccess.com",
     // AI connection status and the connected-apps list stay hidden until production AI sign-in
     // is verified. Only the exact value "true" turns them on. See docs/mcp.md.
     "AI_CONNECTIONS_ENABLED": "false",
@@ -37,11 +41,17 @@
       "id": "8a8e78a4b2184dca965ed1fea05e680d",
     },
   ],
-  // Per-address limit for AI app registration and pass requests (20 a minute).
+  // Per-address limits: AI app registration and passes (OAUTH_LIMITER), and Google sign-in
+  // (AUTH_LIMITER), each 20 a minute.
   "ratelimits": [
     {
       "name": "OAUTH_LIMITER",
       "namespace_id": "1001",
+      "simple": { "limit": 20, "period": 60 },
+    },
+    {
+      "name": "AUTH_LIMITER",
+      "namespace_id": "1002",
       "simple": { "limit": 20, "period": 60 },
     },
   ],

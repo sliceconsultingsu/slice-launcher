@@ -1,6 +1,6 @@
 # Launcher releases and recovery
 
-The launcher and every registered app module ship together as one Cloudflare Worker built with vinext. The current configured Worker is `slice-launcher`, with membership data in D1. Cloudflare Access verifies identity at the perimeter; application authorization remains responsible for current membership and permissions.
+The launcher and every registered app module ship together as one Cloudflare Worker built with vinext. The current configured Worker is `slice-launcher`, with membership data in D1. Slice's own Google sign-in (sessions in D1) identifies people; it replaced Cloudflare Access on November 5, 2026 (see [membership](membership.md#production-activation-checklist)). Application authorization remains responsible for current membership and permissions.
 
 ## Pipeline
 
@@ -44,7 +44,7 @@ Dependencies install without lifecycle scripts in production jobs. Production cr
 
 Health returns `{ "status": "ok", "release": "<40-character source SHA>" }` with `Cache-Control: no-store`. Local development defaults to `development`. Production verification requires:
 
-1. Requests without credentials to the launcher, membership API and `/mcp` must either redirect to the pinned Access login, or return a Bearer challenge whose bounded same-origin protected-resource metadata identifies the pinned Access authorization server. A plain HTTP 401 is insufficient.
+1. Requests without credentials must not reach private data. Until Access is switched off, the launcher, membership API and `/mcp` may redirect to the pinned Access login. With in-app sign-in, the launcher shell is public, the membership API returns a private 401, and `/mcp` returns Slice's OAuth challenge with same-origin metadata naming the launcher as authorization server. Access managed-OAuth challenges are still accepted for older releases.
 2. The CI service credential receives HTTP 401 and JSON with no-store from membership, both before and after checking the intended release. Forward deployments also require this denial from `/mcp` after the expected release is live (`SLICE_MCP_REQUIRED=true`). Rollback omits that extra route requirement so verified pre-MCP releases remain eligible.
 3. Health serves the intended source SHA, and the launcher HTML and its CSS/JavaScript assets load from the same origin.
 4. Wrangler reports the uploaded Worker version serving 100 percent of traffic.
@@ -61,7 +61,7 @@ SLICE_RELEASE_SHA=$(git rev-parse HEAD) pnpm smoke:launcher
 node --test scripts/check-launcher.test.mjs scripts/release.test.mjs
 ```
 
-Synthetic application tests do not establish real Google/Access authentication. Production verification requires actual credentials and the deployed perimeter.
+Synthetic application tests do not establish real Google sign-in. Production verification requires actual credentials and the deployed perimeter.
 
 ## Explicit rollback
 
@@ -85,7 +85,7 @@ Apps under `platform/apps` are compiled into `platform/dist` by the existing bui
 
 ## Remote MCP sign-in
 
-The platform owns `/mcp` and shares its deployment and security checks with all modules. Remote human clients require managed OAuth on the existing Access application; enabling it is a separate authorized configuration change. Follow [MCP activation and rollback](mcp.md#activate-remote-sign-in), preserving the existing audience, identity provider, policies and CI service rule. Worker rollback does not restore Access configuration. Release smoke checks the perimeter and service denial; it does not establish that a human client can finish OAuth.
+The platform owns `/mcp` and shares its deployment and security checks with all modules. AI apps sign in through Slice's own OAuth (no Access configuration). Follow [MCP activation and rollback](mcp.md#activate-remote-sign-in). Worker rollback does not restore Access configuration. Release smoke checks the perimeter and service denial; it does not establish that a human client can finish OAuth.
 
 ## Repository layout changes
 

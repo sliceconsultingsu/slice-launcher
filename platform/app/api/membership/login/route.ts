@@ -1,14 +1,7 @@
-import { env } from "cloudflare:workers";
-import { verifyIdentity } from "../../../../src/membership/auth";
-import { errorResponse } from "../../../../src/membership/api";
-export async function GET(request: Request) {
-  try {
-    await verifyIdentity(request, { issuer: env.ACCESS_TEAM_DOMAIN, audience: env.ACCESS_AUD });
-    return new Response(null, {
-      status: 303,
-      headers: { Location: "/account", "Cache-Control": "no-store" },
-    });
-  } catch (error) {
-    return errorResponse(error);
-  }
+// Kept so existing "Sign in" links keep working: sign-in is now Slice's own Google sign-in.
+export function GET() {
+  return new Response(null, {
+    status: 303,
+    headers: { Location: "/api/auth/google/start", "Cache-Control": "no-store" },
+  });
 }

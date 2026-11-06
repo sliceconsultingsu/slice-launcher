@@ -46,7 +46,7 @@ it("upgrades the frozen prior schema without losing existing members or audit hi
   const initial = await repo.load();
   const enrolled = enroll(
     initial,
-    { email: "prior@example.test", subject: "prior-verified-subject" },
+    { email: "prior@example.test", subject: "prior-verified-subject", emailManaged: true },
     { id: "prior-member", now: "2026-10-04T12:00:00Z" },
   );
   if (!enrolled.audit) throw new Error("Expected enrollment audit");

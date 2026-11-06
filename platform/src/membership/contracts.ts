@@ -18,6 +18,14 @@ export interface Identity {
   subject: string;
   email: string;
 }
+/**
+ * A person who signed in through a browser, as enrollment sees them. `emailManaged` says whether
+ * the sign-in provider manages the address (for Google: Gmail, or a Workspace account whose hosted
+ * domain is the address's domain). Only then may the address claim an invitation or the owner seat.
+ */
+export interface SignedInIdentity extends Identity {
+  emailManaged: boolean;
+}
 export interface Member {
   id: string;
   subject: string | null;

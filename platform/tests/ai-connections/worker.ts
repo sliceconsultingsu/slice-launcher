@@ -14,7 +14,7 @@ const email = "ai@example.test";
 function initialState(): State {
   const state = enroll(
     emptyState(null),
-    { subject, email },
+    { subject, email, emailManaged: true },
     { id: "ai-test", now: "synthetic" },
   ).state;
   state.members[0].status = "active";

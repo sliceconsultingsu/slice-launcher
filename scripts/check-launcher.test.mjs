@@ -166,11 +166,12 @@ test("missing Access protection fails immediately", async (t) => {
     response.writeHead(200);
     response.end("public");
   });
+  // "/" may now be served by the app itself, but /api/membership must never answer publicly.
   await assert.rejects(
     checkAccessBoundary(url, "https://fixture.cloudflareaccess.com"),
-    /redirected/,
+    /Access|sign-in/,
   );
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
 });
 
 test("a stale release never passes production verification", async (t) => {
@@ -309,4 +310,36 @@ test("MCP release checks accept the Slice challenge and reject one pointing else
   await checkMcpDenied(url, options);
   metadata = "https://evil.invalid/.well-known/oauth-protected-resource/mcp";
   await assert.rejects(checkMcpDenied(url, options), /origin/);
+});
+
+test("in-app sign-in passes the boundary check once Access is switched off", async (t) => {
+  const { checkAccessBoundary } = await import("./check-launcher.mjs");
+  let membership = 401;
+  const url = await probeServer(t, (request, response) => {
+    if (request.url === "/.well-known/oauth-protected-resource/mcp") {
+      response.setHeader("Content-Type", "application/json");
+      response.end(JSON.stringify({ resource: `${url}/mcp`, authorization_servers: [url] }));
+      return;
+    }
+    if (request.url === "/mcp") {
+      response.writeHead(401, {
+        "WWW-Authenticate": `Bearer resource_metadata="${url}/.well-known/oauth-protected-resource/mcp"`,
+      });
+      response.end();
+      return;
+    }
+    if (request.url === "/api/membership") {
+      response.writeHead(membership, {
+        "Content-Type": "application/json",
+        "Cache-Control": "private, no-store",
+      });
+      response.end(JSON.stringify({ error: "Sign in to Slice." }));
+      return;
+    }
+    response.writeHead(200, { "Content-Type": "text/html" });
+    response.end("<h1>App Launcher</h1>");
+  });
+  await checkAccessBoundary(url, "https://fixture.cloudflareaccess.com");
+  membership = 200;
+  await assert.rejects(checkAccessBoundary(url, "https://fixture.cloudflareaccess.com"));
 });

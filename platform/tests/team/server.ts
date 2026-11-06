@@ -54,7 +54,7 @@ const email = "owner@example.test";
 const initial = await repository.load();
 const joined = enroll(
   initial,
-  { subject: `${config.issuer}|learner`, email },
+  { subject: `${config.issuer}|learner`, email, emailManaged: true },
   { id: "learning-owner", now: new Date().toISOString() },
 );
 if (!joined.audit) throw new Error("Unable to seed learning identity.");

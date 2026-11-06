@@ -10,7 +10,7 @@ export default {
     const keys = createLocalJWKSet({ keys: [JSON.parse(env.PUBLIC_JWK)] });
     const state = enroll(
       emptyState(null),
-      { subject: `${issuer}|worker-test`, email: "worker@example.test" },
+      { subject: `${issuer}|worker-test`, email: "worker@example.test", emailManaged: true },
       { id: "worker-test", now: "synthetic" },
     ).state;
     state.members[0].status = "active";

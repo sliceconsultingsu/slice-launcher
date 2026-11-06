@@ -1,5 +1,5 @@
 import { commandSchema, emailSchema, MembershipError, permissionCatalog } from "./contracts";
-import type { Identity, Member, Meta, Mutation, State, View } from "./contracts";
+import type { Identity, Member, Meta, Mutation, SignedInIdentity, State, View } from "./contracts";
 export { MembershipError } from "./contracts";
 
 function fail(status: number, message: string): never {
@@ -39,7 +39,7 @@ function finish(
 }
 export function enroll(
   original: State,
-  identity: Identity,
+  identity: SignedInIdentity,
   meta: Meta,
 ): Mutation | { state: State; audit: null } {
   const state = structuredClone(original);
@@ -51,6 +51,13 @@ export function enroll(
     if (bound.email !== email) fail(403, "Your sign-in email changed. Contact an administrator.");
     return { state: original, audit: null };
   }
+  // Checked here, where the claim happens, not only at sign-in: an invitation or owner email can
+  // be set up after this person signed in.
+  if (!identity.emailManaged && claimsByEmail(state, identity))
+    fail(
+      403,
+      "This Google account can't claim the invitation for this email. Sign in with the invited Google account, or ask an administrator.",
+    );
   const invited = state.members.find((m) => m.email === email);
   if (invited?.subject)
     fail(403, "This email is already linked to a different identity. Contact an administrator.");
@@ -79,6 +86,45 @@ export function enroll(
   }
   if (!invited) state.members.push(member);
   return finish(state, meta, member.id, "member.signin", member.id, before, member);
+}
+/**
+ * Whether signing in as this identity would claim something by email alone: another member's
+ * record (an invitation, or an existing member being moved off Cloudflare Access) or the
+ * unclaimed owner seat. Callers allow that only when Google manages the address.
+ */
+export function claimsByEmail(state: State, identity: Identity): boolean {
+  const email = identity.email.toLowerCase();
+  if (!state.ownerClaimed && state.ownerEmail?.toLowerCase() === email) return true;
+  return state.members.some(
+    (m) => m.email.toLowerCase() === email && m.subject !== identity.subject,
+  );
+}
+/**
+ * Moves a member from their old Cloudflare Access identity to their Google identity on first
+ * Google sign-in. Only a member whose subject still carries the legacy Access issuer is moved, and
+ * only to a Google identity nobody else holds, so an account already on Google is never re-linked
+ * by email. Returns null when there is nothing to migrate.
+ */
+export function migrateLegacyIdentity(
+  original: State,
+  identity: Identity,
+  legacyIssuer: string,
+  meta: Meta,
+): Mutation | null {
+  if (!legacyIssuer || original.members.some((m) => m.subject === identity.subject)) return null;
+  const email = identity.email.toLowerCase();
+  const prefix = `${legacyIssuer}|`;
+  const index = original.members.findIndex(
+    (m) => m.email.toLowerCase() === email && m.subject?.startsWith(prefix),
+  );
+  if (index < 0) return null;
+  const state = structuredClone(original);
+  const member = state.members[index];
+  const before = { subject: member.subject };
+  member.subject = identity.subject;
+  return finish(state, meta, member.id, "member.identity_migrated", member.id, before, {
+    subject: member.subject,
+  });
 }
 export function applyCommand(
   original: State,

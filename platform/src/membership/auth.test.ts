@@ -26,6 +26,7 @@ it("accepts a signed human identity", async () => {
   expect(await verifyIdentity(request(await token()), config, resolver)).toEqual({
     subject: `${config.issuer}|person`,
     email: "person@example.test",
+    emailManaged: true,
   });
 });
 it("rejects missing, tampered, wrong-audience, expired and service tokens", async () => {
