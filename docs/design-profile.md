@@ -151,6 +151,7 @@ Use these before creating anything new. Classes live in `platform/app/globals.cs
 | Selectable list                 | `.member-list` with `button.member-row`           | `aria-pressed="true"` for the selected row.                                                                                        |
 | Nothing to show yet             | `.empty-catalog` pattern                          | Line icon in `.empty-icon`, one short heading.                                                                                     |
 | Waiting for data                | `<p role="status">Loading your account…</p>`      | Text, not spinners or skeletons.                                                                                                   |
+| Signed-out home                 | `.front-page` with `SignInCard`                   | Logo in the header only, "Slice Consulting" heading, the sign-in card. Screenshots in `docs/images/front-page/`.                   |
 | History or audit entries        | `.activity-list`                                  | `time` in muted 12px; raw detail inside `details`.                                                                                 |
 | Interface icons                 | Inline SVG, 24px viewBox, 1.5px `currentColor`    | Decorative icons get `aria-hidden="true"`. Do not add an icon library. Not for app icons.                                          |
 

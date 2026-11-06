@@ -66,5 +66,6 @@ test("consultants can find, copy and read honest AI setup guidance on desktop an
   await expect(page.getByLabel("Message for your AI")).toHaveValue(agentInstructions);
   await expect(page.getByLabel("Message for your AI")).toHaveAttribute("readonly", "");
   await page.getByRole("link", { name: "Applications", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Applications", exact: true })).toBeVisible();
+  // This visitor is not signed in, so home shows the front page instead of the launcher.
+  await expect(page.getByRole("heading", { name: "Slice Consulting", level: 1 })).toBeVisible();
 });

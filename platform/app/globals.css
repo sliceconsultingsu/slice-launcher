@@ -577,6 +577,10 @@ button.member-row:hover,
 .sign-in-card .primary-button {
   margin-top: 24px;
 }
+.front-page {
+  max-width: 550px;
+  margin: 6vh auto 0;
+}
 .activity-list ol {
   list-style: none;
   padding: 0;
