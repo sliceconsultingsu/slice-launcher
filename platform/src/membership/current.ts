@@ -1,11 +1,11 @@
 // Production wiring for Slice's own sign-in: who is signed in on this browser, and the Google
 // sign-in settings. Membership and permissions are still loaded separately on every request.
 import { env } from "cloudflare:workers";
-import type { Identity } from "./contracts";
+import type { SignedInIdentity } from "./contracts";
 import type { GoogleEnv } from "./google";
 import { sessionIdentity } from "./session";
 
-export function identify(request: Request): Promise<Identity> {
+export function identify(request: Request): Promise<SignedInIdentity> {
   return sessionIdentity(request, env.MEMBERSHIP_DB);
 }
 

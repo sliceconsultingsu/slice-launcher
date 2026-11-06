@@ -26,7 +26,11 @@ const authRequest = {
 } as AuthRequest;
 
 function memberState(status: "active" | "pending" | "suspended" = "active"): State {
-  const state = enroll(emptyState(null), identity, { id: "consent", now: "synthetic" }).state;
+  const state = enroll(
+    emptyState(null),
+    { ...identity, emailManaged: true },
+    { id: "consent", now: "synthetic" },
+  ).state;
   state.members[0].status = status;
   return state;
 }

@@ -125,6 +125,7 @@ describe("Google sign-in", () => {
     expect(identity).toEqual({
       subject: "https://accounts.google.com|google-sub-1",
       email: "ana@g.syr.edu",
+      emailManaged: true,
     });
   });
 
@@ -147,7 +148,14 @@ describe("Google sign-in", () => {
   ])("lets %s sign in; membership approval still decides access", async (_label, claims) => {
     const { response } = await signIn(claims);
     expect(response.headers.get("location")).toBe("/account");
-    expect(sessionCookie(response)).toBeDefined();
+    const token = /=([^;]*)/.exec(sessionCookie(response) ?? "")?.[1];
+    const identity = await sessionIdentity(
+      new Request(origin, { headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
+      fixture.db,
+    );
+    // The session carries whether Google manages the address, so a later invitation or owner
+    // seat for that address can't be claimed through it.
+    expect(identity.emailManaged).toBe(claims.email !== "ana@outlook.com");
   });
 
   it.each([
@@ -190,7 +198,7 @@ describe("Google sign-in", () => {
     const state = await repo.load();
     const enrolled = enroll(
       state,
-      { subject: `${legacyIssuer}|access-uuid`, email: "ana@g.syr.edu" },
+      { subject: `${legacyIssuer}|access-uuid`, email: "ana@g.syr.edu", emailManaged: true },
       { id: "ana", now: "2026-10-01T00:00:00.000Z" },
     );
     if (!enrolled.audit) throw new Error("expected enrollment");

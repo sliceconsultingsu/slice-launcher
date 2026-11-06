@@ -10,7 +10,11 @@ const google: Identity = {
 };
 
 function stateWith(subject: string, email = "ana@g.syr.edu"): State {
-  const state = enroll(emptyState(null), { subject, email }, { id: "ana", now: "synthetic" }).state;
+  const state = enroll(
+    emptyState(null),
+    { subject, email, emailManaged: true },
+    { id: "ana", now: "synthetic" },
+  ).state;
   state.members[0].status = "active";
   return state;
 }

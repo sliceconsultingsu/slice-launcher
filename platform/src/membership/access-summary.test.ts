@@ -8,6 +8,7 @@ it("describes bootstrap ownership independently of the Member base level", () =>
     {
       subject: "owner",
       email: "owner@example.test",
+      emailManaged: true,
     },
     { id: "owner", now: "synthetic" },
   ).state;
@@ -26,6 +27,7 @@ it("describes actual delegated permissions, including revocation, without granti
     {
       subject: "member",
       email: "member@example.test",
+      emailManaged: true,
     },
     { id: "member", now: "synthetic" },
   ).state;

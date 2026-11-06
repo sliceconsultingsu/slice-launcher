@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { applyCommand, effectivePermissions, enroll, emptyState, memberView } from "./domain";
 
-const ownerIdentity = { subject: "owner-sub", email: "owner@example.test" };
-const person = { subject: "person-sub", email: "person@example.test" };
+const ownerIdentity = { subject: "owner-sub", email: "owner@example.test", emailManaged: true };
+const person = { subject: "person-sub", email: "person@example.test", emailManaged: true };
 const meta = { id: "event-1", now: "2026-10-04T12:00:00Z" };
 function setup() {
   const state = emptyState(ownerIdentity.email);
@@ -170,6 +170,38 @@ describe("membership authorization", () => {
   });
 });
 
+describe("email claims from addresses Google does not manage", () => {
+  const unmanaged = { ...person, emailManaged: false };
+  it("cannot claim an invitation", () => {
+    const s = run(setup(), {
+      type: "member.add",
+      email: person.email,
+      name: "Person",
+      levelId: "member",
+    });
+    expect(() => enroll(s, unmanaged, meta)).toThrowError(/invited/);
+    expect(
+      enroll(s, person, meta).state.members.find((m) => m.email === person.email),
+    ).toMatchObject({
+      subject: person.subject,
+      status: "active",
+    });
+  });
+  it("cannot claim the owner seat", () => {
+    const state = emptyState(ownerIdentity.email);
+    expect(() => enroll(state, { ...ownerIdentity, emailManaged: false }, meta)).toThrowError(
+      /invited/,
+    );
+    expect(state.ownerClaimed).toBe(false);
+  });
+  it("can still sign up as a new pending member", () => {
+    const result = enroll(setup(), unmanaged, meta);
+    expect(result.state.members.find((m) => m.subject === person.subject)).toMatchObject({
+      status: "pending",
+      owner: false,
+    });
+  });
+});
 describe("membership mutation rejection invariants", () => {
   it("rejects invalid profiles, duplicate names and unknown targets without changing state", () => {
     const s = setup();
@@ -230,9 +262,9 @@ describe("membership mutation rejection invariants", () => {
     expect(() => run(joined, { ...update, status: "pending", owner: true })).toThrow(
       /owner must be active/,
     );
-    expect(() => enroll(s, { email: "invalid", subject: "person" }, meta)).toThrowError(
-      expect.objectContaining({ status: 401 }),
-    );
+    expect(() =>
+      enroll(s, { email: "invalid", subject: "person", emailManaged: true }, meta),
+    ).toThrowError(expect.objectContaining({ status: 401 }));
   });
   it("applies role permission removal immediately and retains deny precedence over an explicit allow", () => {
     let s = run(setup(), {

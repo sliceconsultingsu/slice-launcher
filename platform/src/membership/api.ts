@@ -2,7 +2,7 @@ import { z } from "zod";
 import { readCommand } from "./auth";
 import { applyCommand, effectivePermissions, enroll, memberView } from "./domain";
 import { MembershipError } from "./contracts";
-import type { Identity } from "./contracts";
+import type { SignedInIdentity } from "./contracts";
 import type { Repository } from "./repository";
 const envelope = z.strictObject({
   revision: z.number().int().nonnegative().optional(),
@@ -31,7 +31,7 @@ export function errorResponse(error: unknown): Response {
 }
 export async function membershipRequest(
   request: Request,
-  identity: Identity,
+  identity: SignedInIdentity,
   repository: Repository,
 ): Promise<Response> {
   const state = await repository.load();

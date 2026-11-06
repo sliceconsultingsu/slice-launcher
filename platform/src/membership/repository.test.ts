@@ -19,7 +19,7 @@ async function setup() {
   const initial = await repo.load();
   const first = enroll(
     initial,
-    { subject: "owner", email: "owner@example.test" },
+    { subject: "owner", email: "owner@example.test", emailManaged: true },
     { id: "owner-member", now: new Date().toISOString() },
   );
   if (!first.audit) throw new Error("Expected enrollment");

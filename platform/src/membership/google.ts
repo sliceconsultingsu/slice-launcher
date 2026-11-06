@@ -1,7 +1,7 @@
 // Slice's own Google sign-in, modelled on Deal Toy's src/server/google.ts. It proves who the
 // person is and starts a session; membership and permissions are still checked on every request.
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
-import type { Identity } from "./contracts";
+import type { SignedInIdentity } from "./contracts";
 import { claimsByEmail, migrateLegacyIdentity } from "./domain";
 import { Repository } from "./repository";
 import { cookie, createSession, readCookie, secret } from "./session";
@@ -158,7 +158,11 @@ export async function googleCallback(
     return fail("google");
   if (claims.email_verified !== true || typeof claims.email !== "string") return fail("unverified");
   const email = claims.email.toLowerCase();
-  const identity: Identity = { subject: `${GOOGLE_SUBJECT_PREFIX}${claims.sub}`, email };
+  const identity: SignedInIdentity = {
+    subject: `${GOOGLE_SUBJECT_PREFIX}${claims.sub}`,
+    email,
+    emailManaged: googleManages(email, claims.hd),
+  };
   const repository = new Repository(env.MEMBERSHIP_DB);
   const state0 = await repository.load();
   // Any Google account may sign in; new people stay pending until an administrator approves
@@ -166,7 +170,8 @@ export async function googleCallback(
   // existing member by email when Google manages it: a Gmail address, or a Workspace account
   // whose hosted domain (hd) is the address's domain. Otherwise Google only checked the address
   // once, when the account was made, and its owner may have changed since.
-  if (!googleManages(email, claims.hd) && claimsByEmail(state0, identity)) return fail("email");
+  // Enrollment enforces the same rule again on every claim; this check gives a clear message now.
+  if (!identity.emailManaged && claimsByEmail(state0, identity)) return fail("email");
   const migration = migrateLegacyIdentity(state0, identity, env.LEGACY_ACCESS_ISSUER, {
     id: crypto.randomUUID(),
     now: new Date().toISOString(),

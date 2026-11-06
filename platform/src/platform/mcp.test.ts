@@ -130,7 +130,7 @@ beforeEach(async () => {
   const initial = await repo.load();
   const joined = enroll(
     initial,
-    { subject: `${config.issuer}|person`, email: "person@example.test" },
+    { subject: `${config.issuer}|person`, email: "person@example.test", emailManaged: true },
     { id: "person", now: "now" },
   );
   if (!joined.audit) throw new Error("Expected enrollment");

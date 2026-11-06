@@ -17,8 +17,8 @@ afterAll(async () => {
 it("runs onboarding, approval, privacy checks and revocation against D1", async () => {
   const { db } = fixture;
   const repo = new Repository(db);
-  const owner = { subject: "owner", email: "owner@example.test" };
-  const person = { subject: "person", email: "person@example.test" };
+  const owner = { subject: "owner", email: "owner@example.test", emailManaged: true };
+  const person = { subject: "person", email: "person@example.test", emailManaged: true };
   const call = async (identity: typeof owner, body?: unknown, query = "") => {
     const req = new Request(
       `https://slice.example/api/membership${query}`,
@@ -92,7 +92,7 @@ it("runs onboarding, approval, privacy checks and revocation against D1", async 
 it("rejects invalid envelopes and unrecognized methods without mutating D1", async () => {
   const repo = new Repository(fixture.db);
   const before = await repo.load();
-  const identity = { subject: "unknown", email: "unknown@example.test" };
+  const identity = { subject: "unknown", email: "unknown@example.test", emailManaged: true };
   const invoke = async (method: string, body?: unknown) => {
     const request = new Request("https://slice.example/api/membership", {
       method,
@@ -126,8 +126,8 @@ it("rejects invalid envelopes and unrecognized methods without mutating D1", asy
 });
 it("keeps duplicate enrollment idempotent and protects invitations from another identity", async () => {
   const repo = new Repository(fixture.db);
-  const owner = { subject: "owner", email: "owner@example.test" };
-  const member = { subject: "invited", email: "invited@example.test" };
+  const owner = { subject: "owner", email: "owner@example.test", emailManaged: true };
+  const member = { subject: "invited", email: "invited@example.test", emailManaged: true };
   const call = async (identity: typeof owner, command: unknown) => {
     const { revision } = await repo.load();
     const request = new Request("https://slice.example/api/membership", {
@@ -148,7 +148,10 @@ it("keeps duplicate enrollment idempotent and protects invitations from another 
     name: "Invited",
     levelId: "member",
   });
-  await call({ subject: "other", email: "other@example.test" }, { type: "join" });
+  await call(
+    { subject: "other", email: "other@example.test", emailManaged: true },
+    { type: "join" },
+  );
   expect(
     (await repo.load()).members.find((entry) => entry.email === member.email)?.subject,
   ).toBeNull();

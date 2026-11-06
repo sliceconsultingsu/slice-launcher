@@ -1,5 +1,5 @@
 import { commandSchema, emailSchema, MembershipError, permissionCatalog } from "./contracts";
-import type { Identity, Member, Meta, Mutation, State, View } from "./contracts";
+import type { Identity, Member, Meta, Mutation, SignedInIdentity, State, View } from "./contracts";
 export { MembershipError } from "./contracts";
 
 function fail(status: number, message: string): never {
@@ -39,7 +39,7 @@ function finish(
 }
 export function enroll(
   original: State,
-  identity: Identity,
+  identity: SignedInIdentity,
   meta: Meta,
 ): Mutation | { state: State; audit: null } {
   const state = structuredClone(original);
@@ -51,6 +51,13 @@ export function enroll(
     if (bound.email !== email) fail(403, "Your sign-in email changed. Contact an administrator.");
     return { state: original, audit: null };
   }
+  // Checked here, where the claim happens, not only at sign-in: an invitation or owner email can
+  // be set up after this person signed in.
+  if (!identity.emailManaged && claimsByEmail(state, identity))
+    fail(
+      403,
+      "This Google account can't claim the invitation for this email. Sign in with the invited Google account, or ask an administrator.",
+    );
   const invited = state.members.find((m) => m.email === email);
   if (invited?.subject)
     fail(403, "This email is already linked to a different identity. Contact an administrator.");

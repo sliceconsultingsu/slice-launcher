@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { database, migrate } from "../../tests/database";
 import { createSession, endSession, SESSION_COOKIE, sessionIdentity } from "./session";
-import { MembershipError, type Identity } from "./contracts";
+import { MembershipError, type SignedInIdentity } from "./contracts";
 
-const identity: Identity = {
+const identity: SignedInIdentity = {
   subject: "https://accounts.google.com|123",
   email: "ana@g.syr.edu",
+  emailManaged: true,
 };
 let fixture: Awaited<ReturnType<typeof database>>;
 beforeAll(async () => {
@@ -47,6 +48,12 @@ describe("browser sessions", () => {
   it("resolve the signed-in identity from the cookie", async () => {
     const token = tokenOf(await createSession(fixture.db, identity, ""));
     expect(await sessionIdentity(withCookie(token), fixture.db)).toEqual(identity);
+  });
+
+  it("remember whether Google manages the address", async () => {
+    const unmanaged = { ...identity, email: "ana@outlook.com", emailManaged: false };
+    const token = tokenOf(await createSession(fixture.db, unmanaged, ""));
+    expect(await sessionIdentity(withCookie(token), fixture.db)).toEqual(unmanaged);
   });
 
   it("reject a missing, malformed or unknown cookie", async () => {

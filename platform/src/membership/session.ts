@@ -1,4 +1,4 @@
-import { MembershipError, type Identity } from "./contracts";
+import { MembershipError, type SignedInIdentity } from "./contracts";
 
 /** Host-only cookie: no Domain attribute, Secure, Path=/ (the __Host- prefix enforces this). */
 export const SESSION_COOKIE = "__Host-slice_session";
@@ -39,19 +39,20 @@ async function digest(token: string): Promise<string> {
 /** Starts a browser session for a verified identity and returns its Set-Cookie header. */
 export async function createSession(
   db: Database,
-  identity: Identity,
+  identity: SignedInIdentity,
   userAgent: string,
 ): Promise<string> {
   const token = secret();
   const now = new Date();
   await db
     .prepare(
-      "INSERT INTO sessions (hash, subject, email, created_at, expires_at, last_seen_at, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO sessions (hash, subject, email, email_managed, created_at, expires_at, last_seen_at, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(
       await digest(token),
       identity.subject,
       identity.email,
+      identity.emailManaged ? 1 : 0,
       now.toISOString(),
       new Date(now.getTime() + SESSION_MS).toISOString(),
       now.toISOString(),
@@ -65,22 +66,24 @@ export async function createSession(
  * The signed-in identity behind this browser's session cookie. It proves who signed in, not what
  * they may do: callers still load current membership and permissions on every request.
  */
-export async function sessionIdentity(request: Request, db: Database): Promise<Identity> {
+export async function sessionIdentity(request: Request, db: Database): Promise<SignedInIdentity> {
   const token = readCookie(request, SESSION_COOKIE);
   if (!token || token.length !== 43) throw new MembershipError(401, "Sign in to Slice.");
   const key = await digest(token);
   const now = new Date();
   const row = await db
-    .prepare("SELECT subject, email, last_seen_at FROM sessions WHERE hash = ? AND expires_at > ?")
+    .prepare(
+      "SELECT subject, email, email_managed, last_seen_at FROM sessions WHERE hash = ? AND expires_at > ?",
+    )
     .bind(key, now.toISOString())
-    .first<{ subject: string; email: string; last_seen_at: string }>();
+    .first<{ subject: string; email: string; email_managed: number; last_seen_at: string }>();
   if (!row) throw new MembershipError(401, "Sign in to Slice.");
   if (now.getTime() - Date.parse(row.last_seen_at) > SLIDE_MS)
     await db
       .prepare("UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE hash = ?")
       .bind(now.toISOString(), new Date(now.getTime() + SESSION_MS).toISOString(), key)
       .run();
-  return { subject: row.subject, email: row.email };
+  return { subject: row.subject, email: row.email, emailManaged: row.email_managed === 1 };
 }
 
 /** Ends this browser's session and returns a Set-Cookie header that clears it. */
