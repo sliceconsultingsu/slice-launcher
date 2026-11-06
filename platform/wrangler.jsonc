@@ -31,7 +31,7 @@
     "LEGACY_ACCESS_ISSUER": "https://snowy-voice-36a1.cloudflareaccess.com",
     // AI connection status and the connected-apps list stay hidden until production AI sign-in
     // is verified. Only the exact value "true" turns them on. See docs/mcp.md.
-    "AI_CONNECTIONS_ENABLED": "false",
+    "AI_CONNECTIONS_ENABLED": "true",
   },
   // Grants, passes and AI activity records for Slice's own AI sign-in (namespace
   // "slice-launcher-oauth", created November 5, 2026). Never share it with another app.
