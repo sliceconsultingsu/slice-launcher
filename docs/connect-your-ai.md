@@ -2,7 +2,7 @@
 
 Use this guide when a consultant asks an AI agent to connect to Slice, is stopped at sign-in, or needs help checking a connection. Explain one step at a time in plain language. Ask only for the information needed for the next step.
 
-**Current status: awaiting platform setup.** The shared connection is implemented, but remote sign-in has not been activated and verified. Help the person check their account and prepare their client. Stop before connecting until the Slice maintainer confirms availability. Installing a client or opening the launcher does not prove a working connection.
+**Current status: switched on, still being checked with real AI apps** (since November 6, 2026). Remote sign-in is live, but a full connection from Claude or ChatGPT hasn't been confirmed yet. Help the person connect, and if any step fails, stop and report it to the Slice maintainer. Installing a client or opening the launcher does not prove a working connection.
 
 Use **Connect your AI** in the launcher’s footer to open the setup page and copy a message into your agent. This public repository guide is readable before sign-in; private application data requires a Slice sign-in.
 
@@ -22,9 +22,9 @@ The person enters their password, verification codes and any consent directly in
 
 **Done when:** the person confirms their membership is active. For pending, suspended or denied accounts, stop and direct them to the Slice maintainer; the agent cannot approve or restore membership.
 
-## 3. Add the connection when the platform is ready
+## 3. Add the connection
 
-After the maintainer confirms remote sign-in is available, guide the person to the client’s verified connector/MCP settings and enter:
+Once the person's membership is active, guide the person to the client’s verified connector/MCP settings and enter:
 
 | Setting        | Value                                               |
 | -------------- | --------------------------------------------------- |
