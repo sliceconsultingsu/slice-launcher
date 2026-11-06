@@ -16,7 +16,7 @@ Give the exact navigation steps for the verified client/version. Do not invent m
 
 ## 2. Check the person’s Slice account
 
-Direct the person to [their Slice account](https://slice-launcher.ivan27chen.workers.dev/account). Have them choose **Sign in with Google** and use their Syracuse Google account (`g.syr.edu`). If asked, they should create their member profile and wait for approval. They must have active membership before using tools.
+Direct the person to [their Slice account](https://slice-launcher.ivan27chen.workers.dev/account). Have them choose **Sign in with Google** and use the Google account Slice knows them by (normally their Syracuse account). If asked, they should create their member profile and wait for approval. They must have active membership before using tools.
 
 The person enters their password, verification codes and any consent directly in the sign-in window. Never request these in chat, read or copy browser cookies, or ask for a shared service token. A sign-in identifies the person; membership determines what they can do.
 

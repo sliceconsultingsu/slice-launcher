@@ -15,7 +15,6 @@ export function googleEnv(): GoogleEnv {
     // A Worker secret (wrangler secret put); not in wrangler.jsonc, so not in the generated type.
     GOOGLE_CLIENT_SECRET:
       (env as unknown as { GOOGLE_CLIENT_SECRET?: string }).GOOGLE_CLIENT_SECRET ?? "",
-    ALLOWED_EMAIL_DOMAIN: env.ALLOWED_EMAIL_DOMAIN,
     LEGACY_ACCESS_ISSUER: env.LEGACY_ACCESS_ISSUER,
     AUTH_LIMITER: env.AUTH_LIMITER,
     MEMBERSHIP_DB: env.MEMBERSHIP_DB,

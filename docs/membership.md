@@ -1,6 +1,6 @@
 # Membership administration
 
-Slice's own Google sign-in proves who signed in: only verified accounts in the allowed domain (`g.syr.edu`), held in a 30-day Slice session cookie. The launcher's private D1 database determines what that person can do. This release supports one organization, Slice Consulting.
+Slice's own Google sign-in proves who signed in: any Google account with a verified email, held in a 30-day Slice session cookie. Signing in grants nothing by itself: new people are pending until an administrator approves them. An invitation, the owner seat or an existing member's record is claimed by email only when Google manages the address (a Gmail address, or a Workspace account whose hosted domain matches the address); otherwise sign-in is refused with a message to use the invited account. The launcher's private D1 database determines what that person can do. This release supports one organization, Slice Consulting.
 
 ## Member workflow
 
@@ -26,7 +26,7 @@ If an account unexpectedly has administrative access, inspect its ownership flag
 
 Sign-in is Slice's own Google sign-in (design: [in-app sign-in](superpowers/specs/2026-11-05-in-app-sign-in-design.md)). It replaced Cloudflare Access on November 5, 2026. Each step below changes production and needs maintainer authorization.
 
-1. **Google OAuth client.** In Google Cloud, create a Web application OAuth client with the authorized redirect URI `https://slice-launcher.ivan27chen.workers.dev/api/auth/google/callback`. Put its client ID in `GOOGLE_CLIENT_ID` in `platform/wrangler.jsonc` through a reviewed PR. Set the secret yourself with `pnpm --filter @slice/launcher exec wrangler secret put GOOGLE_CLIENT_SECRET`, never in Git or chat. Until both exist, sign-in fails closed with "Sign-in is not set up yet".
+1. **Google OAuth client.** In Google Cloud, create a Web application OAuth client with the authorized redirect URI `https://slice-launcher.ivan27chen.workers.dev/api/auth/google/callback`. Put its client ID in `GOOGLE_CLIENT_ID` in `platform/wrangler.jsonc` through a reviewed PR. Set the secret yourself with `pnpm --filter @slice/launcher exec wrangler secret put GOOGLE_CLIENT_SECRET`, never in Git or chat. Until both exist, sign-in fails closed with "Sign-in is not set up yet". The consent screen's audience must be **External** so accounts outside Syracuse's Workspace can sign in. Slice asks only for `openid email profile`, so a Testing-status app needs no test-user list.
 2. **Database.** Apply migrations to the private `slice-membership` database: `pnpm --filter @slice/launcher exec wrangler d1 migrations apply slice-membership --remote`. `0002_sessions.sql` adds the `sessions` table. Check the target account before confirming.
 3. **Initial owner (new environments only).** Set the singleton organization's `owner_email` to the confirmed, normalized email with a private operator SQL file and `wrangler d1 execute`. Guard it with `owner_claimed = 0` and an empty members table. Never derive ownership from whoever visits first, and keep real emails and that SQL out of Git.
 4. **Release.** Deploy through the normal pull-request gate. The post-deploy check accepts both the Access redirect and in-app sign-in, so this works before and after Access is switched off.
@@ -35,7 +35,7 @@ Sign-in is Slice's own Google sign-in (design: [in-app sign-in](superpowers/spec
    - The owner signs in and keeps owner access.
    - A second existing member signs in and keeps their access.
    - A new person starts pending.
-   - A non-`g.syr.edu` account is refused.
+   - A personal Google account using a member's Syracuse address is refused.
    - Approval, revocation, suspension with an existing session, and Sign out all work.
    - Direct API requests without a session are denied.
    - Do not claim activation from synthetic tests.

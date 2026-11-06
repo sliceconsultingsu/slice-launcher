@@ -81,6 +81,18 @@ export function enroll(
   return finish(state, meta, member.id, "member.signin", member.id, before, member);
 }
 /**
+ * Whether signing in as this identity would claim something by email alone: another member's
+ * record (an invitation, or an existing member being moved off Cloudflare Access) or the
+ * unclaimed owner seat. Callers allow that only when Google manages the address.
+ */
+export function claimsByEmail(state: State, identity: Identity): boolean {
+  const email = identity.email.toLowerCase();
+  if (!state.ownerClaimed && state.ownerEmail?.toLowerCase() === email) return true;
+  return state.members.some(
+    (m) => m.email.toLowerCase() === email && m.subject !== identity.subject,
+  );
+}
+/**
  * Moves a member from their old Cloudflare Access identity to their Google identity on first
  * Google sign-in. Only a member whose subject still carries the legacy Access issuer is moved, and
  * only to a Google identity nobody else holds, so an account already on Google is never re-linked

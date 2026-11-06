@@ -26,8 +26,6 @@
     // Slice's own Google sign-in (docs/membership.md). The client secret is a Worker secret
     // (GOOGLE_CLIENT_SECRET), never in Git. Sign-in fails closed until both are set.
     "GOOGLE_CLIENT_ID": "677700569745-phm73t1747rms1du0luqve1jbcoo9kvj.apps.googleusercontent.com",
-    // Only verified Google accounts in this domain may sign in; membership approval still applies.
-    "ALLOWED_EMAIL_DOMAIN": "g.syr.edu",
     // The retired Cloudflare Access issuer, used only to move existing members to their Google
     // identity on first sign-in.
     "LEGACY_ACCESS_ISSUER": "https://snowy-voice-36a1.cloudflareaccess.com",

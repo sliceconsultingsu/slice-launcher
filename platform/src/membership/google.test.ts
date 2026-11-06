@@ -5,6 +5,7 @@ import { googleCallback, googleStart, safeNext, type GoogleEnv } from "./google"
 import { sessionIdentity, SESSION_COOKIE } from "./session";
 import { Repository } from "./repository";
 import { enroll } from "./domain";
+import type { Member } from "./contracts";
 
 const origin = "https://slice.example";
 const legacyIssuer = "https://snowy-voice-36a1.cloudflareaccess.com";
@@ -33,7 +34,6 @@ function env(overrides: Partial<GoogleEnv> = {}): GoogleEnv {
   return {
     GOOGLE_CLIENT_ID: "client-id",
     GOOGLE_CLIENT_SECRET: "client-secret",
-    ALLOWED_EMAIL_DOMAIN: "g.syr.edu",
     LEGACY_ACCESS_ISSUER: legacyIssuer,
     AUTH_LIMITER: { limit: async () => ({ success: allowed }) } as unknown as RateLimit,
     MEMBERSHIP_DB: fixture.db as unknown as D1Database,
@@ -103,13 +103,14 @@ describe("Google sign-in", () => {
     expect(location.searchParams.get("redirect_uri")).toBe(`${origin}/api/auth/google/callback`);
     expect(location.searchParams.get("code_challenge_method")).toBe("S256");
     expect(location.searchParams.get("scope")).toBe("openid email profile");
-    expect(location.searchParams.get("hd")).toBe("g.syr.edu");
+    // No hosted-domain hint: any Google account may sign in; membership approval decides access.
+    expect(location.searchParams.has("hd")).toBe(false);
     expect(start.headers.get("set-cookie")).toMatch(
       /^__Host-slice_oauth=.*Max-Age=600; HttpOnly; Secure/,
     );
   });
 
-  it("a verified Syracuse account gets a session and lands on the account page", async () => {
+  it("a verified Google account gets a session and lands on the account page", async () => {
     const { response, exchanged } = await signIn();
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe("/account");
@@ -137,11 +138,20 @@ describe("Google sign-in", () => {
   });
 
   it.each([
+    ["a personal Gmail account", { email: "ana@gmail.com", hd: undefined }],
+    ["another Workspace organization", { email: "ana@other.edu", hd: "other.edu" }],
+    [
+      "a Google account using another provider's address",
+      { email: "ana@outlook.com", hd: undefined },
+    ],
+  ])("lets %s sign in; membership approval still decides access", async (_label, claims) => {
+    const { response } = await signIn(claims);
+    expect(response.headers.get("location")).toBe("/account");
+    expect(sessionCookie(response)).toBeDefined();
+  });
+
+  it.each([
     ["unverified email", { email_verified: false }, "unverified"],
-    ["another email domain", { email: "ana@gmail.com" }, "domain"],
-    ["a lookalike domain", { email: "ana@evilg.syr.edu" }, "domain"],
-    ["a personal Google account using a Syracuse address", { hd: undefined }, "domain"],
-    ["another Workspace organization", { hd: "other.edu" }, "domain"],
     ["a wrong nonce", { nonce: "replayed" }, "google"],
     ["a token for another app", { aud: "other-client" }, "google"],
   ])("refuses %s", async (_label, claims, code) => {
@@ -189,6 +199,69 @@ describe("Google sign-in", () => {
     const after = await repo.load();
     expect(after.members[0].subject).toBe("https://accounts.google.com|google-sub-1");
     expect((await repo.history())[0]).toMatchObject({ action: "member.identity_migrated" });
+  });
+
+  // Google only vouches for an address it manages: a Gmail address, or one whose Workspace
+  // domain (hd) matches. Anything else must not claim an invitation, the owner seat or an
+  // existing member's record by email.
+  async function seed(subject: string | null, email: string, status = "invited") {
+    const repo = new Repository(fixture.db as unknown as D1Database);
+    const state = await repo.load();
+    const next = structuredClone(state);
+    next.members.push({
+      id: `m-${email}`,
+      subject,
+      email,
+      name: "",
+      title: "",
+      status: status as Member["status"],
+      levelId: null,
+      allow: [],
+      deny: [],
+      owner: false,
+      joinedAt: "2026-10-01T00:00:00.000Z",
+    });
+    next.revision += 1;
+    await repo.commit(state, {
+      state: next,
+      audit: {
+        id: `seed-${email}`,
+        at: "2026-10-01T00:00:00.000Z",
+        actorId: "system",
+        action: "member.invited",
+        targetId: `m-${email}`,
+        before: null,
+        after: null,
+      },
+    });
+    return repo;
+  }
+
+  it("refuses an address Google doesn't manage when it matches an invitation", async () => {
+    await seed(null, "ana@outlook.com");
+    const { response } = await signIn({ email: "ana@outlook.com", hd: undefined });
+    expect(response.headers.get("location")).toBe("/account?sign_in_error=email");
+    expect(sessionCookie(response)).toBeUndefined();
+  });
+
+  it("refuses a personal account using a member's Syracuse address, and leaves the member alone", async () => {
+    const repo = await seed(`${legacyIssuer}|access-uuid`, "ana@g.syr.edu", "active");
+    const { response } = await signIn({ email: "ana@g.syr.edu", hd: undefined });
+    expect(response.headers.get("location")).toBe("/account?sign_in_error=email");
+    expect((await repo.load()).members[0].subject).toBe(`${legacyIssuer}|access-uuid`);
+  });
+
+  it("lets a Gmail or matching Workspace account claim its invitation", async () => {
+    await seed(null, "ana@gmail.com");
+    await seed(null, "bo@g.syr.edu");
+    expect(
+      sessionCookie((await signIn({ email: "ana@gmail.com", hd: undefined })).response),
+    ).toBeDefined();
+    expect(
+      sessionCookie(
+        (await signIn({ email: "bo@g.syr.edu", hd: "g.syr.edu", sub: "google-sub-2" })).response,
+      ),
+    ).toBeDefined();
   });
 });
 

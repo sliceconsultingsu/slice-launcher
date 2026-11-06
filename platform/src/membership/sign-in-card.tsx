@@ -1,8 +1,8 @@
 /** Plain-language reasons for the codes Google sign-in returns as ?sign_in_error=. */
 export function signInMessage(code: string): string {
   switch (code) {
-    case "domain":
-      return "Use your Syracuse Google account (g.syr.edu).";
+    case "email":
+      return "This Google account can't be matched to your Slice invitation. Sign in with the Google account an administrator invited, or ask them to update it.";
     case "unverified":
       return "Google has not verified that email address.";
     case "rate":
@@ -23,7 +23,10 @@ export function SignInCard({ error }: { error: string | null }) {
           {signInMessage(error)}
         </p>
       )}
-      <p>Use your Syracuse Google account (g.syr.edu) to reach your profile and organization.</p>
+      <p>
+        Use your Google account to reach your profile and organization. New members wait for an
+        administrator&apos;s approval.
+      </p>
       <a className="primary-button" href="/api/auth/google/start">
         Sign in with Google
       </a>

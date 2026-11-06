@@ -2,7 +2,7 @@
 // person is and starts a session; membership and permissions are still checked on every request.
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
 import type { Identity } from "./contracts";
-import { migrateLegacyIdentity } from "./domain";
+import { claimsByEmail, migrateLegacyIdentity } from "./domain";
 import { Repository } from "./repository";
 import { cookie, createSession, readCookie, secret } from "./session";
 
@@ -17,13 +17,12 @@ let googleKeys: JWTVerifyGetKey | undefined;
 export type GoogleEnv = {
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
-  ALLOWED_EMAIL_DOMAIN: string;
   LEGACY_ACCESS_ISSUER: string;
   AUTH_LIMITER: RateLimit;
   MEMBERSHIP_DB: D1Database;
 };
 type Deps = { fetch?: typeof fetch; keys?: JWTVerifyGetKey };
-type Failure = "state" | "google" | "unverified" | "domain" | "rate" | "unavailable";
+type Failure = "state" | "google" | "unverified" | "email" | "rate" | "unavailable";
 
 function redirect(location: string, cookies: string[]) {
   const headers = new Headers({ Location: location, "Cache-Control": "private, no-store" });
@@ -47,8 +46,7 @@ async function challenge(verifier: string) {
     .replace(/=+$/, "");
 }
 const callbackUrl = (request: Request) => `${new URL(request.url).origin}/api/auth/google/callback`;
-const configured = (env: GoogleEnv) =>
-  Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.ALLOWED_EMAIL_DOMAIN);
+const configured = (env: GoogleEnv) => Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
 
 /**
  * Where sign-in may return to besides the account page: only the AI approval page, so the
@@ -77,6 +75,12 @@ function decodeNext(segment: string | undefined) {
   }
 }
 
+/** Whether Google itself manages this address, so its verification is current. */
+function googleManages(email: string, hd: unknown) {
+  const domain = email.slice(email.lastIndexOf("@") + 1);
+  return domain === "gmail.com" || (typeof hd === "string" && hd.toLowerCase() === domain);
+}
+
 /** Sends the browser to Google with PKCE, state and nonce held in a ten-minute cookie. */
 export async function googleStart(request: Request, env: GoogleEnv): Promise<Response> {
   if (!configured(env)) return fail("unavailable");
@@ -92,8 +96,6 @@ export async function googleStart(request: Request, env: GoogleEnv): Promise<Res
     response_type: "code",
     scope: "openid email profile",
     prompt: "select_account",
-    // A hint for Google's account chooser only; the callback enforces the domain itself.
-    hd: env.ALLOWED_EMAIL_DOMAIN,
     state,
     nonce,
     code_challenge: await challenge(verifier),
@@ -106,8 +108,9 @@ export async function googleStart(request: Request, env: GoogleEnv): Promise<Res
 
 /**
  * Finishes Google sign-in: checks state, exchanges the code with PKCE, verifies the ID token
- * (signature, issuer, audience, expiry, nonce), requires a verified email in the allowed domain,
- * moves a member off their old Access identity if needed, and starts a session.
+ * (signature, issuer, audience, expiry, nonce), requires a verified email, refuses email-based
+ * claims on addresses Google does not manage, moves a member off their old Access identity if
+ * needed, and starts a session.
  */
 export async function googleCallback(
   request: Request,
@@ -155,13 +158,15 @@ export async function googleCallback(
     return fail("google");
   if (claims.email_verified !== true || typeof claims.email !== "string") return fail("unverified");
   const email = claims.email.toLowerCase();
-  const domain = env.ALLOWED_EMAIL_DOMAIN.toLowerCase();
-  // Both the address and Google's hosted-domain claim must match: `hd` proves the account is
-  // managed by the Syracuse Workspace, not a personal Google account using a Syracuse address.
-  if (email.split("@")[1] !== domain || claims.hd !== domain) return fail("domain");
   const identity: Identity = { subject: `${GOOGLE_SUBJECT_PREFIX}${claims.sub}`, email };
   const repository = new Repository(env.MEMBERSHIP_DB);
   const state0 = await repository.load();
+  // Any Google account may sign in; new people stay pending until an administrator approves
+  // them. But an address only counts as proof for claiming an invitation, the owner seat or an
+  // existing member by email when Google manages it: a Gmail address, or a Workspace account
+  // whose hosted domain (hd) is the address's domain. Otherwise Google only checked the address
+  // once, when the account was made, and its owner may have changed since.
+  if (!googleManages(email, claims.hd) && claimsByEmail(state0, identity)) return fail("email");
   const migration = migrateLegacyIdentity(state0, identity, env.LEGACY_ACCESS_ISSUER, {
     id: crypto.randomUUID(),
     now: new Date().toISOString(),

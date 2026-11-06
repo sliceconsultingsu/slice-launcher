@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emptyState, enroll, migrateLegacyIdentity } from "./domain";
+import { claimsByEmail, emptyState, enroll, migrateLegacyIdentity } from "./domain";
 import type { Identity, State } from "./contracts";
 
 const legacyIssuer = "https://snowy-voice-36a1.cloudflareaccess.com";
@@ -64,5 +64,28 @@ describe("migrateLegacyIdentity", () => {
   it("does not treat a lookalike issuer as the legacy one", () => {
     const before = stateWith(`${legacyIssuer}.evil.example|access-uuid`);
     expect(migrateLegacyIdentity(before, google, legacyIssuer, meta)).toBeNull();
+  });
+});
+
+describe("claimsByEmail", () => {
+  const someone: Identity = { subject: "https://accounts.google.com|9", email: "ana@outlook.com" };
+
+  it("is true when the address matches another member's record", () => {
+    expect(claimsByEmail(stateWith(`${legacyIssuer}|x`, "ana@outlook.com"), someone)).toBe(true);
+    const invited = stateWith(`${legacyIssuer}|x`, "Ana@Outlook.com");
+    invited.members[0].subject = null;
+    expect(claimsByEmail(invited, someone)).toBe(true);
+  });
+
+  it("is true when the address is the unclaimed owner email", () => {
+    expect(claimsByEmail(emptyState("Ana@Outlook.com"), someone)).toBe(true);
+  });
+
+  it("is false for a new address or this person's own record", () => {
+    expect(claimsByEmail(emptyState(null), someone)).toBe(false);
+    expect(claimsByEmail(stateWith(someone.subject, someone.email), someone)).toBe(false);
+    const claimed = emptyState("ana@outlook.com");
+    claimed.ownerClaimed = true;
+    expect(claimsByEmail(claimed, someone)).toBe(false);
   });
 });
