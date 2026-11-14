@@ -263,3 +263,87 @@ describe("jobs and change records", () => {
     ).rejects.toThrow(/CHECK/);
   });
 });
+
+describe("former degree names", () => {
+  const formerNames = {
+    "applied-data-analytics": "applied-data-science",
+    "broadcast-digital-journalism": "journalism",
+    "graphic-design": "visual-communications",
+    "magazine-news-digital-journalism": "journalism",
+  };
+
+  it("adds only the former names found in the catalog, retired and without a school of their own", async () => {
+    const rows = (
+      await db
+        .prepare(
+          "SELECT id, school_id, current_major_id, active FROM alumni_majors WHERE current_major_id IS NOT NULL ORDER BY id",
+        )
+        .all<{ id: string; school_id: string | null; current_major_id: string; active: number }>()
+    ).results;
+    expect(
+      Object.fromEntries(
+        rows.map((r: { id: string; current_major_id: string }) => [r.id, r.current_major_id]),
+      ),
+    ).toEqual(formerNames);
+    for (const row of rows) expect(row).toMatchObject({ school_id: null, active: 0 });
+  });
+
+  it("shows the name on the degree but uses the current program and its school", async () => {
+    const elena = await db
+      .prepare("SELECT * FROM alumni_person_schools WHERE person_id = 'p-a13'")
+      .first();
+    expect(elena).toMatchObject({
+      major_id: "magazine-news-digital-journalism",
+      degree_name: "Magazine, News and Digital Journalism",
+      current_major_id: "journalism",
+      current_major_name: "Journalism",
+      school_id: "newhouse",
+    });
+    const priya = await db
+      .prepare(
+        "SELECT degree_name, current_major_id, school_id FROM alumni_person_schools WHERE person_id = 'p-a10' AND major_id = 'applied-data-analytics'",
+      )
+      .first();
+    expect(priya).toEqual({
+      degree_name: "Applied Data Analytics",
+      current_major_id: "applied-data-science",
+      school_id: "ischool",
+    });
+  });
+
+  it("follows the current program when its school changes", async () => {
+    await db.prepare("UPDATE alumni_majors SET school_id = 'vpa' WHERE id = 'journalism'").run();
+    const row = await db
+      .prepare("SELECT school_id FROM alumni_person_schools WHERE person_id = 'p-a13'")
+      .first();
+    expect(row).toEqual({ school_id: "vpa" });
+  });
+
+  it("refuses former names that are active, have a school, point at themselves or at another former name", async () => {
+    const insert = (id: string, school: string | null, current: string | null, active: number) =>
+      db
+        .prepare(
+          "INSERT INTO alumni_majors(id, name, school_id, current_major_id, active) VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind(id, `Test ${id}`, school, current, active)
+        .run();
+    await expect(insert("x-active", null, "journalism", 1)).rejects.toThrow(/CHECK/);
+    await expect(insert("x-school", "newhouse", "journalism", 0)).rejects.toThrow(/CHECK/);
+    await expect(insert("x-self", null, "x-self", 0)).rejects.toThrow(/CHECK/);
+    await expect(insert("x-no-school", null, null, 1)).rejects.toThrow(/CHECK/);
+    await expect(insert("x-chain", null, "graphic-design", 0)).rejects.toThrow(
+      /must point to a current program/,
+    );
+    await expect(insert("x-ok", null, "journalism", 0)).resolves.toBeDefined();
+  });
+
+  it("refuses to retire a program that former names still point to", async () => {
+    await expect(
+      db
+        .prepare(
+          "UPDATE alumni_majors SET current_major_id = 'film', school_id = NULL, active = 0 WHERE id = 'journalism'",
+        )
+        .run(),
+    ).rejects.toThrow(/must point to a current program/);
+  });
+});

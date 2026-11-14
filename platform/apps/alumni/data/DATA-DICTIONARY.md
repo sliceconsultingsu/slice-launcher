@@ -46,16 +46,35 @@ Visible to anyone who can see profiles.
 
 ### `alumni_majors`: academic programs
 
-Each program belongs to **exactly one** school. A person's school is always worked out from their majors, never typed in. Visible to anyone who can see profiles.
+Each current program belongs to **exactly one** school. A person's school is always worked out from their majors, never typed in. Visible to anyone who can see profiles.
 
-| Field       | Meaning                          |
-| ----------- | -------------------------------- |
-| `id`        | Short code, e.g. `finance`       |
-| `name`      | Program name                     |
-| `school_id` | The school that owns the program |
-| `active`    | 1 = can be chosen; 0 = retired   |
+| Field              | Meaning                                                                                                   |
+| ------------------ | --------------------------------------------------------------------------------------------------------- |
+| `id`               | Short code, e.g. `finance`                                                                                |
+| `name`             | Program name. For a former name, the name printed on the degree.                                          |
+| `school_id`        | The school that owns a current program. Empty for a former name, which uses its current program's school. |
+| `current_major_id` | Former names only: the current program that replaced it. Empty for current programs.                      |
+| `active`           | 1 = can be chosen; 0 = retired. Former names are always retired.                                          |
 
-The starting list was checked against Syracuse's official 2026–27 undergraduate catalog on 13 November 2026. Programs run jointly by Arts and Sciences and the Maxwell School (Economics, Political Science, International Relations, Policy Studies, History, Sociology, Public Health) are assigned to Arts and Sciences. Older degree names that graduates may hold are not included yet; see open questions.
+The starting list was checked against Syracuse's official 2026–27 undergraduate catalog on 13 November 2026. Programs run jointly by Arts and Sciences and the Maxwell School (Economics, Political Science, International Relations, Policy Studies, History, Sociology, Public Health) are assigned to Arts and Sciences.
+
+**Former degree names.** Older graduates may hold a degree whose program has since been renamed or replaced. Such a name is stored as a retired entry that points at today's program:
+
+- A profile can show the name on the person's degree.
+- Matching and school lookup use the current program.
+- New students can't choose a former name, because it is retired.
+- A former name must point straight at a current program, never at another former name. The database refuses anything else.
+
+The starting list contains only the four former names actually found in the catalog's archived 2024–25 and 2025–26 editions:
+
+| Former name on the degree             | Current program       | Evidence                                                                                                     |
+| ------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Applied Data Analytics                | Applied Data Science  | Same catalog page, renamed between the 2024–25 and 2025–26 editions                                          |
+| Magazine, News and Digital Journalism | Journalism            | "Not admitting after Fall 2024" while Journalism began admitting in Fall 2025; the link is implied by timing |
+| Broadcast and Digital Journalism      | Journalism            | Same as above                                                                                                |
+| Graphic Design                        | Visual Communications | "Not admitting students"; **the catalog names no successor**, so this link is a best match to confirm        |
+
+**Admins can add more former names when real alumni data comes in.** Add a retired entry with no school, pointing at the current program, whenever a graduate's degree name isn't on the list. Older names from before the archived editions will need checking against the graduate's records, since the online catalog keeps only recent editions.
 
 ### `alumni_industries`: the fixed industry list
 
@@ -156,7 +175,14 @@ Visible to the same audience as the person's profile.
 
 ### `alumni_person_schools` (a saved query, not a table)
 
-Lists each person's majors together with the school each belongs to. Use this to show or filter by school. Because it is worked out live, moving a major to another school updates everyone at once.
+Lists each person's majors with the school each belongs to. Because it is worked out live, moving a program to another school updates everyone at once.
+
+| Column                                   | Meaning                                                             | Use it for                     |
+| ---------------------------------------- | ------------------------------------------------------------------- | ------------------------------ |
+| `person_id`, `kind`, `is_primary`        | As in `alumni_person_majors`                                        |                                |
+| `major_id`, `degree_name`                | What the person studied, as recorded; may be a former name          | Showing the name on the degree |
+| `current_major_id`, `current_major_name` | Today's program (the same as `major_id` unless it is a former name) | Matching                       |
+| `school_id`, `school_name`               | The school of today's program                                       | Showing or filtering by school |
 
 ## Alumni profiles
 
@@ -225,7 +251,7 @@ Majors and graduation year come from `alumni_person_majors` and `alumni_people`.
 - `alumni_student_cities` (`person_id`, `location_id`): preferred cities, several allowed.
 - `alumni_help_sought` (`person_id`, `help_kind_id`): kinds of help wanted.
 
-**Matching uses only structured fields:** major, school (derived), graduation year, industry, employer, city and kinds of help. Free-text notes are never matching inputs.
+**Matching uses only structured fields:** major (the current program, `current_major_id` in `alumni_person_schools`, so a former degree name matches its replacement), school (derived), graduation year, industry, employer, city and kinds of help. Free-text notes are never matching inputs.
 
 ## Keeping data current
 
@@ -283,5 +309,5 @@ Majors and graduation year come from `alumni_person_majors` and `alumni_people`.
 
 ## Open questions
 
-- **Older degree names.** Graduates may hold degrees that have since been renamed or merged, such as Magazine, News and Digital Journalism, or Graphic Design. Should these be added as their own entries, marked as former names?
+- **Graphic Design → Visual Communications.** The catalog names no successor for Graphic Design. Someone who knows Newhouse's history should confirm the link.
 - **Maxwell School.** It currently owns no majors, because its joint programs are assigned to Arts and Sciences.

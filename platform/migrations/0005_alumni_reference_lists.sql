@@ -9,8 +9,9 @@
 --   JOINT = offered by both Arts and Sciences and the Maxwell School. Each major may name only one
 --   school, so these are assigned to Arts and Sciences (agreed for Economics and Political Science;
 --   applied the same way to the others). The Maxwell School therefore has no majors yet.
---   Older degree names (for example Magazine, News and Digital Journalism, or Graphic Design) are
---   not included; graduates who earned them need a decision on historical names.
+--   FORMER NAMES: older degree names found in the catalog's archived 2024-25 and 2025-26
+--   editions are added at the end as retired entries pointing at the current program. Only names
+--   actually found there are included; admins can add more as real alumni data arrives.
 
 INSERT INTO alumni_schools(id, name) VALUES
   ('whitman', 'Martin J. Whitman School of Management'),
@@ -83,6 +84,23 @@ INSERT INTO alumni_majors(id, name, school_id) VALUES
   -- Architecture and Education
   ('architecture', 'Architecture', 'architecture'),
   ('inclusive-childhood-education', 'Inclusive Childhood Education', 'education');
+
+-- Former degree names (retired, no school of their own). Each was found as an undergraduate
+-- program in an archived edition of the official catalog, https://coursecatalog.syracuse.edu/archive/
+INSERT INTO alumni_majors(id, name, school_id, current_major_id, active) VALUES
+  -- Same catalog page address, renamed from the 2024-25 to the 2025-26 edition:
+  -- /archive/2024-2025/undergraduate/information-studies/applied-data-analytics-bs/
+  ('applied-data-analytics', 'Applied Data Analytics', NULL, 'applied-data-science', 0),
+  -- Both listed 'Not admitting after Fall 2024' while Journalism, BS was 'Not admitting until
+  -- Fall 2025' in the same edition. The catalog does not state the replacement in words.
+  -- /archive/2024-2025/undergraduate/public-communications/magazine-news-digital-journalism-bs/
+  ('magazine-news-digital-journalism', 'Magazine, News and Digital Journalism', NULL, 'journalism', 0),
+  -- /archive/2024-2025/undergraduate/public-communications/broadcast-digital-journalism-bs/
+  ('broadcast-digital-journalism', 'Broadcast and Digital Journalism', NULL, 'journalism', 0),
+  -- Listed 'Not admitting students' in 2024-25 and 2025-26. NOT VERIFIED: the catalog does not
+  -- name a successor; linked to Visual Communications (whose Design track is the closest match).
+  -- /archive/2025-2026/undergraduate/public-communications/graphic-design-bs/
+  ('graphic-design', 'Graphic Design', NULL, 'visual-communications', 0);
 
 INSERT INTO alumni_industries(id, name) VALUES
   ('consulting', 'Consulting'),

@@ -11,6 +11,8 @@
 --   * Accents and punctuation in names: Renée Dubois, Mei-Lin Zhao, Samantha Rivera-Lopez (aliases).
 --   * Hidden contact details (the default) and a few shared with recorded consent.
 --   * A job change: Marcus Bellweather's old job moved to past jobs.
+--   * Former degree names: Elena Kowalczyk holds Magazine, News and Digital Journalism and Priya
+--     Natarajan holds Applied Data Analytics; both map to today's program and school.
 --   * Dual majors across schools, a minor, an alumnus hidden from listings, and pending,
 --     approved and rejected refresh proposals.
 
@@ -106,10 +108,10 @@ INSERT INTO alumni_person_majors(person_id, major_id, kind, is_primary) VALUES
   ('p-a07', 'economics', 'major', 1), ('p-a07', 'political-science', 'major', 0),
   ('p-a08', 'international-relations', 'major', 1), ('p-a08', 'economics', 'minor', 0),
   ('p-a09', 'management', 'major', 1),
-  ('p-a10', 'business-analytics', 'major', 1), ('p-a10', 'applied-data-science', 'major', 0),
+  ('p-a10', 'business-analytics', 'major', 1), ('p-a10', 'applied-data-analytics', 'major', 0),
   ('p-a11', 'supply-chain-management', 'major', 1),
   ('p-a12', 'accounting', 'major', 1), ('p-a12', 'mathematics', 'minor', 0),
-  ('p-a13', 'journalism', 'major', 1),
+  ('p-a13', 'magazine-news-digital-journalism', 'major', 1),
   ('p-a14', 'mechanical-engineering', 'major', 1),
   ('p-a15', 'real-estate', 'major', 1),
   ('p-a16', 'sport-management', 'major', 1),

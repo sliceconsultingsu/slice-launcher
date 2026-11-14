@@ -27,12 +27,39 @@ CREATE TABLE alumni_schools (
 CREATE TABLE alumni_majors (
   -- An academic program a person can study as a major or a minor. The school is decided here,
   -- never stored on a person, so a person's school is always derived from their majors.
+  -- A FORMER program name (for example a degree an older graduate holds) is a retired entry that
+  -- points at the current program replacing it. It has no school of its own: school lookup and
+  -- matching use the current program, while profiles can still show the name on the degree.
   id TEXT PRIMARY KEY, -- Short readable code, e.g. 'finance'.
-  name TEXT NOT NULL UNIQUE, -- Program name as shown to people.
-  school_id TEXT NOT NULL REFERENCES alumni_schools(id), -- The one school that owns this program.
-  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)) -- 0 retires it from new choices without deleting history.
+  name TEXT NOT NULL UNIQUE, -- Program name as shown to people (for a former name, the name on the degree).
+  school_id TEXT REFERENCES alumni_schools(id), -- The one school that owns a current program; empty for a former name.
+  current_major_id TEXT REFERENCES alumni_majors(id), -- For a former name only: the current program that replaced it; empty otherwise.
+  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)), -- 0 retires it from new choices without deleting history.
+  -- A current program has a school; a former name has no school, is retired, and points elsewhere.
+  CHECK ((current_major_id IS NULL) = (school_id IS NOT NULL)),
+  CHECK (current_major_id IS NULL OR (current_major_id <> id AND active = 0))
 );
 CREATE INDEX alumni_majors_school ON alumni_majors(school_id);
+CREATE INDEX alumni_majors_current ON alumni_majors(current_major_id);
+
+-- A former name must point straight at a current program (never at another former name), and a
+-- program that former names point to cannot itself become a former name. This keeps every lookup
+-- one step long.
+CREATE TRIGGER alumni_majors_former_insert
+BEFORE INSERT ON alumni_majors
+WHEN NEW.current_major_id IS NOT NULL
+  AND (SELECT current_major_id FROM alumni_majors WHERE id = NEW.current_major_id) IS NOT NULL
+BEGIN
+  SELECT RAISE(ABORT, 'A former program name must point to a current program.');
+END;
+CREATE TRIGGER alumni_majors_former_update
+BEFORE UPDATE OF current_major_id ON alumni_majors
+WHEN NEW.current_major_id IS NOT NULL
+  AND ((SELECT current_major_id FROM alumni_majors WHERE id = NEW.current_major_id) IS NOT NULL
+    OR EXISTS (SELECT 1 FROM alumni_majors WHERE current_major_id = NEW.id))
+BEGIN
+  SELECT RAISE(ABORT, 'A former program name must point to a current program.');
+END;
 
 CREATE TABLE alumni_industries (
   -- The fixed list of industries used on every job and in student interests. Admins maintain it.
@@ -129,12 +156,17 @@ CREATE UNIQUE INDEX alumni_person_majors_one_primary ON alumni_person_majors(per
 CREATE INDEX alumni_person_majors_major ON alumni_person_majors(major_id);
 
 -- A person's schools, always derived from their majors and minors (never stored on the person).
+-- major_id and degree_name are what the person studied, as recorded (possibly a former name).
+-- current_major_id, current_major_name and the school come from the current program; matching
+-- and school lookup should use those.
 CREATE VIEW alumni_person_schools AS
-SELECT pm.person_id, pm.major_id, m.name AS major_name, pm.kind, pm.is_primary,
-       s.id AS school_id, s.name AS school_name
+SELECT pm.person_id, pm.major_id, recorded.name AS degree_name,
+       cur.id AS current_major_id, cur.name AS current_major_name,
+       pm.kind, pm.is_primary, s.id AS school_id, s.name AS school_name
 FROM alumni_person_majors pm
-JOIN alumni_majors m ON m.id = pm.major_id
-JOIN alumni_schools s ON s.id = m.school_id;
+JOIN alumni_majors recorded ON recorded.id = pm.major_id
+JOIN alumni_majors cur ON cur.id = COALESCE(recorded.current_major_id, recorded.id)
+JOIN alumni_schools s ON s.id = cur.school_id;
 
 -- ---------------------------------------------------------------------------------------------
 -- Alumni profiles, jobs and contact details
