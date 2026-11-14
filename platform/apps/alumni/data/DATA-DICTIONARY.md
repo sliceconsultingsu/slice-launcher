@@ -56,7 +56,9 @@ Each current program belongs to **exactly one** school. A person's school is alw
 | `current_major_id` | Former names only: the current program that replaced it. Empty for current programs.                      |
 | `active`           | 1 = can be chosen; 0 = retired. Former names are always retired.                                          |
 
-The starting list was checked against Syracuse's official 2026–27 undergraduate catalog on 13 November 2026. Programs run jointly by Arts and Sciences and the Maxwell School (Economics, Political Science, International Relations, Policy Studies, History, Sociology, Public Health) are assigned to Arts and Sciences.
+The starting list was checked against Syracuse's official 2026–27 undergraduate catalog on 13 November 2026.
+
+**Maxwell School majors.** The Maxwell School's section of the catalog names these as its undergraduate degrees, and they are assigned to Maxwell: Anthropology; Economics; Environment, Sustainability, and Policy; Geography; History; International Relations; Law, Society, and Policy; Policy Studies; Political Science; Public Health; Sociology. That is 11 majors. Some are offered as both a BA and a BS, but this list records the major, not the degree type. The catalog files these programs' own pages under Arts and Sciences, and Maxwell describes offering them "in partnership with the College of Arts and Sciences". Each major can belong to only one school, so they are assigned to Maxwell, whose section lists them. Human Development and Family Science is an Arts and Sciences department and stays there.
 
 **Former degree names.** Older graduates may hold a degree whose program has since been renamed or replaced. Such a name is stored as a retired entry that points at today's program:
 
@@ -321,4 +323,4 @@ Majors and graduation year come from `alumni_person_majors` and `alumni_people`.
 ## Open questions
 
 - **Graphic Design → Visual Communications.** The catalog names no successor for Graphic Design. Someone who knows Newhouse's history should confirm the link.
-- **Maxwell School.** It currently owns no majors, because its joint programs are assigned to Arts and Sciences.
+- **Maxwell majors shared with Arts and Sciences.** A graduate's school is shown as Maxwell for these majors, although the catalog files them under Arts and Sciences too. If Slice wants such alumni to appear under both schools, that needs a schema change (a major linked to more than one school).

@@ -96,8 +96,10 @@ INSERT INTO alumni_aliases(id, person_id, alias, name_key) VALUES
   ('alias-03', 'p-a05', 'Christopher O''Neil', 'christopher oneil'),
   ('alias-04', 'p-a27', 'Patrick Kim', 'patrick kim');
 
--- Dual majors across schools: p-a01 (Whitman + Arts and Sciences), p-a05 (Newhouse + Whitman),
+-- Dual majors across schools: p-a01 (Whitman + Maxwell), p-a05 (Newhouse + Whitman),
 -- p-a10 (Whitman + Information Studies), p-a17 (Arts and Sciences + Newhouse), p-s05.
+-- Maxwell School majors: p-a01, p-a07, p-a08, p-a20 (with a Law, Society, and Policy minor), p-a22,
+-- and students p-s01 and p-s06.
 INSERT INTO alumni_person_majors(person_id, major_id, kind, is_primary) VALUES
   ('p-a01', 'finance', 'major', 1), ('p-a01', 'economics', 'major', 0),
   ('p-a02', 'marketing-management', 'major', 1),
@@ -118,7 +120,7 @@ INSERT INTO alumni_person_majors(person_id, major_id, kind, is_primary) VALUES
   ('p-a17', 'psychology', 'major', 1), ('p-a17', 'advertising', 'major', 0),
   ('p-a18', 'finance', 'major', 1),
   ('p-a19', 'information-management-technology', 'major', 1),
-  ('p-a20', 'political-science', 'major', 1),
+  ('p-a20', 'political-science', 'major', 1), ('p-a20', 'law-society-policy', 'minor', 0),
   ('p-a21', 'retail-management', 'major', 1),
   ('p-a22', 'economics', 'major', 1),
   ('p-a23', 'entrepreneurship', 'major', 1),

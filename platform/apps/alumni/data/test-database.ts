@@ -24,6 +24,11 @@ const SEEDED_TABLES = [
   "alumni_people",
   "alumni_employers",
   "alumni_locations",
+  // Reference lists, which some tests change; they are reloaded from migration 0005 below.
+  "alumni_majors",
+  "alumni_schools",
+  "alumni_industries",
+  "alumni_help_kinds",
 ];
 
 export async function openAlumniDatabase() {
@@ -32,12 +37,20 @@ export async function openAlumniDatabase() {
   return fixture;
 }
 
-/** Restores the database to exactly the fictional seed, so each test starts from the same data. */
+/**
+ * Restores the database to exactly the reference lists plus the fictional seed, so each test
+ * starts from the same data even if an earlier test changed a school or major.
+ */
 export async function loadSeed(db: TestDatabase) {
+  const lists = await readFile(
+    new URL("../../../migrations/0005_alumni_reference_lists.sql", import.meta.url),
+    "utf8",
+  );
   const seed = await readFile(new URL("./seed.sql", import.meta.url), "utf8");
   await db.batch([
     // One DELETE per table: links between rows of the same table are checked when it finishes.
     ...SEEDED_TABLES.map((table) => db.prepare(`DELETE FROM ${table}`)),
+    ...unstable_splitSqlQuery(lists).map((statement) => db.prepare(statement)),
     ...unstable_splitSqlQuery(seed).map((statement) => db.prepare(statement)),
   ]);
 }

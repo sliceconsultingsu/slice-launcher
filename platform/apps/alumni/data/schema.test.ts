@@ -156,20 +156,57 @@ describe("school derived from major", () => {
         )
         .all<{ school_id: string }>()
     ).results;
-    expect(schools.map((s: { school_id: string }) => s.school_id)).toEqual([
-      "arts-sciences",
-      "whitman",
-    ]);
+    expect(schools.map((s: { school_id: string }) => s.school_id)).toEqual(["maxwell", "whitman"]);
   });
 
   it("follows a change to the major's school without touching people", async () => {
-    await db.prepare("UPDATE alumni_majors SET school_id = 'maxwell' WHERE id = 'economics'").run();
+    await db
+      .prepare("UPDATE alumni_majors SET school_id = 'arts-sciences' WHERE id = 'economics'")
+      .run();
     const row = await db
       .prepare(
         "SELECT school_id FROM alumni_person_schools WHERE person_id = 'p-a07' AND major_id = 'economics'",
       )
       .first<{ school_id: string }>();
-    expect(row?.school_id).toBe("maxwell");
+    expect(row?.school_id).toBe("arts-sciences");
+  });
+
+  it("assigns the Maxwell School's social science and policy majors to Maxwell", async () => {
+    const maxwell = (
+      await db
+        .prepare(
+          "SELECT id FROM alumni_majors WHERE school_id = 'maxwell' AND current_major_id IS NULL ORDER BY id",
+        )
+        .all<{ id: string }>()
+    ).results.map((m: { id: string }) => m.id);
+    expect(maxwell).toEqual([
+      "anthropology",
+      "economics",
+      "environment-sustainability-policy",
+      "geography",
+      "history",
+      "international-relations",
+      "law-society-policy",
+      "policy-studies",
+      "political-science",
+      "public-health",
+      "sociology",
+    ]);
+    const hdfs = await db
+      .prepare("SELECT school_id FROM alumni_majors WHERE id = 'human-development-family-science'")
+      .first();
+    expect(hdfs).toEqual({ school_id: "arts-sciences" });
+    const ben = (
+      await db
+        .prepare(
+          "SELECT major_id, kind, school_id FROM alumni_person_schools WHERE person_id = 'p-a20' ORDER BY major_id",
+        )
+        .all()
+    ).results;
+    expect(ben).toEqual([
+      { major_id: "law-society-policy", kind: "minor", school_id: "maxwell" },
+      { major_id: "political-science", kind: "major", school_id: "maxwell" },
+    ]);
   });
 
   it("allows one primary major per person, and never a minor as primary", async () => {

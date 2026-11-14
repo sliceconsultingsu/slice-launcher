@@ -5,10 +5,13 @@
 --
 -- Schools and majors were checked on 2026-11-13 against Syracuse University's official 2026-27
 -- undergraduate catalog (https://coursecatalog.syracuse.edu/academic-offerings/). Every name below
--- appears there under the school shown, with these deliberate choices:
---   JOINT = offered by both Arts and Sciences and the Maxwell School. Each major may name only one
---   school, so these are assigned to Arts and Sciences (agreed for Economics and Political Science;
---   applied the same way to the others). The Maxwell School therefore has no majors yet.
+-- appears there, with these deliberate choices:
+--   MAXWELL = the social science and policy majors the Maxwell School's catalog section names as its
+--   undergraduate degrees (https://coursecatalog.syracuse.edu/undergraduate/citizenship-public-affairs/).
+--   The catalog files their program pages under Arts and Sciences (Maxwell offers them "in
+--   partnership with the College of Arts and Sciences"), but each major may name only one school,
+--   so they are assigned to Maxwell. Human Development and Family Science is an Arts and Sciences
+--   department and stays there.
 --   FORMER NAMES: older degree names found in the catalog's archived 2024-25 and 2025-26
 --   editions are added at the end as retired entries pointing at the current program. Only names
 --   actually found there are included; admins can add more as real alumni data arrives.
@@ -36,14 +39,20 @@ INSERT INTO alumni_majors(id, name, school_id) VALUES
   ('real-estate', 'Real Estate', 'whitman'),
   ('retail-management', 'Retail Management', 'whitman'),
   ('supply-chain-management', 'Supply Chain Management', 'whitman'),
-  -- Arts and Sciences (JOINT with Maxwell)
-  ('economics', 'Economics', 'arts-sciences'),
-  ('political-science', 'Political Science', 'arts-sciences'),
-  ('international-relations', 'International Relations', 'arts-sciences'),
-  ('policy-studies', 'Policy Studies', 'arts-sciences'),
-  ('history', 'History', 'arts-sciences'),
-  ('sociology', 'Sociology', 'arts-sciences'),
-  ('public-health', 'Public Health', 'arts-sciences'),
+  -- Maxwell (the catalog files these program pages under Arts and Sciences; see the note above).
+  -- Environment, Sustainability, and Policy is named in Maxwell's overview but not linked in its
+  -- program list; its pages describe Maxwell students' requirements.
+  ('anthropology', 'Anthropology', 'maxwell'),
+  ('economics', 'Economics', 'maxwell'),
+  ('environment-sustainability-policy', 'Environment, Sustainability, and Policy', 'maxwell'),
+  ('geography', 'Geography', 'maxwell'),
+  ('history', 'History', 'maxwell'),
+  ('international-relations', 'International Relations', 'maxwell'),
+  ('law-society-policy', 'Law, Society, and Policy', 'maxwell'),
+  ('policy-studies', 'Policy Studies', 'maxwell'),
+  ('political-science', 'Political Science', 'maxwell'),
+  ('public-health', 'Public Health', 'maxwell'),
+  ('sociology', 'Sociology', 'maxwell'),
   -- Arts and Sciences
   ('psychology', 'Psychology', 'arts-sciences'),
   ('mathematics', 'Mathematics', 'arts-sciences'),
