@@ -398,6 +398,7 @@ describe("pending changes from the refresh runner", () => {
   it("leave the profile alone when rejected", async () => {
     await store.reviewChange("pc-01", "rejected", admin);
     expect(await profile("p-a26")).toMatchObject({ job_title: "Consultant" });
+    expect(await history("p-a26")).toEqual([]);
     expect(
       await db.prepare("SELECT status FROM alumni_pending_changes WHERE id = 'pc-01'").first(),
     ).toEqual({ status: "rejected" });
@@ -422,6 +423,14 @@ describe("pending changes from the refresh runner", () => {
     expect(
       await db.prepare("SELECT status FROM alumni_pending_changes WHERE id = 'pc-01'").first(),
     ).toEqual({ status: "pending" });
+    // Only the alumnus's own edit is logged; the refused approval leaves no history.
+    expect(await history("p-a26")).toEqual([
+      expect.objectContaining({
+        field: "job_title",
+        actor_type: "alumnus",
+        pending_change_id: null,
+      }),
+    ]);
   });
 
   it("can propose a whole new job, which moves the old one to past jobs on approval", async () => {

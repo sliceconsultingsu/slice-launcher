@@ -2,14 +2,20 @@
 //
 // These functions are the agreed way to change alumni data. They contain no screens, API routes,
 // permission checks or matching logic: callers (the future API, MCP tools and refresh runner) must
-// check the person's permissions first. Every change is written in one D1 batch, which D1 runs as a
-// single transaction, together with its history row.
+// check the person's permissions first. Each operation's writes go in one D1 batch, which D1 runs
+// as a single transaction.
+//
+// What reaches alumni_change_history: direct edits, job changes, approved proposals, contact
+// details added when a record is attached, merges and reversals. What does NOT: creating a new
+// person, filing a proposal, rejecting a proposal (recorded only as its status), sending an incoming
+// record to alumni_merge_candidates, and any write that is refused or rolled back.
 //
 // Guarding against stale reads: each operation reads the record, then writes. If someone else
-// changed the record in between, the write must not go ahead. Each batch therefore starts with its
-// history row, inserted with actor_type set to an invalid value unless the record still looks as it
-// did when read. The invalid value fails the alumni_change_history actor-type CHECK rule, so D1
-// rolls back the whole batch and we report the record as changed.
+// changed the record in between, the write must not go ahead. Each guarded batch therefore starts
+// with its history row, inserted with actor_type set to an invalid value unless the record still
+// looks as it did when read. The invalid value fails the alumni_change_history actor-type CHECK
+// rule, so D1 rolls back the whole batch, including that history row. Nothing is logged for the
+// refused attempt; the caller gets a "stale" error.
 import { z } from "zod";
 
 type Database = Pick<D1Database, "prepare" | "batch">;
@@ -330,8 +336,10 @@ export class AlumniStore {
 
   /**
    * An admin approves or rejects a proposal. Approval applies it with history (actor: runner,
-   * linked to the proposal, which records the reviewer). Approval is refused, and the proposal
-   * stays pending, if the field changed after the proposal was made.
+   * linked to the proposal, which records the reviewer). Approval is refused if the field changed
+   * after the proposal was made (the proposal stays pending), or if the proposal was already
+   * reviewed, including by another admin at the same moment (their decision stands). Nothing is
+   * logged for a refused approval. Rejection only sets the proposal's status; it adds no history.
    */
   async reviewChange(
     pendingId: string,

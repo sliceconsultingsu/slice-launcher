@@ -156,9 +156,13 @@ Used for search and for spotting possible duplicates. For example, "Sammy Rivera
 2. **Exact match, attached automatically:** same name key, year and tie-breaker, **and** at least one shared email or LinkedIn, **and** no conflicting email or LinkedIn. The incoming record is treated as that existing person. Any new contact details are added, hidden.
 3. **Sent to review:** same name key and year, but the email or LinkedIn **conflicts**, or nothing confirms the match. Nothing is saved to profiles. The incoming record waits here for an admin.
 
-Looser matches, such as an alias match or a year one apart, should also be recorded here. Detecting them is the import task's job.
+Looser matches, such as an alias match or a year one apart, belong here too, but **nothing detects them yet**: that is the import task's job. There is also no operation yet for an admin to resolve an incoming record that is waiting here (attach it, add it as a namesake, or dismiss it). Sending a record here is not logged in the change history; this table is its record.
 
-**Merging:** an admin merges a duplicate into the record being kept. Nothing is deleted. The duplicate keeps all its own rows, and `merged_into` points at the kept record. Each merge and reversal is logged in the change history. Reversing a merge makes the duplicate active again. It is refused if another active record now has the same identity. A record that other records are already merged into cannot itself be merged away; merge the other way round, or reverse those merges first.
+**Merging:** an admin merges a duplicate into the record being kept. Nothing is deleted. The duplicate keeps all its own rows, and `merged_into` points at the kept record. Each merge and reversal is logged in the change history.
+
+- Both records must be active (not already merged), and a record can't be merged into itself.
+- A record that other records are already merged into can't itself be merged away. Merge the other way round, or reverse those merges first. This keeps every duplicate pointing straight at a live record.
+- Reversing a merge makes the duplicate active again. It is refused if another active record has since taken the same name, year and tie-breaker.
 
 ## Education
 
@@ -272,7 +276,12 @@ Majors and graduation year come from `alumni_person_majors` and `alumni_people`.
 
 ### `alumni_pending_changes`: proposed updates waiting for review
 
-**Admins only.** The automated refresh writes here and **never** to profile tables. Only an admin's approval applies a proposal. Approval is refused, and the proposal stays pending, if the field has changed since the proposal was made. That way an outdated suggestion can't overwrite a newer edit.
+**Admins only.** The automated refresh writes here and **never** to profile tables. Only an admin's approval applies a proposal.
+
+- **One proposal per field.** There is no grouping of proposals. A whole new job is proposed as one item (`current_job`) carrying employer, title, industry, location and start month together, so it is reviewed and applied as a unit.
+- **Outdated proposals:** approval is refused, and the proposal stays pending, if the field has changed since the proposal was made. That way an outdated suggestion can't overwrite a newer edit. The admin can then reject it.
+- **Two admins at once:** a proposal is applied at most once. If another admin reviews it at the same moment, the second approval is refused and the first decision stands.
+- **What is logged:** an approved proposal's change goes into the change history as made by `runner`, linked to the proposal (which records the reviewer). This applies whoever filed the proposal. A rejection is recorded only in this table's `status`. A refused approval leaves no record anywhere.
 
 | Field            | Meaning                                         |
 | ---------------- | ----------------------------------------------- |
@@ -290,7 +299,9 @@ Majors and graduation year come from `alumni_person_majors` and `alumni_people`.
 
 ### `alumni_change_history`: permanent log of applied changes
 
-**Admins only**, because old values can include hidden details. Edits by an alumnus, student or admin apply immediately and are logged here, as are approved proposals, job changes, merges and reversals.
+**Admins only**, because old values can include hidden details. Edits by an alumnus, student or admin apply immediately and are logged here, as are approved proposals, job changes, contact details added when a record is attached, merges and reversals.
+
+**Not logged here:** creating a new person, filing a proposal, rejecting a proposal (see its `status`), sending an incoming record for duplicate review (see `alumni_merge_candidates`), and any change that was refused or rolled back.
 
 | Field                          | Meaning                                                                                                 |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------- |
