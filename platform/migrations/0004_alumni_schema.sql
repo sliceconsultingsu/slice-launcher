@@ -276,7 +276,7 @@ CREATE TABLE alumni_student_cities (
 );
 
 -- ---------------------------------------------------------------------------------------------
--- Keeping data current: allowed fields, proposals and history
+-- Keeping data current: allowed fields, proposals, refresh checks and history
 -- ---------------------------------------------------------------------------------------------
 
 CREATE TABLE alumni_change_fields (
@@ -315,6 +315,32 @@ CREATE TABLE alumni_pending_changes (
 );
 CREATE INDEX alumni_pending_changes_status ON alumni_pending_changes(status, found_at);
 CREATE INDEX alumni_pending_changes_record ON alumni_pending_changes(entity, record_id);
+
+CREATE TABLE alumni_refresh_checks (
+  -- Log of every check the refresh runner makes, one row per person and source checked, whatever
+  -- the result, including failures. Admins only. The runner never writes last_verified_at on
+  -- profiles; "last checked" is worked out from this log (see alumni_refresh_last_success).
+  id TEXT PRIMARY KEY, -- Random ID.
+  person_id TEXT NOT NULL REFERENCES alumni_people(id), -- Whose record was checked.
+  source TEXT NOT NULL CHECK (length(trim(source)) BETWEEN 1 AND 500), -- The web address or other source that was checked.
+  checked_at TEXT NOT NULL, -- When the check ran.
+  outcome TEXT NOT NULL CHECK (outcome IN ('proposed', 'unchanged', 'unreachable', 'error', 'skipped')), -- proposed: a change was filed; unchanged: nothing new; unreachable: source could not be reached; error: the check failed; skipped: not checked.
+  detail TEXT CHECK (detail IS NULL OR length(trim(detail)) BETWEEN 1 AND 200), -- Optional short explanation such as 'timed out' or 'HTTP 404'. Never page contents or personal data.
+  pending_change_id TEXT REFERENCES alumni_pending_changes(id), -- The proposal this check filed: required when outcome is 'proposed', empty otherwise.
+  CHECK ((outcome = 'proposed') = (pending_change_id IS NOT NULL))
+);
+CREATE INDEX alumni_refresh_checks_person ON alumni_refresh_checks(person_id, source, checked_at);
+CREATE INDEX alumni_refresh_checks_outcome ON alumni_refresh_checks(outcome, checked_at);
+CREATE INDEX alumni_refresh_checks_pending ON alumni_refresh_checks(pending_change_id);
+
+-- The last SUCCESSFUL check of each source for each person: one where the runner reached the
+-- source and compared it ('proposed' or 'unchanged'). Unreachable, error and skipped checks never
+-- count. This is where "last checked" comes from; the runner does not touch profiles' dates.
+CREATE VIEW alumni_refresh_last_success AS
+SELECT person_id, source, max(checked_at) AS last_success_at
+FROM alumni_refresh_checks
+WHERE outcome IN ('proposed', 'unchanged')
+GROUP BY person_id, source;
 
 CREATE TABLE alumni_change_history (
   -- Permanent log of applied changes: edits, approved proposals, job moves, merges and reversals.

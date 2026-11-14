@@ -42,7 +42,7 @@ describe("self-describing schema", () => {
         )
         .all<{ name: string; sql: string }>()
     ).results;
-    expect(tables).toHaveLength(21);
+    expect(tables).toHaveLength(22);
     for (const table of tables) {
       const lines = table.sql.split("\n");
       expect(lines[1], `${table.name} needs a description`).toMatch(/^\s*--/);
@@ -382,5 +382,95 @@ describe("former degree names", () => {
         )
         .run(),
     ).rejects.toThrow(/must point to a current program/);
+  });
+});
+
+describe("refresh check log", () => {
+  const insert = (
+    id: string,
+    outcome: string,
+    pending: string | null,
+    detail: string | null = null,
+  ) =>
+    db
+      .prepare(
+        "INSERT INTO alumni_refresh_checks(id, person_id, source, checked_at, outcome, detail, pending_change_id) VALUES (?, 'p-a02', 'https://example.com/northgate/team', ?, ?, ?, ?)",
+      )
+      .bind(id, T, outcome, detail, pending)
+      .run();
+
+  it("requires a proposal for a 'proposed' check and refuses one for any other outcome", async () => {
+    await expect(insert("x1", "proposed", null)).rejects.toThrow(/CHECK/);
+    for (const outcome of ["unchanged", "unreachable", "error", "skipped"])
+      await expect(insert(`x-${outcome}`, outcome, "pc-01")).rejects.toThrow(/CHECK/);
+    await expect(insert("x2", "timeout", null)).rejects.toThrow(/CHECK/);
+    await expect(insert("x3", "unreachable", null, "Timed out")).resolves.toBeDefined();
+  });
+
+  it("links a 'proposed' check only to a proposal that exists", async () => {
+    await expect(insert("x4", "proposed", "no-such-proposal")).rejects.toThrow(/FOREIGN KEY/);
+    const linked = await db
+      .prepare(
+        "SELECT c.outcome, p.field, p.status FROM alumni_refresh_checks c JOIN alumni_pending_changes p ON p.id = c.pending_change_id WHERE c.id = 'rc-01'",
+      )
+      .first();
+    expect(linked).toEqual({ outcome: "proposed", field: "job_title", status: "pending" });
+  });
+
+  it("keeps detail short", async () => {
+    await expect(insert("x5", "error", null, "x".repeat(201))).rejects.toThrow(/CHECK/);
+    await expect(insert("x6", "error", null, "   ")).rejects.toThrow(/CHECK/);
+  });
+
+  it("works out the last successful check per person and source, ignoring failures", async () => {
+    // Seed: Kai Nakamura's source was unchanged on 20 October, then unreachable on 3 November.
+    expect(
+      await db
+        .prepare("SELECT * FROM alumni_refresh_last_success WHERE person_id = 'p-a24'")
+        .all()
+        .then((r: { results: unknown[] }) => r.results),
+    ).toEqual([
+      {
+        person_id: "p-a24",
+        source: "https://example.com/silverline/team",
+        last_success_at: "2026-10-20T08:00:00.000Z",
+      },
+    ]);
+    // A proposed check counts as a success; error and skipped checks never appear.
+    expect(
+      await db
+        .prepare(
+          "SELECT last_success_at FROM alumni_refresh_last_success WHERE person_id = 'p-a26'",
+        )
+        .first(),
+    ).toEqual({ last_success_at: "2026-10-05T08:00:00.000Z" });
+    expect(
+      await count(db, "alumni_refresh_last_success WHERE person_id IN ('p-a13', 'p-a29')"),
+    ).toBe(0);
+    // A newer successful check moves the date forward; profiles' dates are untouched.
+    const before = await db
+      .prepare(
+        "SELECT last_verified_at, job_last_verified_at FROM alumni_profiles WHERE person_id = 'p-a24'",
+      )
+      .first();
+    await db
+      .prepare(
+        "INSERT INTO alumni_refresh_checks(id, person_id, source, checked_at, outcome) VALUES ('x7', 'p-a24', 'https://example.com/silverline/team', '2026-11-10T08:00:00.000Z', 'unchanged')",
+      )
+      .run();
+    expect(
+      await db
+        .prepare(
+          "SELECT last_success_at FROM alumni_refresh_last_success WHERE person_id = 'p-a24'",
+        )
+        .first(),
+    ).toEqual({ last_success_at: "2026-11-10T08:00:00.000Z" });
+    expect(
+      await db
+        .prepare(
+          "SELECT last_verified_at, job_last_verified_at FROM alumni_profiles WHERE person_id = 'p-a24'",
+        )
+        .first(),
+    ).toEqual(before);
   });
 });

@@ -14,7 +14,7 @@
 --   * Former degree names: Elena Kowalczyk holds Magazine, News and Digital Journalism and Priya
 --     Natarajan holds Applied Data Analytics; both map to today's program and school.
 --   * Dual majors across schools, a minor, an alumnus hidden from listings, and pending,
---     approved and rejected refresh proposals.
+--     approved and rejected refresh proposals, and a refresh check log with each kind of outcome.
 
 INSERT INTO alumni_locations(id, city, region, country) VALUES
   ('loc-nyc', 'New York', 'NY', 'United States'),
@@ -287,3 +287,15 @@ INSERT INTO alumni_change_history(id, entity, record_id, field, old_value, new_v
     'alumnus', 'member-example-21', NULL, '2024-03-04T12:00:00.000Z'),
   ('h-02', 'alumni_profile', 'p-a11', 'job_title', 'Operations Manager', 'Operations Director', 'runner', NULL, 'pc-02', '2026-09-05T12:00:00.000Z'),
   ('h-03', 'person', 'p-a28', 'merged_into', NULL, 'p-a27', 'admin', 'member-example-admin', NULL, '2026-10-02T09:00:00.000Z');
+
+-- Refresh runner's check log: every check, including failures. The three proposals above each came
+-- from a check. Kai Nakamura's source was checked successfully on 20 October, then could not be
+-- reached on 3 November, so the last successful check is still 20 October.
+INSERT INTO alumni_refresh_checks(id, person_id, source, checked_at, outcome, detail, pending_change_id) VALUES
+  ('rc-01', 'p-a26', 'https://example.com/news/bluestone-promotions', '2026-10-05T08:00:00.000Z', 'proposed', NULL, 'pc-01'),
+  ('rc-02', 'p-a11', 'https://example.com/ironwood/leadership', '2026-09-01T08:00:00.000Z', 'proposed', NULL, 'pc-02'),
+  ('rc-03', 'p-a16', 'https://example.com/kestrel/about', '2026-09-10T08:00:00.000Z', 'proposed', NULL, 'pc-03'),
+  ('rc-04', 'p-a24', 'https://example.com/silverline/team', '2026-10-20T08:00:00.000Z', 'unchanged', NULL, NULL),
+  ('rc-05', 'p-a24', 'https://example.com/silverline/team', '2026-11-03T08:00:00.000Z', 'unreachable', 'Timed out after 30 seconds', NULL),
+  ('rc-06', 'p-a13', 'https://example.com/northgate/masthead', '2026-11-03T08:05:00.000Z', 'error', 'HTTP 500 from the source', NULL),
+  ('rc-07', 'p-a29', 'https://example.com/northgate/producers', '2026-11-03T08:10:00.000Z', 'skipped', 'Checked too recently', NULL);

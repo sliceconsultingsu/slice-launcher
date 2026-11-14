@@ -8,7 +8,8 @@
 // What reaches alumni_change_history: direct edits, job changes, approved proposals, contact
 // details added when a record is attached, merges and reversals. What does NOT: creating a new
 // person, filing a proposal, rejecting a proposal (recorded only as its status), sending an incoming
-// record to alumni_merge_candidates, and any write that is refused or rolled back.
+// record to alumni_merge_candidates, and any write that is refused or rolled back. The refresh
+// runner's checks, including failed ones, are logged separately in alumni_refresh_checks.
 //
 // Guarding against stale reads: each operation reads the record, then writes. If someone else
 // changed the record in between, the write must not go ahead. Each guarded batch therefore starts
@@ -134,6 +135,18 @@ interface ProfileJobRow {
   job_start_month: string | null;
   job_last_verified_at: string | null;
 }
+
+const refreshCheckSchema = z.strictObject({
+  personId: z.string().min(1),
+  source: z.string().trim().min(1).max(500),
+  checkedAt: z.iso.datetime(),
+  outcome: z.enum(["proposed", "unchanged", "unreachable", "error", "skipped"]),
+  /** Short explanation only, such as "timed out". Never page contents or personal data. */
+  detail: z.string().trim().min(1).max(200).nullable().default(null),
+  /** Required for "proposed" (the proposal this check filed); must be omitted otherwise. */
+  pendingChangeId: z.string().min(1).nullable().default(null),
+});
+export type RefreshCheck = z.input<typeof refreshCheckSchema>;
 
 export interface StoreOptions {
   now?: () => string;
@@ -400,6 +413,48 @@ export class AlumniStore {
       );
     }
     await this.run([...statements, markReviewed]);
+  }
+
+  /**
+   * The refresh runner records one check of one source for one person, whatever the result,
+   * including failures. It only adds a log row: it never changes profiles or their
+   * last_verified_at dates. A "proposed" check must name the proposal it filed (for the same
+   * person); other outcomes must not name one.
+   */
+  async recordRefreshCheck(check: RefreshCheck): Promise<string> {
+    const parsed = refreshCheckSchema.safeParse(check);
+    if (!parsed.success) throw new AlumniDataError("invalid", "The refresh check is not valid.");
+    const value = parsed.data;
+    if ((value.outcome === "proposed") !== (value.pendingChangeId !== null))
+      throw new AlumniDataError(
+        "invalid",
+        "A proposed check must name its proposal, and other outcomes must not.",
+      );
+    if (value.pendingChangeId !== null) {
+      const pending = await this.db
+        .prepare("SELECT record_id FROM alumni_pending_changes WHERE id = ?")
+        .bind(value.pendingChangeId)
+        .first<{ record_id: string }>();
+      if (!pending) throw new AlumniDataError("not-found", "No such proposal.");
+      if (pending.record_id !== value.personId)
+        throw new AlumniDataError("invalid", "The proposal is for a different person.");
+    }
+    const id = this.newId();
+    await this.db
+      .prepare(
+        "INSERT INTO alumni_refresh_checks(id, person_id, source, checked_at, outcome, detail, pending_change_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
+      .bind(
+        id,
+        value.personId,
+        value.source,
+        value.checkedAt,
+        value.outcome,
+        value.detail,
+        value.pendingChangeId,
+      )
+      .run();
+    return id;
   }
 
   /**

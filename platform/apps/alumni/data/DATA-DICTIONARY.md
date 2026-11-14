@@ -10,7 +10,7 @@ The database stores the visibility choices. **The app code must enforce them**: 
 
 | Audience                   | Who that is                                                                     | Can see                                                                                                                                                                                                |
 | -------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Admins**                 | Members granted the alumni admin permission (proposed below)                    | Everything, including hidden contact details, unlisted alumni, duplicates, proposals and history                                                                                                       |
+| **Admins**                 | Members granted the alumni admin permission (proposed below)                    | Everything, including hidden contact details, unlisted alumni, duplicates, proposals, refresh checks and history                                                                                       |
 | **The alumnus**            | The person whose alumni profile is linked to their member account (`member_id`) | Their own full profile, including hidden contact details                                                                                                                                               |
 | **Slice members**          | Active members with alumni app access (`app.alumni.records.read`)               | **Listed** alumni only (listing status `listed`, not merged): name, tie-breaker, graduation year, majors and schools, current and past jobs, kinds of help, note, and contact details marked `members` |
 | **The student**            | The member linked to a student profile                                          | Their own student profile                                                                                                                                                                              |
@@ -196,20 +196,20 @@ Lists each person's majors with the school each belongs to. Because it is worked
 
 **Listed** profiles are visible to Slice members. **Hidden** ones are visible only to the alumnus and admins. A merged record is never shown in listings.
 
-| Field                      | Meaning                                                                                                      | Who sees                   |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------- |
-| `person_id`                | The person (one alumni profile each)                                                                         | Behind the scenes          |
-| `member_id`                | Their Slice member account, if they have one. Plain text, not a hard database link to the platform's tables. | Behind the scenes / admins |
-| `listing_status`           | `listed` or `hidden`. Hidden removes them from listings without deleting history.                            | Alumnus, admins            |
-| `job_employer_id`          | Current employer                                                                                             | Profile audience           |
-| `job_title`                | Current title                                                                                                | Profile audience           |
-| `job_industry_id`          | Industry of the current job                                                                                  | Profile audience           |
-| `job_location_id`          | City of the current job (optional)                                                                           | Profile audience           |
-| `job_start_month`          | When the current job started (optional)                                                                      | Profile audience           |
-| `job_last_verified_at`     | When the current job was last confirmed                                                                      | Profile audience           |
-| `note`                     | Optional free text. Same audience as the listed profile. **Never used for matching.**                        | Profile audience           |
-| `last_verified_at`         | When the whole profile was last confirmed                                                                    | Profile audience           |
-| `created_at`, `updated_at` | When created and last changed                                                                                | Admins                     |
+| Field                      | Meaning                                                                                                                                                         | Who sees                   |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `person_id`                | The person (one alumni profile each)                                                                                                                            | Behind the scenes          |
+| `member_id`                | Their Slice member account, if they have one. Plain text, not a hard database link to the platform's tables.                                                    | Behind the scenes / admins |
+| `listing_status`           | `listed` or `hidden`. Hidden removes them from listings without deleting history.                                                                               | Alumnus, admins            |
+| `job_employer_id`          | Current employer                                                                                                                                                | Profile audience           |
+| `job_title`                | Current title                                                                                                                                                   | Profile audience           |
+| `job_industry_id`          | Industry of the current job                                                                                                                                     | Profile audience           |
+| `job_location_id`          | City of the current job (optional)                                                                                                                              | Profile audience           |
+| `job_start_month`          | When the current job started (optional)                                                                                                                         | Profile audience           |
+| `job_last_verified_at`     | When the current job was last confirmed. Set when the job is changed, directly or by an admin approving a proposed new job; a refresh check alone never sets it | Profile audience           |
+| `note`                     | Optional free text. Same audience as the listed profile. **Never used for matching.**                                                                           | Profile audience           |
+| `last_verified_at`         | When the whole profile was last confirmed. Nothing in `store.ts` sets it yet; a refresh check never does                                                        | Profile audience           |
+| `created_at`, `updated_at` | When created and last changed                                                                                                                                   | Admins                     |
 
 **One current job.** A current job has an employer, a title and an industry, or the job fields are empty entirely. Partial jobs are refused. Changing jobs (with `changeJob`) moves the current job into past jobs in the same step, so a job is never in both places.
 
@@ -299,11 +299,39 @@ Majors and graduation year come from `alumni_person_majors` and `alumni_people`.
 | `reviewed_by`    | Member ID of the reviewer (empty while pending) |
 | `reviewed_at`    | When reviewed (empty while pending)             |
 
+### `alumni_refresh_checks`: log of every refresh check, including failures
+
+**Admins only.** The refresh runner writes one row each time it checks one source for one person, whatever happened, so failures are visible: a source that couldn't be reached, an error, or a skipped check. The data functions in `store.ts` check no permissions, so every API route and MCP tool that reads this table must allow admins only.
+
+| Field               | Meaning                                                                                                                                                        |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                | ID                                                                                                                                                             |
+| `person_id`         | Whose record was checked                                                                                                                                       |
+| `source`            | The web address or other source that was checked                                                                                                               |
+| `checked_at`        | When the check ran                                                                                                                                             |
+| `outcome`           | `proposed` (a change was filed), `unchanged` (nothing new), `unreachable`, `error` or `skipped`                                                                |
+| `detail`            | Optional short explanation, up to 200 characters, such as "timed out" or "HTTP 404". **Never page contents or personal data.**                                 |
+| `pending_change_id` | The proposal this check filed. **Required** when the outcome is `proposed`, and **must be empty** for every other outcome; the database refuses anything else. |
+
+- **One row per proposal.** A check that files two proposals is recorded as two rows. A `proposed` row must point at a proposal for the same person (`store.ts` checks this).
+- **The runner never changes profiles.** Recording a check never writes `last_verified_at` or `job_last_verified_at`. `job_last_verified_at` changes only when the job itself changes, directly or through an admin approving a proposed new job.
+- **Retention.** Rows older than 12 months may be deleted. No cleanup job has been built, so for now the log keeps growing until someone removes old rows.
+
+### `alumni_refresh_last_success` (a saved query, not a table)
+
+**"Last checked" comes from the log, not from profiles.** This view gives, for each person and each source, `last_success_at`: the time of the latest _successful_ check. A successful check is one where the runner reached the source and compared it (outcome `proposed` or `unchanged`). Unreachable, error and skipped checks never count. If a source has only ever failed, it doesn't appear. For a person's most recent successful check across all sources, take the latest `last_success_at` for that person. Admins only, like the table.
+
+| Column            | Meaning                                        |
+| ----------------- | ---------------------------------------------- |
+| `person_id`       | The person                                     |
+| `source`          | The source                                     |
+| `last_success_at` | When that source was last checked successfully |
+
 ### `alumni_change_history`: permanent log of applied changes
 
 **Admins only**, because old values can include hidden details. Edits by an alumnus, student or admin apply immediately and are logged here, as are approved proposals, job changes, contact details added when a record is attached, merges and reversals.
 
-**Not logged here:** creating a new person, filing a proposal, rejecting a proposal (see its `status`), sending an incoming record for duplicate review (see `alumni_merge_candidates`), and any change that was refused or rolled back.
+**Not logged here:** creating a new person, filing a proposal, rejecting a proposal (see its `status`), sending an incoming record for duplicate review (see `alumni_merge_candidates`), and any change that was refused or rolled back. The refresh runner's checks, including failed ones, are logged in `alumni_refresh_checks` instead.
 
 | Field                          | Meaning                                                                                                 |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------- |

@@ -599,3 +599,77 @@ describe("merging duplicates", () => {
     await expect(store.reverseMerge("nobody", admin)).rejects.toMatchObject({ code: "not-found" });
   });
 });
+
+describe("recording refresh checks", () => {
+  const check = {
+    personId: "p-a24",
+    source: "https://example.com/silverline/team",
+    checkedAt: "2026-11-12T08:00:00.000Z",
+  };
+
+  it("logs a failed check without touching the profile", async () => {
+    const before = await profile("p-a24");
+    const id = await store.recordRefreshCheck({
+      ...check,
+      outcome: "unreachable",
+      detail: "Timed out",
+    });
+    expect(
+      await db
+        .prepare(
+          "SELECT outcome, detail, pending_change_id FROM alumni_refresh_checks WHERE id = ?",
+        )
+        .bind(id)
+        .first(),
+    ).toEqual({ outcome: "unreachable", detail: "Timed out", pending_change_id: null });
+    expect(await profile("p-a24")).toEqual(before);
+    expect(await history("p-a24")).toEqual([]);
+  });
+
+  it("links a proposed check to the proposal it filed", async () => {
+    const pendingId = await store.proposeChange({
+      entity: "alumni_profile",
+      recordId: "p-a24",
+      field: "job_title",
+      proposedValue: "Senior Software Engineer",
+      source: check.source,
+      foundAt: check.checkedAt,
+    });
+    const id = await store.recordRefreshCheck({
+      ...check,
+      outcome: "proposed",
+      pendingChangeId: pendingId,
+    });
+    expect(
+      await db
+        .prepare("SELECT pending_change_id FROM alumni_refresh_checks WHERE id = ?")
+        .bind(id)
+        .first(),
+    ).toEqual({ pending_change_id: pendingId });
+  });
+
+  it("refuses mismatched outcomes, proposals and invalid input", async () => {
+    await expect(store.recordRefreshCheck({ ...check, outcome: "proposed" })).rejects.toMatchObject(
+      { code: "invalid" },
+    );
+    await expect(
+      store.recordRefreshCheck({ ...check, outcome: "unchanged", pendingChangeId: "pc-01" }),
+    ).rejects.toMatchObject({ code: "invalid" });
+    // pc-01 is a proposal for p-a26, not p-a24.
+    await expect(
+      store.recordRefreshCheck({ ...check, outcome: "proposed", pendingChangeId: "pc-01" }),
+    ).rejects.toMatchObject({ code: "invalid" });
+    await expect(
+      store.recordRefreshCheck({ ...check, outcome: "proposed", pendingChangeId: "missing" }),
+    ).rejects.toMatchObject({ code: "not-found" });
+    await expect(
+      store.recordRefreshCheck({ ...check, outcome: "timeout" as never }),
+    ).rejects.toMatchObject({ code: "invalid" });
+    await expect(
+      store.recordRefreshCheck({ ...check, outcome: "error", detail: "x".repeat(201) }),
+    ).rejects.toMatchObject({ code: "invalid" });
+    await expect(
+      store.recordRefreshCheck({ ...check, checkedAt: "yesterday", outcome: "error" }),
+    ).rejects.toMatchObject({ code: "invalid" });
+  });
+});
