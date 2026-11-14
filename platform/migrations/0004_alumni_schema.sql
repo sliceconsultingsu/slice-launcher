@@ -326,12 +326,14 @@ CREATE TABLE alumni_refresh_checks (
   checked_at TEXT NOT NULL, -- When the check ran.
   outcome TEXT NOT NULL CHECK (outcome IN ('proposed', 'unchanged', 'unreachable', 'error', 'skipped')), -- proposed: a change was filed; unchanged: nothing new; unreachable: source could not be reached; error: the check failed; skipped: not checked.
   detail TEXT CHECK (detail IS NULL OR length(trim(detail)) BETWEEN 1 AND 200), -- Optional short explanation such as 'timed out' or 'HTTP 404'. Never page contents or personal data.
-  pending_change_id TEXT REFERENCES alumni_pending_changes(id), -- The proposal this check filed: required when outcome is 'proposed', empty otherwise.
+  pending_change_id TEXT REFERENCES alumni_pending_changes(id), -- The proposal this check filed: required when outcome is 'proposed', empty otherwise. Each proposal can be linked from only one check.
   CHECK ((outcome = 'proposed') = (pending_change_id IS NOT NULL))
 );
 CREATE INDEX alumni_refresh_checks_person ON alumni_refresh_checks(person_id, source, checked_at);
 CREATE INDEX alumni_refresh_checks_outcome ON alumni_refresh_checks(outcome, checked_at);
-CREATE INDEX alumni_refresh_checks_pending ON alumni_refresh_checks(pending_change_id);
+-- A proposal is filed by exactly one check: no two check rows may link the same proposal.
+CREATE UNIQUE INDEX alumni_refresh_checks_pending
+  ON alumni_refresh_checks(pending_change_id) WHERE pending_change_id IS NOT NULL;
 
 -- The last SUCCESSFUL check of each source for each person: one where the runner reached the
 -- source and compared it ('proposed' or 'unchanged'). Unreachable, error and skipped checks never

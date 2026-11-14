@@ -646,6 +646,9 @@ describe("recording refresh checks", () => {
         .bind(id)
         .first(),
     ).toEqual({ pending_change_id: pendingId });
+    await expect(
+      store.recordRefreshCheck({ ...check, outcome: "proposed", pendingChangeId: pendingId }),
+    ).rejects.toMatchObject({ code: "conflict" });
   });
 
   it("refuses mismatched outcomes, proposals and invalid input", async () => {

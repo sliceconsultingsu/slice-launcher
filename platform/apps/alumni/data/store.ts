@@ -440,20 +440,27 @@ export class AlumniStore {
         throw new AlumniDataError("invalid", "The proposal is for a different person.");
     }
     const id = this.newId();
-    await this.db
-      .prepare(
-        "INSERT INTO alumni_refresh_checks(id, person_id, source, checked_at, outcome, detail, pending_change_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      )
-      .bind(
-        id,
-        value.personId,
-        value.source,
-        value.checkedAt,
-        value.outcome,
-        value.detail,
-        value.pendingChangeId,
-      )
-      .run();
+    try {
+      await this.db
+        .prepare(
+          "INSERT INTO alumni_refresh_checks(id, person_id, source, checked_at, outcome, detail, pending_change_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(
+          id,
+          value.personId,
+          value.source,
+          value.checkedAt,
+          value.outcome,
+          value.detail,
+          value.pendingChangeId,
+        )
+        .run();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("UNIQUE constraint failed: alumni_refresh_checks.pending_change_id"))
+        throw new AlumniDataError("conflict", "Another check is already linked to this proposal.");
+      throw error;
+    }
     return id;
   }
 

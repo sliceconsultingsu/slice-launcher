@@ -417,6 +417,13 @@ describe("refresh check log", () => {
     expect(linked).toEqual({ outcome: "proposed", field: "job_title", status: "pending" });
   });
 
+  it("lets only one check link a given proposal, while any number of checks have no link", async () => {
+    // Seed check rc-01 already links proposal pc-01.
+    await expect(insert("x-dup", "proposed", "pc-01")).rejects.toThrow(/UNIQUE/);
+    await expect(insert("x-null-1", "unreachable", null)).resolves.toBeDefined();
+    await expect(insert("x-null-2", "unreachable", null)).resolves.toBeDefined();
+  });
+
   it("keeps detail short", async () => {
     await expect(insert("x5", "error", null, "x".repeat(201))).rejects.toThrow(/CHECK/);
     await expect(insert("x6", "error", null, "   ")).rejects.toThrow(/CHECK/);

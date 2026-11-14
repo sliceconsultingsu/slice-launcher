@@ -313,7 +313,7 @@ Majors and graduation year come from `alumni_person_majors` and `alumni_people`.
 | `detail`            | Optional short explanation, up to 200 characters, such as "timed out" or "HTTP 404". **Never page contents or personal data.**                                 |
 | `pending_change_id` | The proposal this check filed. **Required** when the outcome is `proposed`, and **must be empty** for every other outcome; the database refuses anything else. |
 
-- **One row per proposal.** A check that files two proposals is recorded as two rows. A `proposed` row must point at a proposal for the same person (`store.ts` checks this).
+- **One row per proposal, and one proposal per row.** A check that files two proposals is recorded as two rows. A `proposed` row must point at a proposal for the same person (`store.ts` checks this). Each proposal can be linked from only one check row; the database refuses a second link. Any number of rows can have no link.
 - **The runner never changes profiles.** Recording a check never writes `last_verified_at` or `job_last_verified_at`. `job_last_verified_at` changes only when the job itself changes, directly or through an admin approving a proposed new job.
 - **Retention.** Rows older than 12 months may be deleted. No cleanup job has been built, so for now the log keeps growing until someone removes old rows.
 
