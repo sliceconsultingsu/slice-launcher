@@ -38,6 +38,8 @@ Before a PR run all [contributor checks](../../../CONTRIBUTING.md#4-implement-an
 
 `GET /api/apps/alumni/records` loads validated fixture copies; writes are rejected. The page and API require `records.read`. All examples are synthetic and safe for this public repository. Do not replace fixture files with real data. Persistent storage, field visibility, record ownership and import/update permissions require agreed requirements and reviewed integration before real data is introduced.
 
+A proposed database schema for persistent storage is in `platform/migrations/0004_alumni_schema.sql` and `0005_alumni_reference_lists.sql`, with operations in [`data/store.ts`](data/store.ts), fictional test data in [`data/seed.sql`](data/seed.sql) and a plain-language [data dictionary](data/DATA-DICTIONARY.md) explaining every field and who may see it. The directory, API and MCP tools do not use it yet.
+
 ## Icon
 
 Original artwork created for this repository by Ivan Chen: two overlapping circles for a student and an alumnus making a connection. Released under the repository's MIT licence.
