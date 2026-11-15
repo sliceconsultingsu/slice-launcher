@@ -633,8 +633,9 @@ button.member-row:hover,
   .site-header {
     gap: 12px;
   }
-  .site-header:has(.account-nav) .workspace-label,
-  .site-header:has(.account-nav) .header-divider {
+  /* The logo already names Slice Consulting; the full product name does not fit beside it. */
+  .workspace-label,
+  .header-divider {
     display: none;
   }
   .account-nav {

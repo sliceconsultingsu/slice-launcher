@@ -26,12 +26,11 @@ it("front page shows the Slice name and Google sign-in only", () => {
   expect(html).toContain("<h1");
   expect(html).toContain("Slice Consulting");
   expect(html).toContain('href="/api/auth/google/start"');
-  expect(html).not.toContain("App Launcher");
+  expect(html).not.toContain("workspace-label");
 });
 it("shows a useful empty state before any apps are published", () => {
   const html = renderToStaticMarkup(createElement(Launcher));
-  expect(html).toContain("Slice Consulting");
-  expect(html).toContain("App Launcher");
+  expect(html).toContain('<span class="workspace-label">Slice Consulting OS</span>');
   expect(html).toContain("No apps have been added yet");
 });
 it("renders the registered alumni starter and its platform link", () => {

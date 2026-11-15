@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Slice Consulting | App Launcher",
+  title: "Slice Consulting OS",
   description: "Slice Consulting applications.",
 };
 
