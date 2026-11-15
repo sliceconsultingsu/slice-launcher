@@ -98,7 +98,7 @@ export function Launcher() {
       <header className="site-header">
         <Logo />
         <div className="header-divider" aria-hidden="true" />
-        <span className="workspace-label">App Launcher</span>
+        <span className="workspace-label">Slice Consulting OS</span>
         <ConnectionStatus />
         <AccountNav />
       </header>

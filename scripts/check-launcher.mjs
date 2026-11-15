@@ -57,7 +57,13 @@ export async function checkLauncher(
   assert.equal(page.status, 200, "Launcher page must return 200");
   assert.match(page.headers.get("content-type") ?? "", /text\/html/);
   const html = await page.text();
-  assert.match(html, /App Launcher/);
+  // "App Launcher" is the name releases carried before the rename to Slice Consulting OS.
+  // Rollback runs this check against those older releases, so both names pass.
+  assert.match(
+    html,
+    /Slice Consulting OS|App Launcher/,
+    "Page must carry the Slice Consulting OS name",
+  );
 
   const assets = new Map();
   for (const tag of html.matchAll(/<(?:link|script)\b[^>]*>/gi)) {

@@ -4,7 +4,7 @@ The alumni directory helps consultants find former Slice members whose experienc
 
 ## What you can do today
 
-1. Open **Alumni directory** from the App Launcher.
+1. Open **Alumni directory** from Slice Consulting OS.
 2. Browse the sample alumni and student profiles.
 3. Read each profile's industry, role and interests to practise spotting a good connection.
 

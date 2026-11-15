@@ -16,7 +16,7 @@ export default function AccountPage() {
           />
         </a>
         <div className="header-divider" aria-hidden="true" />
-        <span className="workspace-label">App Launcher</span>
+        <span className="workspace-label">Slice Consulting OS</span>
         <ConnectionStatus />
         <a className="account-link" href="/">
           Applications

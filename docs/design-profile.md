@@ -32,7 +32,7 @@ A prompt a consultant can paste:
 
 - Use only the original logo at `platform/public/brand/slice-logo.png`. Its source is recorded in [brand assets](brand-assets.md). Do not recolor, redraw, stretch, crop out the tagline, or add effects. The header fits its square canvas with `object-fit: cover` at 180×100 (144×80 on narrow screens).
 - The logo appears once, in the platform header, linking home with the accessible name "Slice Consulting home".
-- The product name in the interface is **Slice Consulting**; the launcher area is **App Launcher**. Individual apps use their catalog `name` from `app.json`.
+- The product name in the interface is **Slice Consulting OS**, shown beside the logo in the header and as the browser tab title. Below 500px the header keeps only the logo, because the full name does not fit beside it. The organization is still **Slice Consulting**: the logo, the signed-out front page heading and membership screens keep that name. Individual apps use their catalog `name` from `app.json`.
 - Do not add other organizations' marks, Syracuse University marks beyond what the supplied logo contains, or generated logos.
 
 ## Tokens

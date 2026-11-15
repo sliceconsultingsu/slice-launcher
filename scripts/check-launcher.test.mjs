@@ -10,6 +10,7 @@ async function serve(
   observe = () => {},
   externalAsset = false,
   uppercase = false,
+  pageName = "Slice Consulting OS",
 ) {
   const server = createServer((request, response) => {
     observe(request);
@@ -18,7 +19,7 @@ async function serve(
         "/api/health": ["application/json", '{"status":"ok"}'],
         "/": [
           "text/html",
-          '<h1>App Launcher</h1><link rel="stylesheet" href="/app.css"><script src="/app.js"></script>',
+          `<h1>${pageName}</h1><link rel="stylesheet" href="/app.css"><script src="/app.js"></script>`,
         ],
         "/app.css": ["text/css", "body { color: black; }"],
         "/app.js": ["text/javascript", "void 0;"],
@@ -50,6 +51,17 @@ async function serve(
 
 test("checks the served launcher and its stylesheet and JavaScript", async (t) => {
   await checkLauncher(await serve(t));
+});
+
+test("accepts a release from before the rename so rollback stays usable", async (t) => {
+  await checkLauncher(await serve(t, false, () => {}, false, false, "App Launcher"));
+});
+
+test("fails a page that carries neither product name", async (t) => {
+  await assert.rejects(
+    checkLauncher(await serve(t, false, () => {}, false, false, "Welcome")),
+    /Slice Consulting OS name/,
+  );
 });
 
 test("fails a release when health works but a page asset is missing", async (t) => {
@@ -250,7 +262,7 @@ async function inAppServer(t, mode = () => "valid") {
       return;
     }
     response.writeHead(200, { "Content-Type": "text/html" });
-    response.end("<h1>App Launcher</h1>");
+    response.end("<h1>Slice Consulting OS</h1>");
   });
   return url;
 }

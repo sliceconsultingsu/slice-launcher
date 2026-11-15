@@ -1,8 +1,8 @@
 <img src="platform/public/brand/slice-logo.png" alt="Slice Consulting — Syracuse University" width="320" />
 
-# Slice Consulting platform
+# Slice Consulting OS
 
-One home for Slice Consulting's internal tools. Consultants sign in once; each tool uses the same account, permissions and release process.
+Slice Consulting OS is one home for Slice Consulting's internal tools. Consultants sign in once; each tool uses the same account, permissions and release process.
 
 **Live app:** [slice-launcher.ivan27chen.workers.dev](https://slice-launcher.ivan27chen.workers.dev) — sign in with your approved Slice account.
 
