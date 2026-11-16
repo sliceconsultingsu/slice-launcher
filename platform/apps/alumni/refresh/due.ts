@@ -19,12 +19,25 @@ export interface ListedAlum {
   reason: "no-linkedin-link" | "bad-linkedin-link" | null;
 }
 
+/** Who is running the refresh. Decides whether hidden LinkedIn links may be used. */
+export interface RefreshCaller {
+  /** True only for a member who also holds the admin permission. */
+  admin: boolean;
+}
+
 /**
  * Every listed alum whose record is not merged away, with the experience address worked out from
  * their LinkedIn contact detail. With several details, the most recently updated usable one wins.
- * A hidden detail still counts: hiding it from members does not stop an admin's check.
+ *
+ * Hidden means hidden: a link an admin has hidden is used only when the caller is an admin too.
+ * For anyone else holding refresh.run, that alum is reported as having no link, so running the
+ * refresh never reveals a hidden detail.
  */
-export async function listedAlumni(db: AlumniDatabase, personId?: string): Promise<ListedAlum[]> {
+export async function listedAlumni(
+  db: AlumniDatabase,
+  caller: RefreshCaller,
+  personId?: string,
+): Promise<ListedAlum[]> {
   const rows = (
     await db
       .prepare(
@@ -32,10 +45,11 @@ export async function listedAlumni(db: AlumniDatabase, personId?: string): Promi
          FROM alumni_profiles pr
          JOIN alumni_people p ON p.id = pr.person_id
          LEFT JOIN alumni_contacts c ON c.person_id = p.id AND c.kind = 'linkedin'
+           AND (c.visibility = 'members' OR ?)
          WHERE p.merged_into IS NULL AND pr.listing_status = 'listed' AND (? IS NULL OR p.id = ?)
          ORDER BY p.id, c.updated_at DESC, c.id`,
       )
-      .bind(personId ?? null, personId ?? null)
+      .bind(caller.admin ? 1 : 0, personId ?? null, personId ?? null)
       .all<{ id: string; full_name: string; name_key: string; value: string | null }>()
   ).results;
   const alumni = new Map<string, ListedAlum>();
@@ -63,10 +77,14 @@ function before(now: string, milliseconds: number): string {
   return new Date(Date.parse(now) - milliseconds).toISOString();
 }
 
-export async function refreshDue(data: AlumniData, input: { limit?: number }) {
+export async function refreshDue(
+  data: AlumniData,
+  caller: RefreshCaller,
+  input: { limit?: number },
+) {
   const limit = input.limit ?? RUN_LIMIT_DEFAULT;
   const now = data.now();
-  const alumni = await listedAlumni(data.db);
+  const alumni = await listedAlumni(data.db, caller);
   const [industries, successes, recent] = await data.db.batch<Record<string, string>>([
     data.db.prepare("SELECT id, name FROM alumni_industries WHERE active = 1 ORDER BY name"),
     data.db.prepare("SELECT person_id, source, last_success_at FROM alumni_refresh_last_success"),

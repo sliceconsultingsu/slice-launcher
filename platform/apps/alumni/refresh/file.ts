@@ -8,7 +8,7 @@ import type { AlumniData } from "../data/services";
 import { AlumniDataError, jobJson, nameKey } from "../data/store";
 import { compareJobs } from "./compare";
 import { MIN_GAP_SECONDS, RETRIEVED_MAX_AGE_HOURS, RETRIEVED_MAX_AHEAD_MINUTES } from "./config";
-import { listedAlumni } from "./due";
+import { listedAlumni, type RefreshCaller } from "./due";
 
 const place = z.string().trim().max(80).nullable();
 const currentJobSchema = z.strictObject({
@@ -48,6 +48,7 @@ export type RefreshFileResult =
 
 export async function refreshFile(
   data: AlumniData,
+  caller: RefreshCaller,
   input: RefreshFileInput,
 ): Promise<RefreshFileResult> {
   const parsed = refreshFileSchema.safeParse(input);
@@ -69,7 +70,7 @@ export async function refreshFile(
     );
 
   // 1. Find the alum. They must be listed, not merged away, and have a usable LinkedIn link.
-  const [alum] = await listedAlumni(data.db, filed.personId);
+  const [alum] = await listedAlumni(data.db, caller, filed.personId);
   if (!alum?.experienceUrl) return { status: "not_found" };
   const source = alum.experienceUrl;
   // 2. Check the address.
@@ -144,6 +145,10 @@ export async function refreshFile(
     return { status: "needs_manual_review" };
   }
   // 9. Already waiting. Build the proposed value first, so like is compared with like.
+  // A new employer or city is added to the reference lists here, when the proposal is filed, so
+  // the proposal can point at it. That is a recorded product decision: a rejected proposal may
+  // leave an unused row behind. Such a row is never shown to members: employers appear only on
+  // jobs, and cities are offered only once a listed alum works there (see CITY_CHOICES).
   let field: "job_title" | "current_job";
   let proposedValue: string | Parameters<typeof jobJson>[0];
   let proposedText: string | null;

@@ -66,6 +66,12 @@ describe("refresh tools", () => {
     });
   });
 
+  it("does not hand a hidden link to a runner who is not an admin", async () => {
+    const due = await callTool(toolNamed(tools, "refresh_due"), "member-example-runner");
+    expect(JSON.stringify(due)).not.toContain("example-meilin-zhao");
+    expect(JSON.stringify(due)).toContain("example-jordan-avery-15");
+  });
+
   it("refuses input outside the declared limits", () => {
     expect(() => toolNamed(tools, "refresh_due").inputSchema.parse({ limit: 101 })).toThrow();
     expect(() => toolNamed(tools, "refresh_due").inputSchema.parse({ limit: 0 })).toThrow();

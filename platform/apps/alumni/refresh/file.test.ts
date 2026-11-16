@@ -6,6 +6,7 @@ import { refreshDue } from "./due";
 import { refreshFile, type RefreshFileInput } from "./file";
 
 const t = useAlumniData();
+const ADMIN = { admin: true };
 const address = (slug: string) => `https://www.linkedin.com/in/${slug}/details/experience/`;
 const JORDAN = address("example-jordan-avery-15"); // p-a01: Associate at Harbor & Pine Capital
 const SAM = address("example-sam-rivera-lopez"); // p-a07: Policy Analyst at Riverbend
@@ -47,18 +48,34 @@ describe("refresh_file", () => {
   it("step 1: writes nothing for an unknown, hidden or link-less alum", async () => {
     const before = [await checks(), await pending()];
     for (const personId of ["nobody", "p-a18", "p-a02", "p-a28"])
-      expect(await refreshFile(t.data, read({ personId }))).toEqual({ status: "not_found" });
+      expect(await refreshFile(t.data, ADMIN, read({ personId }))).toEqual({ status: "not_found" });
     expect([await checks(), await pending()]).toEqual(before);
+  });
+
+  it("step 1: treats an alum whose only link is hidden as not found, unless the caller is an admin", async () => {
+    const hidden = {
+      personId: "p-a12",
+      sourceUrl: address("example-meilin-zhao"),
+      pageName: "Mei-Lin Zhao",
+      currentJob: { ...job, employerName: "Copperfield Accounting LLP", title: "Tax Senior" },
+    };
+    const before = await checks();
+    expect(await refreshFile(t.data, { admin: false }, read(hidden))).toEqual({
+      status: "not_found",
+    });
+    expect(await checks()).toBe(before);
+    expect(await refreshFile(t.data, ADMIN, read(hidden))).toEqual({ status: "unchanged" });
   });
 
   it("step 2: writes nothing when the address is not the one worked out for the alum", async () => {
     const before = await checks();
-    expect(await refreshFile(t.data, read({ sourceUrl: SAM }))).toEqual({
+    expect(await refreshFile(t.data, ADMIN, read({ sourceUrl: SAM }))).toEqual({
       status: "wrong_source",
     });
     expect(
       await refreshFile(
         t.data,
+        ADMIN,
         read({ sourceUrl: "https://www.linkedin.com/in/example-jordan-avery-15" }),
       ),
     ).toEqual({ status: "wrong_source" });
@@ -66,17 +83,22 @@ describe("refresh_file", () => {
   });
 
   it("step 3: refuses a result filed faster than the agreed gap, and writes nothing", async () => {
-    expect(await refreshFile(t.data, read())).toEqual({ status: "unchanged" });
+    expect(await refreshFile(t.data, ADMIN, read())).toEqual({ status: "unchanged" });
     const before = await checks();
     t.advance(4);
     expect(
-      await refreshFile(t.data, read({ personId: "p-a07", sourceUrl: SAM, retrievedAt: t.now })),
+      await refreshFile(
+        t.data,
+        ADMIN,
+        read({ personId: "p-a07", sourceUrl: SAM, retrievedAt: t.now }),
+      ),
     ).toEqual({ status: "too_fast", retryAfterSeconds: 6 });
     expect(await checks()).toBe(before);
     t.advance(6);
     expect(
       await refreshFile(
         t.data,
+        ADMIN,
         read({
           personId: "p-a07",
           sourceUrl: SAM,
@@ -92,6 +114,7 @@ describe("refresh_file", () => {
   it("step 4: logs an unreachable page with its short reason", async () => {
     const result = await refreshFile(
       t.data,
+      ADMIN,
       read({
         outcome: "unreachable",
         detail: "sign-in page",
@@ -109,11 +132,13 @@ describe("refresh_file", () => {
       pending_change_id: null,
     });
     // An unreachable page is not a successful check, but the alum is not handed out again today.
-    expect((await refreshDue(t.data, {})).due.map((alum) => alum.personId)).not.toContain("p-a01");
+    expect((await refreshDue(t.data, ADMIN, {})).due.map((alum) => alum.personId)).not.toContain(
+      "p-a01",
+    );
   });
 
   it("step 5: logs an error when the name on the page is someone else's, and accepts an alias", async () => {
-    expect(await refreshFile(t.data, read({ pageName: "Jordan Avery-Smith" }))).toEqual({
+    expect(await refreshFile(t.data, ADMIN, read({ pageName: "Jordan Avery-Smith" }))).toEqual({
       status: "name_mismatch",
     });
     expect(await lastCheck()).toMatchObject({
@@ -124,6 +149,7 @@ describe("refresh_file", () => {
     t.advance(11);
     const sam = await refreshFile(
       t.data,
+      ADMIN,
       read({
         personId: "p-a07",
         sourceUrl: SAM,
@@ -145,6 +171,7 @@ describe("refresh_file", () => {
     expect(
       await refreshFile(
         t.data,
+        ADMIN,
         read({
           retrievedAt,
           currentJob: { ...job, startMonth: "2020-01", city: "Boston", country: "United States" },
@@ -157,12 +184,12 @@ describe("refresh_file", () => {
       detail: null,
     });
     expect(await pending()).toBe(1);
-    const due = await refreshDue(t.data, {});
+    const due = await refreshDue(t.data, ADMIN, {});
     expect(due.due.map((alum) => alum.personId)).not.toContain("p-a01");
   });
 
   it("step 8: sends a page with no current role to manual review", async () => {
-    expect(await refreshFile(t.data, read({ currentJob: null }))).toEqual({
+    expect(await refreshFile(t.data, ADMIN, read({ currentJob: null }))).toEqual({
       status: "needs_manual_review",
     });
     expect(await lastCheck()).toMatchObject({
@@ -175,6 +202,7 @@ describe("refresh_file", () => {
   it("step 10: proposes a title correction and links the check to its proposal", async () => {
     const result = await refreshFile(
       t.data,
+      ADMIN,
       read({ currentJob: { ...job, title: "Senior Associate" } }),
     );
     expect(result).toMatchObject({ status: "proposed" });
@@ -210,7 +238,7 @@ describe("refresh_file", () => {
       region: "TX",
       country: "United States",
     };
-    const first = await refreshFile(t.data, read({ currentJob: newJob }));
+    const first = await refreshFile(t.data, ADMIN, read({ currentJob: newJob }));
     if (first.status !== "proposed") throw new Error("expected a proposal");
     const filed = await proposal(first.pendingChangeId);
     expect(filed?.field).toBe("current_job");
@@ -235,7 +263,11 @@ describe("refresh_file", () => {
 
     // Step 9: the same change filed again gives one proposal, not two.
     t.advance(11);
-    const again = await refreshFile(t.data, read({ retrievedAt: t.now, currentJob: newJob }));
+    const again = await refreshFile(
+      t.data,
+      ADMIN,
+      read({ retrievedAt: t.now, currentJob: newJob }),
+    );
     expect(again).toEqual({ status: "already_pending", pendingChangeId: first.pendingChangeId });
     expect(await lastCheck()).toMatchObject({
       outcome: "skipped",
@@ -250,6 +282,7 @@ describe("refresh_file", () => {
   it("uses the industry already recorded for a known employer, and no city without a country", async () => {
     const result = await refreshFile(
       t.data,
+      ADMIN,
       read({
         currentJob: {
           employerName: "bluestone advisory group",
@@ -273,11 +306,12 @@ describe("refresh_file", () => {
   });
 
   it("from the due list to an approved change: the profile updates and the old job moves to past jobs", async () => {
-    const due = await refreshDue(t.data, {});
+    const due = await refreshDue(t.data, ADMIN, {});
     const alum = due.due.find((item) => item.personId === "p-a01");
     if (!alum) throw new Error("expected p-a01 to be due");
     const result = await refreshFile(
       t.data,
+      ADMIN,
       read({
         sourceUrl: alum.experienceUrl,
         currentJob: {
@@ -302,21 +336,25 @@ describe("refresh_file", () => {
 
   it("refuses a malformed result before writing anything", async () => {
     const before = await checks();
-    await expect(refreshFile(t.data, read({ pageName: undefined }))).rejects.toThrow(
+    await expect(refreshFile(t.data, ADMIN, read({ pageName: undefined }))).rejects.toThrow(
       AlumniDataError,
     );
-    await expect(refreshFile(t.data, read({ currentJob: undefined }))).rejects.toThrow(
+    await expect(refreshFile(t.data, ADMIN, read({ currentJob: undefined }))).rejects.toThrow(
       AlumniDataError,
     );
-    await expect(refreshFile(t.data, read({ detail: "sign-in page" }))).rejects.toThrow(
+    await expect(refreshFile(t.data, ADMIN, read({ detail: "sign-in page" }))).rejects.toThrow(
       AlumniDataError,
     );
     const tooOld = new Date(Date.parse(t.now) - 25 * 3_600_000).toISOString();
     const tooNew = new Date(Date.parse(t.now) + 6 * 60_000).toISOString();
-    await expect(refreshFile(t.data, read({ retrievedAt: tooOld }))).rejects.toThrow(/24 hours/);
-    await expect(refreshFile(t.data, read({ retrievedAt: tooNew }))).rejects.toThrow(/24 hours/);
+    await expect(refreshFile(t.data, ADMIN, read({ retrievedAt: tooOld }))).rejects.toThrow(
+      /24 hours/,
+    );
+    await expect(refreshFile(t.data, ADMIN, read({ retrievedAt: tooNew }))).rejects.toThrow(
+      /24 hours/,
+    );
     await expect(
-      refreshFile(t.data, read({ currentJob: { ...job, industryId: "astrology" } })),
+      refreshFile(t.data, ADMIN, read({ currentJob: { ...job, industryId: "astrology" } })),
     ).rejects.toBeInstanceOf(InvalidChoiceError);
     expect(await checks()).toBe(before);
   });

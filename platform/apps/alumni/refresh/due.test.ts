@@ -4,6 +4,7 @@ import { refreshDue } from "./due";
 import { experienceUrl } from "./linkedin";
 
 const t = useAlumniData();
+const ADMIN = { admin: true };
 const address = (slug: string) => `https://www.linkedin.com/in/${slug}/details/experience/`;
 const JORDAN = address("example-jordan-avery-15"); // p-a01
 const SAM = address("example-sam-rivera-lopez"); // p-a07
@@ -29,12 +30,12 @@ const addLink = (id: string, personId: string, value: string, updatedAt = t.now)
     .bind(id, personId, value, value.toLowerCase(), updatedAt, updatedAt)
     .run();
 const dueIds = async (limit?: number) =>
-  (await refreshDue(t.data, { limit })).due.map((alum) => alum.personId);
+  (await refreshDue(t.data, ADMIN, { limit })).due.map((alum) => alum.personId);
 
 describe("refresh_due", () => {
   it("lists never-checked alumni first, then the longest since a successful check", async () => {
     await check("p-a07", SAM, hoursAgo(24 * 200), "unchanged");
-    const result = await refreshDue(t.data, {});
+    const result = await refreshDue(t.data, ADMIN, {});
     expect(result.due).toEqual([
       { personId: "p-a01", fullName: "Jordan Avery", experienceUrl: JORDAN, lastCheckedAt: null },
       {
@@ -75,7 +76,7 @@ describe("refresh_due", () => {
     await addLink("c-hidden", "p-a18", "https://www.linkedin.com/in/example-theo-marchetti");
     await addLink("c-merged", "p-a28", "https://www.linkedin.com/in/example-patrick-kim");
     await addLink("c-company", "p-a02", "https://www.linkedin.com/company/example-co");
-    const result = await refreshDue(t.data, {});
+    const result = await refreshDue(t.data, ADMIN, {});
     expect(result.due.map((alum) => alum.personId)).toEqual(["p-a01", "p-a07", "p-a12"]);
     const reasons = new Map(result.notCheckable.map((alum) => [alum.personId, alum.reason]));
     expect(reasons.get("p-a02")).toBe("bad-linkedin-link");
@@ -100,20 +101,30 @@ describe("refresh_due", () => {
       "https://example.com/not-a-profile",
       "2026-11-12T00:00:00.000Z",
     );
-    const result = await refreshDue(t.data, {});
+    const result = await refreshDue(t.data, ADMIN, {});
     expect(result.due[0]?.experienceUrl).toBe(experienceUrl("linkedin.com/in/example-jordan-new"));
   });
 
+  it("uses a hidden link only for an admin, and never reveals it to anyone else", async () => {
+    // Mei-Lin Zhao's (p-a12) LinkedIn link is hidden from members.
+    const runner = await refreshDue(t.data, { admin: false }, {});
+    expect(runner.due.map((alum) => alum.personId)).toEqual(["p-a01", "p-a07"]);
+    expect(runner.notCheckable).toContainEqual({ personId: "p-a12", reason: "no-linkedin-link" });
+    expect(JSON.stringify(runner)).not.toContain("example-meilin-zhao");
+    const admin = await refreshDue(t.data, ADMIN, {});
+    expect(admin.due.map((alum) => alum.personId)).toContain("p-a12");
+  });
+
   it("returns at most the limit and says how many more are due", async () => {
-    const result = await refreshDue(t.data, { limit: 1 });
+    const result = await refreshDue(t.data, ADMIN, { limit: 1 });
     expect(result.due.map((alum) => alum.personId)).toEqual(["p-a01"]);
     expect(result.remaining).toBe(2);
   });
 
   it("returns no email, phone, job or other profile detail", async () => {
-    const text = JSON.stringify(await refreshDue(t.data, {}));
+    const text = JSON.stringify(await refreshDue(t.data, ADMIN, {}));
     expect(text).not.toMatch(/@example\.com|555-01|Associate|Harbor|Tax Senior/);
-    for (const alum of (await refreshDue(t.data, {})).due)
+    for (const alum of (await refreshDue(t.data, ADMIN, {})).due)
       expect(Object.keys(alum).sort()).toEqual([
         "experienceUrl",
         "fullName",

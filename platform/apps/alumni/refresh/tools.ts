@@ -4,6 +4,7 @@
 import { z } from "zod";
 import type { AppTool } from "../../../src/platform/contracts";
 import { defineAppTool } from "../../../src/platform/mcp-tool";
+import { isAdmin } from "../access";
 import type { AlumniData } from "../data/services";
 import { toolErrors } from "../tool-errors";
 import { RUN_LIMIT_DEFAULT, RUN_LIMIT_MAX } from "./config";
@@ -35,7 +36,7 @@ export function refreshTools(open: () => AlumniData): AppTool[] {
         .strict(),
       execute: (input, context) => {
         context.requirePermission(REFRESH_PERMISSION);
-        return toolErrors(() => refreshDue(open(), input));
+        return toolErrors(() => refreshDue(open(), { admin: isAdmin(context) }, input));
       },
     }),
     defineAppTool({
@@ -47,7 +48,7 @@ export function refreshTools(open: () => AlumniData): AppTool[] {
       inputSchema: refreshFileSchema,
       execute: (input, context) => {
         context.requirePermission(REFRESH_PERMISSION);
-        return toolErrors(() => refreshFile(open(), input));
+        return toolErrors(() => refreshFile(open(), { admin: isAdmin(context) }, input));
       },
     }),
     defineAppTool({
