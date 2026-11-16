@@ -11,6 +11,7 @@ import { confirmationPeople, sendConfirmations } from "./confirmation/send";
 import { createSampleRepository, readDirectory } from "./data";
 import { isAdmin, viewerOf } from "./access";
 import { importAlumni, importSchema } from "./data/import";
+import { networkSummary, recentActivity } from "./data/network";
 import { InvalidChoiceError, searchSchema } from "./data/reads";
 import type { AlumniData } from "./data/services";
 import { AlumniDataError } from "./data/store";
@@ -177,6 +178,14 @@ export async function alumniApi(
     if (area === "alumni" && path.length === 1) {
       if (!reading) return notAllowed("GET, HEAD");
       return json(await open().reads.searchAlumni(viewer, searchFromQuery(searchParams)));
+    }
+    if (area === "network" && path.length === 1) {
+      if (!reading) return notAllowed("GET, HEAD");
+      const data = open();
+      return json({
+        summary: await networkSummary(data.db),
+        activity: await recentActivity(data.db, data.now()),
+      });
     }
     if (area === "alumni" && path.length === 2 && id) {
       if (!reading) return notAllowed("GET, HEAD");
