@@ -99,6 +99,7 @@ describe("student tools", () => {
     expect(Object.keys(lists).sort()).toEqual([
       "cities",
       "helpKinds",
+      "inUse",
       "industries",
       "majors",
       "schools",

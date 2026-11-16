@@ -84,6 +84,8 @@ Used on every job and in students' interests. Visible to everyone who can see pr
 
 Starting list: Consulting; Financial Services; Accounting; Technology; Media and Entertainment; Marketing and Advertising; Healthcare and Life Sciences; Consumer Products and Retail; Real Estate; Government and Public Policy; Nonprofit and Education; Energy and Utilities; Manufacturing and Industrials; Sports; Legal.
 
+Migration `0007_alumni_contact_book.sql` adds four labels that Slice's alumni contact book uses: Communications; Recruiting and HR; Sales; Other. Some describe the kind of work, not the employer's industry. They are kept so every row of the book loads as it is written.
+
 ### `alumni_help_kinds`: kinds of help
 
 Alumni offer these and students seek them. Fields: `id`, `name`, `active`.

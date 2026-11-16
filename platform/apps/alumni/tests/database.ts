@@ -52,11 +52,17 @@ export async function loadSeed(db: TestDatabase) {
     new URL("../../../migrations/0005_alumni_reference_lists.sql", import.meta.url),
     "utf8",
   );
+  // The contact book's extra industry labels are reference rows too.
+  const labels = await readFile(
+    new URL("../../../migrations/0007_alumni_contact_book.sql", import.meta.url),
+    "utf8",
+  );
   const seed = await readFile(new URL("../data/seed.sql", import.meta.url), "utf8");
   await db.batch([
     // One DELETE per table: links between rows of the same table are checked when it finishes.
     ...SEEDED_TABLES.map((table) => db.prepare(`DELETE FROM ${table}`)),
     ...unstable_splitSqlQuery(lists).map((statement) => db.prepare(statement)),
+    ...unstable_splitSqlQuery(labels).map((statement) => db.prepare(statement)),
     ...unstable_splitSqlQuery(seed).map((statement) => db.prepare(statement)),
   ]);
 }

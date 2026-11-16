@@ -2,7 +2,7 @@
 
 Helps Slice consultants find alumni whose experience fits their career interests. A consultant (called a "student" in this app) saves a short profile, browses and filters alumni, and is given three alumni every 30 days with the reasons for each. An approved AI assistant can do the same through the Slice MCP connection, and an admin keeps alumni jobs current by reviewing changes the refresh proposes.
 
-**Status: work in progress.** The code is complete for the first version described in the product requirements, with tests. It is not live: the alumni database changes (migrations 0004 to 0006) have not been applied to production, and no real alumni have been loaded. The repository contains invented people only.
+**Status: work in progress.** The code is complete for the first version described in the product requirements, with tests. It is not live: the alumni database changes (migrations 0004 to 0007) have not been applied to production, and no real alumni have been loaded. The repository contains invented people only.
 
 Screenshots with fictional data: [matches](../../../docs/images/alumni/matches-desktop.png) · [explorer](../../../docs/images/alumni/explore-desktop.png) · [profile](../../../docs/images/alumni/alum-profile-desktop.png) · [first use](../../../docs/images/alumni/first-use-desktop.png) · [review](../../../docs/images/alumni/review-desktop.png) · [add alumni](../../../docs/images/alumni/add-alumni-desktop.png). Phone-width versions sit beside them.
 
@@ -106,9 +106,9 @@ Before a PR run all [contributor checks](../../../CONTRIBUTING.md#4-implement-an
 
 These are the maintainer's steps and are not done by merging code:
 
-1. Apply migrations `0004`, `0005` and `0006`, in order, through the approved process in [migrations](../../../docs/migrations.md). The app's pages fail until they are applied.
+1. Apply migrations `0004` to `0007`, in order, through the approved process in [migrations](../../../docs/migrations.md). The app's pages fail until they are applied.
 2. Grant `admin` and `refresh.run` to the members who should hold them.
-3. Load the alumni contact book on the **Add alumni** screen by pasting its rows, headings included. The screen reads the book's own columns: Name, Company, Role, Industry, Email, LinkedIn, Grad Year and Date updated. An industry must be on the app's list; common shorter labels such as Finance, Marketing and Government are understood, and a label with no counterpart, such as Other, is refused by row number so an admin can choose the right one.
+3. Load the alumni contact book on the **Add alumni** screen by pasting its rows, headings included. The screen reads the book's own columns: Name, Company, Role, Industry, Email, LinkedIn, Grad Year and Date updated. Every industry label the book uses is on the app's list, including Sales, Communications, Recruiting/HR and Other; its shorter labels Finance, Marketing and Government are understood. An unknown label is refused by row number with the industries to choose from.
 4. Remove `"workInProgress": true` from `app.json` when the app is ready.
 
 ## Open items
@@ -119,7 +119,7 @@ These are the maintainer's steps and are not done by merging code:
 - **A rejected proposal can leave an unused employer or city** in the reference lists. It is never offered to members.
 - **Editing the fixed lists** (majors, industries, skills, kinds of help) is done by a developer for now.
 - **Settling possible duplicates** has operations in `store.ts` but no screen yet.
-- **Matching is only as rich as the alumni records.** The contact book holds a job and an industry but no major, city or help offered, so until those are added a match can only be explained by industry.
+- **Matching is only as rich as the alumni records.** The contact book holds a job and an industry but no major, city or help offered, so until those are added a match can only be explained by industry. The explorer offers a filter only when at least one listed alum has that detail, so the school, major, city and help filters appear as the records gain them.
 
 ## Icon
 

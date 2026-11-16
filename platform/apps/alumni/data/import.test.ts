@@ -103,7 +103,26 @@ describe("loading the alumni contact book", () => {
     });
   });
 
-  it("refuses a label with no counterpart, such as Other, and lists the industries to use", async () => {
+  it("loads the contact book's own labels: Sales, Communications, Recruiting/HR and Other", async () => {
+    const rows = ["Sales", "Communications ", "Recruiting/HR", "Other"].map((industry, index) => ({
+      fullName: `Label Person ${index + 1}`,
+      graduationYear: 2024,
+      employer: `Example Employer ${index + 1}`,
+      title: "Associate",
+      industry,
+    }));
+    expect(await importAlumni(t.data, { rows }, ADMIN)).toMatchObject({ added: 4, errors: [] });
+    const page = await t.data.reads.searchAlumni(member, { q: "Label Person", sort: "name" });
+    expect(page.results.map((alum) => alum.industry)).toEqual([
+      "Sales",
+      "Communications",
+      "Recruiting and HR",
+      "Other",
+    ]);
+    expect((await t.data.reads.lists()).inUse.industries).toContain("recruiting-hr");
+  });
+
+  it("refuses a label with no counterpart and lists the industries to use", async () => {
     const report = await importAlumni(
       t.data,
       {
@@ -113,7 +132,7 @@ describe("loading the alumni contact book", () => {
             graduationYear: 2024,
             employer: "Example Learning Trust",
             title: "Teacher",
-            industry: "Other",
+            industry: "Astrology",
           },
           { fullName: "Kit Tomorrow", graduationYear: 2024, verifiedOn: "2031-01-01" },
           { fullName: "Lee Garbled", graduationYear: 2024, verifiedOn: "last spring" },
@@ -124,7 +143,7 @@ describe("loading the alumni contact book", () => {
     expect(report.added).toBe(0);
     expect(report.errors.map((error) => error.message)).toEqual([
       expect.stringMatching(
-        /^“Other” is not an industry on the list\. Use one of: Accounting, Consulting, /,
+        /^“Astrology” is not an industry on the list\. Use one of: Accounting, Communications, /,
       ),
       "The date updated is in the future.",
       "This row could not be read. Check the date updated.",

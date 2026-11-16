@@ -49,7 +49,7 @@ export interface ImportReport {
 
 /**
  * Shorter labels a contact book may use for an industry on the fixed list. A label with no
- * counterpart, such as "Other", is refused so an admin can choose the right industry.
+ * counterpart is refused so an admin can choose the right industry.
  */
 const INDUSTRY_LABELS: Record<string, string> = {
   finance: "financial-services",
@@ -68,6 +68,10 @@ const INDUSTRY_LABELS: Record<string, string> = {
   energy: "energy-utilities",
   manufacturing: "manufacturing-industrials",
   law: "legal",
+  "recruiting hr": "recruiting-hr",
+  recruiting: "recruiting-hr",
+  hr: "recruiting-hr",
+  "human resources": "recruiting-hr",
 };
 
 /** What each field is called on the sheet, for messages an admin reads. */

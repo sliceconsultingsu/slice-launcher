@@ -26,7 +26,13 @@ export interface Lists {
   skills: Choice[];
   schools: Choice[];
   majors: (Choice & { schoolId: string })[];
+  /** Only the cities where a listed alum works now. */
   cities: Choice[];
+  /**
+   * The IDs at least one listed alum has. The explorer offers only these as filters, so it never
+   * shows a filter that can find nobody. Choosing answers for a profile uses the full lists.
+   */
+  inUse: { industries: string[]; schools: string[]; majors: string[]; helpKinds: string[] };
 }
 
 /** A choice that is not on its fixed list. Carries the valid choices so callers can show them. */
@@ -162,6 +168,8 @@ const SUMMARY_FROM = `FROM alumni_profiles pr
   LEFT JOIN alumni_employers e ON e.id = pr.job_employer_id
   LEFT JOIN alumni_industries i ON i.id = pr.job_industry_id
   LEFT JOIN alumni_locations l ON l.id = pr.job_location_id`;
+const LISTED = "FROM alumni_profiles pr JOIN alumni_people p ON p.id = pr.person_id";
+const IS_LISTED = "pr.listing_status = 'listed' AND p.merged_into IS NULL";
 const ORDER = {
   name: "p.name_key, p.graduation_year, p.id",
   year: "p.graduation_year DESC, p.name_key, p.id",
@@ -187,9 +195,17 @@ export class AlumniReads {
 
   /** The fixed lists people choose from. Retired entries are left out. */
   async lists(): Promise<Lists> {
-    const [industries, helpKinds, skills, schools, majors, cities] = await this.db.batch<
-      Record<string, string>
-    >([
+    const [
+      industries,
+      helpKinds,
+      skills,
+      schools,
+      majors,
+      cities,
+      usedIndustries,
+      usedStudies,
+      usedHelp,
+    ] = await this.db.batch<Record<string, string>>([
       this.db.prepare("SELECT id, name FROM alumni_industries WHERE active = 1 ORDER BY name"),
       this.db.prepare("SELECT id, name FROM alumni_help_kinds WHERE active = 1 ORDER BY name"),
       this.db.prepare("SELECT id, name FROM alumni_skills WHERE active = 1 ORDER BY name"),
@@ -198,7 +214,21 @@ export class AlumniReads {
         "SELECT id, name, school_id FROM alumni_majors WHERE active = 1 AND current_major_id IS NULL ORDER BY name",
       ),
       this.db.prepare(CITY_CHOICES),
+      this.db.prepare(
+        `SELECT DISTINCT pr.job_industry_id AS id ${LISTED} WHERE pr.job_industry_id IS NOT NULL AND ${IS_LISTED}`,
+      ),
+      this.db.prepare(
+        `SELECT DISTINCT ps.current_major_id AS major_id, ps.school_id ${LISTED}
+         JOIN alumni_person_schools ps ON ps.person_id = p.id AND ps.kind = 'major' WHERE ${IS_LISTED}`,
+      ),
+      this.db.prepare(
+        `SELECT DISTINCT h.help_kind_id AS id ${LISTED}
+         JOIN alumni_help_offered h ON h.person_id = p.id WHERE ${IS_LISTED}`,
+      ),
     ]);
+    const ids = (result: D1Result<Record<string, string>> | undefined, column = "id") => [
+      ...new Set((result?.results ?? []).map((row) => row[column] ?? "")),
+    ];
     const choices = (result: D1Result<Record<string, string>> | undefined): Choice[] =>
       (result?.results ?? []).map((row) => ({ id: row.id ?? "", name: row.name ?? "" }));
     return {
@@ -215,6 +245,12 @@ export class AlumniReads {
         id: row.id ?? "",
         name: cityName(row.city ?? "", row.region ?? null, row.country ?? ""),
       })),
+      inUse: {
+        industries: ids(usedIndustries),
+        schools: ids(usedStudies, "school_id"),
+        majors: ids(usedStudies, "major_id"),
+        helpKinds: ids(usedHelp),
+      },
     };
   }
 

@@ -32,6 +32,9 @@ function toQuery(filters: Filters): string {
   return params.toString();
 }
 
+const used = (all: { id: string; name: string }[] = [], ids: string[] = []) =>
+  all.filter((choice) => ids.includes(choice.id));
+
 export function AlumCard({ alum }: { alum: AlumSummary }) {
   return (
     <li className="alumni-card">
@@ -45,6 +48,7 @@ export function AlumCard({ alum }: { alum: AlumSummary }) {
       </p>
       <p className="alumni-muted">
         Class of {alum.graduationYear}
+        {alum.industry && ` · ${alum.industry}`}
         {alum.majors.length > 0 && ` · ${alum.majors.join(", ")}`}
       </p>
       {alum.hidden && <span className="status-badge status-suspended">Hidden from members</span>}
@@ -104,22 +108,25 @@ export function ExplorerView({ admin }: { admin: boolean }) {
       setPage({ ...result.data, results: [...page.results, ...result.data.results] });
     else setError(result.error);
   };
-  const select = (key: FilterKey, label: string, choices: { id: string; name: string }[]) => (
-    <label>
-      {label}
-      <select
-        value={draft[key]}
-        onChange={(event) => apply({ ...draft, [key]: event.target.value })}
-      >
-        <option value="">Any</option>
-        {choices.map((choice) => (
-          <option key={choice.id} value={choice.id}>
-            {choice.name}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
+  // A filter is offered only when at least one listed alum has that detail, so the screen
+  // follows what the alumni records actually hold.
+  const select = (key: FilterKey, label: string, choices: { id: string; name: string }[]) =>
+    choices.length === 0 ? null : (
+      <label>
+        {label}
+        <select
+          value={draft[key]}
+          onChange={(event) => apply({ ...draft, [key]: event.target.value })}
+        >
+          <option value="">Any</option>
+          {choices.map((choice) => (
+            <option key={choice.id} value={choice.id}>
+              {choice.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
   const filtered = toQuery({ ...filters, sort: "name" }) !== "";
   const choices = lists.data;
   return (
@@ -135,11 +142,11 @@ export function ExplorerView({ admin }: { admin: boolean }) {
               onChange={(event) => setDraft({ ...draft, q: event.target.value })}
             />
           </label>
-          {select("industry", "Industry", choices?.industries ?? [])}
-          {select("school", "School", choices?.schools ?? [])}
-          {select("major", "Major", choices?.majors ?? [])}
-          {(choices?.cities.length ?? 0) > 0 && select("city", "City", choices?.cities ?? [])}
-          {select("help", "Help offered", choices?.helpKinds ?? [])}
+          {select("industry", "Industry", used(choices?.industries, choices?.inUse.industries))}
+          {select("school", "School", used(choices?.schools, choices?.inUse.schools))}
+          {select("major", "Major", used(choices?.majors, choices?.inUse.majors))}
+          {select("city", "City", choices?.cities ?? [])}
+          {select("help", "Help offered", used(choices?.helpKinds, choices?.inUse.helpKinds))}
           <label>
             Graduated from
             <input

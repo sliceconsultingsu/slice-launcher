@@ -53,7 +53,7 @@ describe("refresh_due", () => {
     ]);
     expect(result.remaining).toBe(0);
     expect(result.minGapSeconds).toBe(10);
-    expect(result.industries).toHaveLength(15);
+    expect(result.industries).toHaveLength(19);
     expect(result.industries).toContainEqual({ id: "consulting", name: "Consulting" });
   });
 

@@ -40,7 +40,7 @@ const newMember = { id: "member-example-new", name: "Morgan Example" };
 describe("fixed lists", () => {
   it("returns every list people choose from, without former degree names", async () => {
     const lists = await data.reads.lists();
-    expect(lists.industries).toHaveLength(15);
+    expect(lists.industries).toHaveLength(19);
     expect(lists.helpKinds).toHaveLength(6);
     expect(lists.skills.length).toBeGreaterThan(10);
     expect(lists.schools).toHaveLength(10);
@@ -50,6 +50,13 @@ describe("fixed lists", () => {
       schoolId: "whitman",
     });
     expect(lists.cities).toContainEqual({ id: "loc-nyc", name: "New York, NY" });
+    // Only what a listed alum has is offered as a filter: nobody in the seed works in Sales.
+    expect(lists.inUse.industries).toContain("consulting");
+    expect(lists.inUse.industries).not.toContain("sales");
+    expect(lists.inUse.schools).toContain("whitman");
+    expect(lists.inUse.majors).toContain("finance");
+    expect(lists.inUse.helpKinds).toContain("career-advice");
+    expect(lists.inUse.industries.length).toBeLessThan(lists.industries.length);
     expect(lists.cities).toContainEqual({ id: "loc-lon", name: "London, United Kingdom" });
     // A city nobody listed works in is not offered: one added by an unreviewed proposal, say.
     await data.store.findOrCreateLocation("Reykjavik", null, "Iceland");
