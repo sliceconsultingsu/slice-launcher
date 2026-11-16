@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { readCommand } from "./auth";
-import { applyCommand, effectivePermissions, enroll, memberView } from "./domain";
+import { applyCommand, auditView, effectivePermissions, enroll, memberView } from "./domain";
 import { MembershipError } from "./contracts";
 import type { SignedInIdentity } from "./contracts";
 import type { Repository } from "./repository";
@@ -43,7 +43,7 @@ export async function membershipRequest(
     if (new URL(request.url).searchParams.get("view") === "history") {
       if (!effectivePermissions(state, member).includes("audit.read"))
         throw new MembershipError(403, "You do not have permission to view access history.");
-      return json({ history: await repository.history() });
+      return json({ history: (await repository.history()).map(auditView) });
     }
     return json(memberView(state, identity.subject));
   }

@@ -99,6 +99,33 @@ export async function checkLauncher(
   );
 }
 
+/**
+ * The page framework's image endpoint must be closed. Slice does not use it, and left open it
+ * redirects to whatever address it is given. Checked on the compiled Worker in the smoke test.
+ */
+export async function checkImageEndpointClosed(baseUrl, { signal } = {}) {
+  // The framework decodes the path and ignores repeated and trailing slashes before matching.
+  const paths = [
+    "/_next/image",
+    "/_next//image/",
+    "/_vinext/image",
+    "/_next/%69mage",
+    "/%5Fnext/image",
+  ];
+  for (const path of paths) {
+    for (const target of ["%2Fslice-logo.png", "%2F.%2F%2Fexample.com"]) {
+      const response = await fetch(new URL(`${path}?url=${target}&w=64&q=75`, baseUrl), {
+        redirect: "manual",
+        signal: AbortSignal.any([AbortSignal.timeout(5000), ...(signal ? [signal] : [])]),
+      });
+      await response.body?.cancel();
+      assert.equal(response.status, 404, `The image endpoint must be closed: ${path}`);
+      assert.equal(response.headers.get("location"), null, "A closed endpoint must not redirect");
+    }
+  }
+  console.log("Image endpoint is closed.");
+}
+
 async function checkAnonymousDenied(
   baseUrl,
   path,

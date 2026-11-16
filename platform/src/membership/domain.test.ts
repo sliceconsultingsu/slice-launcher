@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { applyCommand, effectivePermissions, enroll, emptyState, memberView } from "./domain";
+import {
+  applyCommand,
+  auditView,
+  effectivePermissions,
+  enroll,
+  emptyState,
+  memberView,
+} from "./domain";
 
 const ownerIdentity = { subject: "owner-sub", email: "owner@example.test", emailManaged: true };
 const person = { subject: "person-sub", email: "person@example.test", emailManaged: true };
@@ -386,5 +393,50 @@ describe("removing a member", () => {
     });
     s = run(s, remove(idOf(s, other.subject)));
     expect(s.members.filter((m) => m.owner && m.status === "active")).toHaveLength(1);
+  });
+});
+
+describe("sign-in account IDs stay on the server", () => {
+  function invitedAndSignedIn() {
+    let s = run(setup(), {
+      type: "member.add",
+      email: "invited@example.test",
+      name: "Invited",
+      levelId: "member",
+    });
+    s = enroll(s, person, { ...meta, id: "person-member" }).state;
+    return s;
+  }
+
+  it("a manager sees who has signed in, not their account IDs", () => {
+    const view = memberView(invitedAndSignedIn(), ownerIdentity.subject);
+    expect(JSON.stringify(view)).not.toContain("-sub");
+    expect(view.me).toMatchObject({ email: ownerIdentity.email, signedIn: true });
+    expect(view.me).not.toHaveProperty("subject");
+    const byEmail = Object.fromEntries(view.members.map((m) => ["email" in m ? m.email : m.id, m]));
+    expect(byEmail[person.email]).toMatchObject({ signedIn: true, status: "pending" });
+    expect(byEmail["invited@example.test"]).toMatchObject({ signedIn: false, status: "invited" });
+    for (const member of view.members) expect(member).not.toHaveProperty("subject");
+  });
+
+  it("history entries are shown without account IDs", () => {
+    const signIn = enroll(emptyState(ownerIdentity.email), person, meta);
+    if (!signIn.audit) throw new Error("Expected an audit entry");
+    const shown = auditView(signIn.audit);
+    expect(JSON.stringify(shown)).not.toContain(person.subject);
+    expect(shown.before).toBeNull();
+    expect(shown.after).toMatchObject({ email: person.email, signedIn: true });
+    expect(shown).toMatchObject({ id: signIn.audit.id, action: "member.signin" });
+    // The stored entry is untouched.
+    expect(signIn.audit.after).toMatchObject({ subject: person.subject });
+    // Entries that hold only an identity, and entries about levels, are handled too.
+    expect(
+      auditView({ ...signIn.audit, before: { subject: "old" }, after: { subject: "new" } }),
+    ).toMatchObject({ before: { signedIn: true }, after: { signedIn: true } });
+    const level = { id: "l", name: "Level", permissions: [] };
+    expect(auditView({ ...signIn.audit, before: level, after: "text" })).toMatchObject({
+      before: level,
+      after: "text",
+    });
   });
 });
