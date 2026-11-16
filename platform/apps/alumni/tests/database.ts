@@ -1,8 +1,10 @@
 // Test-only helper: a disposable local D1 database with every migration applied and the fictional
 // seed loaded. Never used by app code, and never connected to production.
 import { readFile } from "node:fs/promises";
+import { afterAll, beforeAll, beforeEach } from "vitest";
 import { unstable_splitSqlQuery } from "wrangler";
 import { database, migrate } from "../../../tests/database";
+import { alumniData, type AlumniData } from "../data/services";
 
 export type TestDatabase = Awaited<ReturnType<typeof database>>["db"];
 
@@ -65,4 +67,42 @@ export async function count(db: TestDatabase, sql: string, ...params: unknown[])
     .bind(...params)
     .first<{ n: number }>();
   return row?.n ?? 0;
+}
+
+/**
+ * Sets up one disposable database for a test file, reloads the seed before each test, and gives
+ * the test a clock it can move. IDs are predictable: test-1, test-2, and so on.
+ */
+export function useAlumniData(start = "2026-11-15T15:00:00.000Z") {
+  let fixture: Awaited<ReturnType<typeof openAlumniDatabase>> | undefined;
+  let data: AlumniData | undefined;
+  const ready = <Value>(value: Value | undefined): Value => {
+    if (value === undefined) throw new Error("The test database is not ready yet.");
+    return value;
+  };
+  const state = {
+    /** The current time every operation sees. Assign to move the clock. */
+    now: start,
+    get db(): TestDatabase {
+      return ready(fixture).db;
+    },
+    get data(): AlumniData {
+      return ready(data);
+    },
+    /** Moves the clock forward. */
+    advance(seconds: number) {
+      state.now = new Date(Date.parse(state.now) + seconds * 1000).toISOString();
+    },
+  };
+  beforeAll(async () => {
+    fixture = await openAlumniDatabase();
+  }, 30_000);
+  afterAll(async () => fixture?.runtime.dispose());
+  beforeEach(async () => {
+    await loadSeed(state.db);
+    state.now = start;
+    let next = 0;
+    data = alumniData(state.db, { now: () => state.now, newId: () => `test-${++next}` });
+  });
+  return state;
 }

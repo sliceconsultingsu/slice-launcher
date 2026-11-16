@@ -17,6 +17,7 @@ import { createPlatform } from "../../src/platform/dispatch";
 import type { AppModule } from "../../src/platform/contracts";
 import { apps } from "../../src/lib/apps";
 import { workspacePort } from "../../workspace-ports";
+import { setPreviewDatabase } from "./cloudflare-workers";
 
 const defaultPort = workspacePort(0, 4310);
 const args = process.argv.slice(2);
@@ -45,6 +46,8 @@ const root = fileURLToPath(new URL("../../", import.meta.url));
 const fixture = await database();
 await migrate(fixture.db);
 await reset(fixture.db);
+// App code reaches this same disposable database through the stand-in module aliased below.
+setPreviewDatabase(fixture.db);
 const repository = new Repository(fixture.db);
 const config = {
   issuer: "https://slice-learning-only.cloudflareaccess.com",
@@ -69,7 +72,12 @@ const vite = await createViteServer({
   envDir: false,
   root,
   cacheDir: "node_modules/.vite-team",
-  resolve: { dedupe: ["react", "react-dom"] },
+  resolve: {
+    dedupe: ["react", "react-dom"],
+    alias: {
+      "cloudflare:workers": fileURLToPath(new URL("./cloudflare-workers.ts", import.meta.url)),
+    },
+  },
   optimizeDeps: {
     noDiscovery: true,
     include: ["react", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime"],
