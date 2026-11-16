@@ -35,9 +35,9 @@ export function useLoad<Body>(path: string, method: "GET" | "POST" = "GET") {
 
 export function LoadError({ message, retry }: { message: string; retry(): void }) {
   return (
-    <div className="notice error-notice" role="alert">
+    <div className="al-note al-note-error" role="alert">
       <p>{message}</p>
-      <button type="button" className="text-button" onClick={retry}>
+      <button type="button" className="al-text-btn" onClick={retry}>
         Try again
       </button>
     </div>

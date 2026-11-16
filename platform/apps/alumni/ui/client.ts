@@ -57,3 +57,15 @@ export function formatDate(value: string | null): string | null {
 export function formatMonth(value: string | null): string | null {
   return value ? (formatDate(`${value}-15T00:00:00.000Z`)?.replace(/ \d+,/, "") ?? null) : null;
 }
+
+/** "Today", "Yesterday", "5 days ago", then the date. */
+export function formatAgo(value: string, now = Date.now()): string | null {
+  const then = Date.parse(value);
+  if (Number.isNaN(then)) return null;
+  const days = Math.floor((now - then) / 86_400_000);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 14) return `${days} days ago`;
+  if (days < 56) return `${Math.floor(days / 7)} weeks ago`;
+  return formatDate(value);
+}

@@ -1,16 +1,26 @@
 "use client";
 import type { StudentProfile } from "../data/reads";
-import { APP } from "./client";
+import type { MyMatches } from "../matching/mine";
 import { AddAlumniView } from "./add";
 import { AlumView } from "./alum";
+import { AnswersView } from "./answers";
+import { APP } from "./client";
 import { ConfirmView } from "./confirm";
 import { ExplorerView } from "./explorer";
+import { HomeView } from "./home";
+import { ManageView } from "./manage";
 import { MatchesView } from "./matches";
-import { ProfileForm } from "./profile-form";
+import { waiting } from "./mine";
+import { Tile } from "./people";
 import { ReplyFormView } from "./reply-form";
 import { ReviewView } from "./review";
 import { LoadError, useLoad } from "./use-load";
 import "./alumni.css";
+
+// The two typefaces of the alumni look. The browser fetches them from Google Fonts; if that
+// fails, the screens fall back to the launcher's own font and still work.
+const FONTS =
+  "https://fonts.googleapis.com/css2?family=League+Spartan:wght@700;800&family=DM+Sans:wght@400;500;700&display=swap";
 
 interface Me {
   name: string;
@@ -18,118 +28,155 @@ interface Me {
   profile: StudentProfile | null;
 }
 type View =
-  "matches" | "explore" | "alum" | "profile" | "review" | "add" | "confirm" | "reply" | "not-found";
+  | "home"
+  | "matches"
+  | "explore"
+  | "alum"
+  | "profile"
+  | "manage"
+  | "review"
+  | "add"
+  | "confirm"
+  | "reply"
+  | "not-found";
+const ADMIN_VIEWS: View[] = ["manage", "review", "add", "confirm", "reply"];
 
 function viewOf(path: string[]): View {
-  if (path.length === 0) return "matches";
-  if (path.length === 1 && path[0] === "explore") return "explore";
-  if (path.length === 2 && path[0] === "alumni") return "alum";
-  if (path.length === 1 && path[0] === "profile") return "profile";
-  if (path.length === 1 && path[0] === "review") return "review";
-  if (path.length === 1 && path[0] === "add") return "add";
-  if (path.length === 1 && path[0] === "confirm") return "confirm";
-  if (path.length === 3 && path[0] === "alumni" && path[2] === "reply") return "reply";
+  const [first, , third] = path;
+  if (path.length === 0) return "home";
+  if (path.length === 2 && first === "alumni") return "alum";
+  if (path.length === 3 && first === "alumni" && third === "reply") return "reply";
+  if (path.length !== 1) return "not-found";
+  if (first === "matches" || first === "explore" || first === "profile") return first;
+  if (first === "manage" || first === "review" || first === "add" || first === "confirm")
+    return first;
   return "not-found";
 }
-const TITLES: Record<View, string> = {
-  matches: "Your alumni matches",
-  explore: "Explore alumni",
-  alum: "Alum profile",
-  profile: "My profile",
-  review: "Review proposed changes",
-  add: "Add alumni",
-  confirm: "Confirm alumni details",
-  reply: "Record a reply",
-  "not-found": "Page not found",
-};
 
 /** The whole alumni app. `path` is the part of the address after /apps/alumni. */
 export function AlumniApp({ path }: { path: string[] }) {
   const me = useLoad<Me>("me");
+  // Opening the app also gives the student their next set of matches when one is due.
+  const mine = useLoad<MyMatches>("me/matches", "POST");
   const view = viewOf(path);
-  const tabs: { view: View; href: string; label: string }[] = [
-    { view: "matches", href: APP, label: "Matches" },
-    { view: "explore", href: `${APP}/explore`, label: "Explore alumni" },
-    { view: "profile", href: `${APP}/profile`, label: "My profile" },
-    ...(me.data?.admin
-      ? [
-          { view: "review" as const, href: `${APP}/review`, label: "Review changes" },
-          { view: "add" as const, href: `${APP}/add`, label: "Add alumni" },
-          { view: "confirm" as const, href: `${APP}/confirm`, label: "Confirm details" },
-        ]
-      : []),
-  ];
-  const current = view === "alum" ? "explore" : view === "reply" ? "confirm" : view;
-  const firstUse = view === "matches" && me.data !== null && !me.data.profile?.complete;
-  const name = me.data?.name ?? "";
   const admin = me.data?.admin ?? false;
+  const name = me.data?.name ?? "";
+  const firstUse =
+    (view === "home" || view === "matches") && me.data !== null && !me.data.profile?.complete;
+  const section = view === "alum" ? "explore" : ADMIN_VIEWS.includes(view) ? "manage" : view;
+  const left = waiting(mine.data?.matches ?? []).length;
+  const tabs = [
+    { id: "home", href: APP, label: "Home", count: 0 },
+    { id: "matches", href: `${APP}/matches`, label: "Matches", count: left },
+    { id: "explore", href: `${APP}/explore`, label: "Network", count: 0 },
+    ...(admin ? [{ id: "manage", href: `${APP}/manage`, label: "Manage", count: 0 }] : []),
+  ];
+
   return (
-    <section className="alumni-workspace" aria-labelledby="alumni-title">
-      <p className="eyebrow">Slice Consulting · Alumni</p>
-      <h1 id="alumni-title">{firstUse ? "Set up your profile" : TITLES[view]}</h1>
-      <p className="notice">
-        <strong>Work in progress</strong> · This app is still being built and will change.
-      </p>
-      <nav className="alumni-tabs" aria-label="Alumni sections">
-        {tabs.map((tab) => (
-          <a
-            key={tab.view}
-            href={tab.href}
-            aria-current={tab.view === current ? "page" : undefined}
-          >
-            {tab.label}
+    <section className="alumni-workspace" aria-label="Slice alumni">
+      <link rel="stylesheet" href={FONTS} precedence="default" />
+      <div className="al-bar">
+        <a className="al-brand" href={APP}>
+          SLICE ALUMNI
+        </a>
+        {firstUse ? (
+          <a className="al-more" href={`${APP}/explore`}>
+            Skip for now and browse the network
           </a>
-        ))}
-      </nav>
+        ) : (
+          <>
+            <nav className="al-nav" aria-label="Alumni sections">
+              {tabs.map((tab) => (
+                <a
+                  key={tab.id}
+                  href={tab.href}
+                  aria-current={tab.id === section ? "page" : undefined}
+                >
+                  {tab.label}
+                  {tab.count > 0 && (
+                    <span className="al-count">
+                      {tab.count}
+                      <span className="sr-only"> left to look at</span>
+                    </span>
+                  )}
+                </a>
+              ))}
+            </nav>
+            <div className="al-bar-end">
+              {name && (
+                <a className="al-me" href={`${APP}/profile`} aria-label="My answers">
+                  <Tile id={name} name={name} />
+                </a>
+              )}
+            </div>
+          </>
+        )}
+      </div>
       {me.loading ? (
         <p role="status">Loading the alumni app…</p>
       ) : me.error || !me.data ? (
         <LoadError message={me.error ?? "We couldn’t load the alumni app."} retry={me.reload} />
       ) : view === "not-found" ? (
-        <p>
-          There is nothing at this address. <a href={APP}>Go to your matches</a>
-        </p>
-      ) : view === "explore" ? (
-        <ExplorerView admin={me.data.admin} />
-      ) : view === "alum" ? (
-        <AlumView id={path[1] ?? ""} admin={me.data.admin} />
-      ) : view === "review" || view === "add" || view === "confirm" || view === "reply" ? (
-        admin ? (
-          view === "review" ? (
-            <ReviewView />
-          ) : view === "add" ? (
-            <AddAlumniView />
-          ) : view === "confirm" ? (
-            <ConfirmView />
-          ) : (
-            <ReplyFormView id={path[1] ?? ""} />
-          )
-        ) : (
-          <p className="notice" role="status">
+        <>
+          <h1 className="al-h1">Nothing here</h1>
+          <p>
+            There is nothing at this address. <a href={APP}>Go to the home page</a>
+          </p>
+        </>
+      ) : ADMIN_VIEWS.includes(view) && !admin ? (
+        <>
+          <h1 className="al-h1">Admins only</h1>
+          <p className="al-note" role="status">
             Only a Slice admin can open this page.
           </p>
-        )
+        </>
+      ) : view === "manage" ? (
+        <ManageView />
+      ) : view === "review" ? (
+        <ReviewView />
+      ) : view === "add" ? (
+        <AddAlumniView />
+      ) : view === "confirm" ? (
+        <ConfirmView />
+      ) : view === "reply" ? (
+        <ReplyFormView id={path[1] ?? ""} />
+      ) : view === "explore" ? (
+        <ExplorerView admin={admin} mine={mine.data} />
+      ) : view === "alum" ? (
+        <AlumView id={path[1] ?? ""} admin={admin} mine={mine.data} onMine={mine.replace} />
       ) : firstUse && !name ? (
-        <p className="notice" role="status">
-          Add your name on <a href="/account">your account page</a> first. The alumni app uses it
-          for your profile.
-        </p>
+        <>
+          <h1 className="al-h1">Add your name first</h1>
+          <p className="al-note" role="status">
+            Add your name on <a href="/account">your account page</a> first. The alumni app uses it
+            for your answers.
+          </p>
+        </>
       ) : firstUse ? (
-        // A new student sees the profile form first, then lands on their matches.
-        <ProfileForm
+        // A new student answers three short steps first, then lands on their matches.
+        <AnswersView
           profile={me.data.profile}
           firstUse
-          onSaved={() => window.location.assign(APP)}
+          onSaved={() => window.location.assign(`${APP}/matches`)}
         />
       ) : view === "profile" ? (
-        <ProfileForm
+        <AnswersView
           profile={me.data.profile}
           firstUse={false}
           onSaved={(profile) => me.replace({ name, admin, profile })}
         />
+      ) : mine.loading ? (
+        <p role="status">Loading your matches…</p>
+      ) : mine.error || !mine.data ? (
+        <LoadError message={mine.error ?? "We couldn’t load your matches."} retry={mine.reload} />
+      ) : view === "matches" ? (
+        <MatchesView name={name} mine={mine.data} onMine={mine.replace} />
       ) : (
-        <MatchesView />
+        <HomeView name={name} mine={mine.data} />
       )}
+      <p className="al-foot">
+        <strong>Work in progress</strong> · This app is still being built and will change.
+      </p>
     </section>
   );
 }

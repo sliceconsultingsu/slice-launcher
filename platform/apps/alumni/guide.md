@@ -4,12 +4,13 @@ The alumni directory helps Slice consultants find alumni whose experience fits t
 
 ## What you can do
 
-1. **Set up your profile.** The first time you open **Alumni directory** from the App Launcher, say what you study, when you graduate, the industries you are interested in and the help you want. It takes about two minutes. You can change your answers at any time under **My profile**.
-2. **See your matches.** **Matches** shows three alumni chosen for you, each with the reasons in plain words, such as "Works in Consulting, an industry you chose". You get a new set every 30 days and are never given the same person twice. Earlier matches stay on the page.
-3. **Say what you did.** Use **I contacted them** or **Not for me** on a match. Only you and Slice admins see this. It tells Slice whether matches are useful.
-4. **Explore alumni.** Search by name or employer, filter by industry, school, major, city, graduation year or the help someone offers, and open a profile to see their jobs, education and the contact details shared with members.
+1. **Answer three short steps.** The first time you open **Alumni directory** from the App Launcher, say what you study, when you graduate, the industries you are interested in and the help you want. It takes about two minutes. You can change your answers at any time: choose the tile with your initials.
+2. **Start at Home.** **Home** tells you how many alumni are waiting in your matches, and lists what changed lately in the network: who moved to a new job, who joined, and who is now offering help.
+3. **Meet your matches one at a time.** **Matches** shows one alum on a card, with what you have in common in plain words, such as "Works in Consulting, an industry you chose". Choose **Reach out** or **Not for me**, and the next alum appears. You get three every 30 days and are never given the same person twice. You can change a decision afterwards.
+4. **Reach out.** **Reach out** marks that alum as reached out and opens a first message you can edit, with buttons to open it in your own email or go to their LinkedIn page. The app sends nothing itself.
+5. **Browse the network.** **Network** shows every listed alum. Search by name or company, pick an industry, or filter by school, major, city, graduation year or the help someone offers. Open a profile to see why you were matched, their path so far, and the contact details shared with members.
 
-You contact an alum yourself, outside the app. The app does not send messages.
+Only you and Slice admins see your answers and what you decided about a match.
 
 ## Use it from your AI assistant
 
@@ -31,9 +32,11 @@ What your assistant reads leaves Slice for that AI app and its provider, so ask 
 
 ## For admins
 
+Admins see a fourth section, **Manage**. It counts the three jobs that keep the network right and links to each.
+
 - **Review changes** lists updates the alumni refresh has suggested. Nothing changes a profile until you choose **Approve**. **Reject** leaves the profile as it is.
+- **Confirm details** emails each listed alum once, asking them to confirm their job and say which contact details they are happy to share. Read the email on the screen first; sending cannot be undone. Their reply arrives in your own email. Choose **Record their reply** on their row and enter what they said. If they ask not to be listed, tick that box and they are hidden.
 - **Add alumni** loads rows pasted from the alumni contact book. Loading the same rows twice adds nobody twice.
-- **Confirm details** emails each listed alum once, asking them to confirm their job and say which contact details they are happy to share. Read the email on the screen first; sending cannot be undone. Their reply arrives in your own email. Open their profile, choose **Record a reply from them**, and enter what they said. If they ask not to be listed, tick that box and they are hidden.
 - On a profile you can hide one contact detail from members, or hide the alum from listings altogether, and undo either.
 
 ## Getting access

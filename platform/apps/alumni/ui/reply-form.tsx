@@ -2,6 +2,7 @@
 import { useState, type FormEvent } from "react";
 import type { ReplyForm } from "../confirmation/reply";
 import type { Lists } from "../data/reads";
+import { AdminHead } from "./admin-head";
 import { APP, request } from "./client";
 import { LoadError, useLoad } from "./use-load";
 
@@ -51,21 +52,21 @@ function Fields({ form, lists }: { form: ReplyForm; lists: Lists }) {
   };
   if (saved)
     return (
-      <p className="notice" role="status">
+      <p className="al-note al-note-ok" role="status">
         Saved. {form.name}’s profile is updated and marked as confirmed today.{" "}
         <a href={profile}>See the profile</a> or <a href={`${APP}/confirm`}>go back to the list</a>.
       </p>
     );
   return (
-    <form className="form-stack alumni-card" onSubmit={(event) => void submit(event)} noValidate>
-      <p className="alumni-muted">
+    <form className="al-card al-form" onSubmit={(event) => void submit(event)} noValidate>
+      <p className="al-muted">
         Enter what {form.name} told you in their reply. Leave anything they did not mention as it
         is.
       </p>
-      <fieldset>
-        <legend>Current job</legend>
-        <div className="alumni-filters">
-          <label>
+      <fieldset className="al-group">
+        <legend className="al-legend">Current job</legend>
+        <div className="al-fields">
+          <label className="al-field">
             Company
             <input
               type="text"
@@ -74,7 +75,7 @@ function Fields({ form, lists }: { form: ReplyForm; lists: Lists }) {
               onChange={(e) => setEmployer(e.target.value)}
             />
           </label>
-          <label>
+          <label className="al-field">
             Role
             <input
               type="text"
@@ -83,7 +84,7 @@ function Fields({ form, lists }: { form: ReplyForm; lists: Lists }) {
               onChange={(e) => setTitle(e.target.value)}
             />
           </label>
-          <label>
+          <label className="al-field">
             Industry
             <select value={industryId} onChange={(e) => setIndustryId(e.target.value)}>
               <option value="">Choose an industry</option>
@@ -96,17 +97,15 @@ function Fields({ form, lists }: { form: ReplyForm; lists: Lists }) {
           </label>
         </div>
       </fieldset>
-      <fieldset>
-        <legend>Contact details they are happy to share</legend>
-        <p className="field-note">
+      <fieldset className="al-group">
+        <legend className="al-legend">Contact details they are happy to share</legend>
+        <p className="al-field-note">
           Ticked details are shown to Slice members. Unticked ones are hidden.
         </p>
-        {form.contacts.length === 0 && (
-          <p className="alumni-muted">No contact details are on file.</p>
-        )}
-        <div className="alumni-choices">
+        {form.contacts.length === 0 && <p className="al-muted">No contact details are on file.</p>}
+        <div className="al-options">
           {form.contacts.map((contact) => (
-            <label key={contact.id} className="check-label">
+            <label key={contact.id} className="al-option">
               <input
                 type="checkbox"
                 checked={Boolean(shared[contact.id])}
@@ -116,8 +115,8 @@ function Fields({ form, lists }: { form: ReplyForm; lists: Lists }) {
             </label>
           ))}
         </div>
-        <div className="alumni-filters">
-          <label>
+        <div className="al-fields">
+          <label className="al-field">
             Add a detail they gave
             <select
               value={newKind}
@@ -132,7 +131,7 @@ function Fields({ form, lists }: { form: ReplyForm; lists: Lists }) {
               ))}
             </select>
           </label>
-          <label>
+          <label className="al-field">
             The new detail
             <input
               type="text"
@@ -143,11 +142,11 @@ function Fields({ form, lists }: { form: ReplyForm; lists: Lists }) {
           </label>
         </div>
       </fieldset>
-      <fieldset>
-        <legend>What they can help with</legend>
-        <div className="alumni-choices">
+      <fieldset className="al-group">
+        <legend className="al-legend">What they can help with</legend>
+        <div className="al-options">
           {lists.helpKinds.map((kind) => (
-            <label key={kind.id} className="check-label">
+            <label key={kind.id} className="al-option">
               <input
                 type="checkbox"
                 checked={help.includes(kind.id)}
@@ -163,7 +162,7 @@ function Fields({ form, lists }: { form: ReplyForm; lists: Lists }) {
             </label>
           ))}
         </div>
-        <label>
+        <label className="al-field">
           Note shown on their profile (optional)
           <input
             type="text"
@@ -173,20 +172,20 @@ function Fields({ form, lists }: { form: ReplyForm; lists: Lists }) {
           />
         </label>
       </fieldset>
-      <label className="check-label">
+      <label className="al-check">
         <input type="checkbox" checked={unlist} onChange={(e) => setUnlist(e.target.checked)} />
         They asked not to be listed. Hide them from members.
       </label>
       {error && (
-        <p className="notice error-notice" role="alert">
+        <p className="al-note al-note-error" role="alert">
           {error}
         </p>
       )}
-      <div className="alumni-actions">
-        <button type="submit" className="primary-button" disabled={saving}>
+      <div className="al-actions">
+        <button type="submit" className="al-btn al-btn-dark" disabled={saving}>
           {saving ? "Saving…" : "Save their reply"}
         </button>
-        <a className="secondary-button" href={profile}>
+        <a className="al-btn" href={profile}>
           Cancel
         </a>
       </div>
@@ -197,12 +196,24 @@ function Fields({ form, lists }: { form: ReplyForm; lists: Lists }) {
 export function ReplyFormView({ id }: { id: string }) {
   const form = useLoad<{ form: ReplyForm }>(`alumni/${encodeURIComponent(id)}/reply`);
   const lists = useLoad<Lists>("lists");
-  if (form.loading || lists.loading) return <p role="status">Loading their details…</p>;
-  if (form.error || !form.data)
-    return <LoadError message={form.error ?? "We couldn’t load this alum."} retry={form.reload} />;
-  if (lists.error || !lists.data)
-    return (
-      <LoadError message={lists.error ?? "We couldn’t load the choices."} retry={lists.reload} />
-    );
-  return <Fields form={form.data.form} lists={lists.data} />;
+  const head = (
+    <AdminHead
+      title="Record a reply"
+      lead="Enter what the alum told you in their reply to the confirmation email. Saving updates their profile and marks it as confirmed today."
+    />
+  );
+  return (
+    <>
+      {head}
+      {form.loading || lists.loading ? (
+        <p role="status">Loading their details…</p>
+      ) : form.error || !form.data ? (
+        <LoadError message={form.error ?? "We couldn’t load this alum."} retry={form.reload} />
+      ) : lists.error || !lists.data ? (
+        <LoadError message={lists.error ?? "We couldn’t load the choices."} retry={lists.reload} />
+      ) : (
+        <Fields form={form.data.form} lists={lists.data} />
+      )}
+    </>
+  );
 }

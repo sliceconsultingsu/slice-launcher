@@ -7,7 +7,7 @@ import { refreshTools } from "./refresh/tools";
 import { AlumniApp } from "./ui/app";
 
 /** Pages only a Slice admin may open. Their API routes check the same permission again. */
-const ADMIN_PAGES = new Set(["review", "add", "confirm"]);
+const ADMIN_PAGES = new Set(["manage", "review", "add", "confirm"]);
 
 export default {
   tools: [...studentTools(openAlumniData), ...refreshTools(openAlumniData)],

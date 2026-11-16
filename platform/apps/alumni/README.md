@@ -4,24 +4,25 @@ Helps Slice consultants find alumni whose experience fits their career interests
 
 **Status: work in progress.** The code is complete for the first version described in the product requirements, with tests. It is not live: the alumni database changes (migrations 0004 to 0008) have not been applied to production, and no real alumni have been loaded. The repository contains invented people only.
 
-Screenshots with fictional data: [matches](../../../docs/images/alumni/matches-desktop.png) · [explorer](../../../docs/images/alumni/explore-desktop.png) · [profile](../../../docs/images/alumni/alum-profile-desktop.png) · [first use](../../../docs/images/alumni/first-use-desktop.png) · [review](../../../docs/images/alumni/review-desktop.png) · [add alumni](../../../docs/images/alumni/add-alumni-desktop.png). Phone-width versions sit beside them.
+Screenshots with fictional data: [home](../../../docs/images/alumni/home-desktop.png) · [matches](../../../docs/images/alumni/matches-desktop.png) · [reach out](../../../docs/images/alumni/reach-out-desktop.png) · [network](../../../docs/images/alumni/network-desktop.png) · [profile](../../../docs/images/alumni/alum-profile-desktop.png) · [first use](../../../docs/images/alumni/first-use-desktop.png) · [manage](../../../docs/images/alumni/manage-desktop.png) · [confirm details](../../../docs/images/alumni/confirm-desktop.png) · [add alumni](../../../docs/images/alumni/add-alumni-desktop.png) · [record a reply](../../../docs/images/alumni/record-reply-desktop.png). Phone-width versions of home, matches, network, profile and manage sit beside them.
 
 ## How it is organized
 
-| Folder or file                     | What it holds                                                                                                           |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `data/store.ts`                    | Changes to alumni records: add an alum, change a job, propose and review a change, merge duplicates, graduate a student |
-| `data/students.ts`                 | A student's own profile and what they did with a match                                                                  |
-| `data/reads.ts`                    | Every read. Each takes who is asking and returns only what they may see                                                 |
-| `data/import.ts`                   | Loading rows from the alumni contact book                                                                               |
-| `data/database.ts`                 | The only file that reaches the real database                                                                            |
-| `matching/`                        | The matching rules (`score.ts`), the settings (`config.ts`) and giving a student their next set (`assign.ts`)           |
-| `refresh/`                         | The alumni refresh: who is due, filing a result, graduation, and the review list                                        |
-| `confirmation/`                    | Confirmation emails: the wording, sending, the log of who was asked, and recording a reply                              |
-| `mcp/tools.ts`, `refresh/tools.ts` | The assistant tools                                                                                                     |
-| `api.ts`                           | The API routes under `/api/apps/alumni/`                                                                                |
-| `ui/`                              | The screens                                                                                                             |
-| `tests/`                           | Test-only helpers: a disposable database with the fictional seed, and invented members                                  |
+| Folder or file                     | What it holds                                                                                                                                                           |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data/store.ts`                    | Changes to alumni records: add an alum, change a job, propose and review a change, merge duplicates, graduate a student                                                 |
+| `data/students.ts`                 | A student's own profile and what they did with a match                                                                                                                  |
+| `data/reads.ts`                    | Every read. Each takes who is asking and returns only what they may see                                                                                                 |
+| `data/import.ts`                   | Loading rows from the alumni contact book                                                                                                                               |
+| `data/network.ts`                  | The network as a whole: how many alumni, where they work, and what changed lately                                                                                       |
+| `data/database.ts`                 | The only file that reaches the real database                                                                                                                            |
+| `matching/`                        | The matching rules (`score.ts`), the settings (`config.ts`), giving a student their next set (`assign.ts`), and the first message offered after Reach out (`opener.ts`) |
+| `refresh/`                         | The alumni refresh: who is due, filing a result, graduation, and the review list                                                                                        |
+| `confirmation/`                    | Confirmation emails: the wording, sending, the log of who was asked, and recording a reply                                                                              |
+| `mcp/tools.ts`, `refresh/tools.ts` | The assistant tools                                                                                                                                                     |
+| `api.ts`                           | The API routes under `/api/apps/alumni/`                                                                                                                                |
+| `ui/`                              | The screens, and their styles in `ui/alumni.css`                                                                                                                        |
+| `tests/`                           | Test-only helpers: a disposable database with the fictional seed, and invented members                                                                                  |
 
 The data dictionary, [`data/DATA-DICTIONARY.md`](data/DATA-DICTIONARY.md), describes every table and field and who may see it.
 
@@ -48,26 +49,27 @@ A member holding `refresh.run` without `admin` cannot use a LinkedIn link an adm
 
 ## Pages and API routes
 
-Pages: `/apps/alumni` (matches, or the first-use profile), `/explore`, `/alumni/<id>`, `/profile`, and for admins `/review`, `/add`, `/confirm` and `/alumni/<id>/reply`.
+Pages: `/apps/alumni` (home, or the three first-use steps), `/matches`, `/explore` (the network), `/alumni/<id>`, `/profile` (my answers), and for admins `/manage`, `/review`, `/add`, `/confirm` and `/alumni/<id>/reply`.
 
-| Route                      | Method    | Needs          | Does                                                                     |
-| -------------------------- | --------- | -------------- | ------------------------------------------------------------------------ |
-| `alumni`                   | GET       | `records.read` | Search with filters, sorting and paging                                  |
-| `alumni/<id>`              | GET       | `records.read` | One profile                                                              |
-| `lists`                    | GET       | `records.read` | The fixed choices                                                        |
-| `me`                       | GET       | `records.read` | Who is signed in and their own profile                                   |
-| `me/profile`               | PUT       | `records.read` | Save the student's own answers                                           |
-| `me/matches`               | GET, POST | `records.read` | GET lists matches. POST also gives the next set when due                 |
-| `me/matches/<id>/outcome`  | POST      | `records.read` | Record "contacted" or "not for me"                                       |
-| `proposals`                | GET       | `admin`        | Pending proposed changes                                                 |
-| `proposals/<id>/review`    | POST      | `admin`        | Approve or reject one                                                    |
-| `alumni/<id>/listing`      | POST      | `admin`        | Hide or list an alum                                                     |
-| `contacts/<id>/visibility` | POST      | `admin`        | Hide or show one contact detail                                          |
-| `import`                   | POST      | `admin`        | Load up to 25 contact-book rows                                          |
-| `confirmations`            | GET       | `admin`        | Where each alum stands, whether email is set up, and the email's wording |
-| `confirmations/send`       | POST      | `admin`        | Send up to 10 confirmation emails to alumni who are due                  |
-| `alumni/<id>/reply`        | GET, POST | `admin`        | Read what is on file for an alum, and record their reply                 |
-| `records`                  | GET       | `records.read` | The original starter's three sample records, kept for the starter tasks  |
+| Route                      | Method    | Needs          | Does                                                                      |
+| -------------------------- | --------- | -------------- | ------------------------------------------------------------------------- |
+| `alumni`                   | GET       | `records.read` | Search with filters, sorting and paging                                   |
+| `alumni/<id>`              | GET       | `records.read` | One profile                                                               |
+| `lists`                    | GET       | `records.read` | The fixed choices                                                         |
+| `network`                  | GET       | `records.read` | Counts of listed alumni by industry and employer, and what changed lately |
+| `me`                       | GET       | `records.read` | Who is signed in and their own profile                                    |
+| `me/profile`               | PUT       | `records.read` | Save the student's own answers                                            |
+| `me/matches`               | GET, POST | `records.read` | GET lists matches. POST also gives the next set when due                  |
+| `me/matches/<id>/outcome`  | POST      | `records.read` | Record "contacted" or "not for me"                                        |
+| `proposals`                | GET       | `admin`        | Pending proposed changes                                                  |
+| `proposals/<id>/review`    | POST      | `admin`        | Approve or reject one                                                     |
+| `alumni/<id>/listing`      | POST      | `admin`        | Hide or list an alum                                                      |
+| `contacts/<id>/visibility` | POST      | `admin`        | Hide or show one contact detail                                           |
+| `import`                   | POST      | `admin`        | Load up to 25 contact-book rows                                           |
+| `confirmations`            | GET       | `admin`        | Where each alum stands, whether email is set up, and the email's wording  |
+| `confirmations/send`       | POST      | `admin`        | Send up to 10 confirmation emails to alumni who are due                   |
+| `alumni/<id>/reply`        | GET, POST | `admin`        | Read what is on file for an alum, and record their reply                  |
+| `records`                  | GET       | `records.read` | The original starter's three sample records, kept for the starter tasks   |
 
 ## Assistant tools
 
@@ -115,6 +117,17 @@ Email is off until the maintainer does all of this. Until then the screen says s
 
 3. Apply migration `0008`.
 
+## How it looks
+
+This app has its own look, which the maintainer approved as a departure from the [design profile](../../../docs/design-profile.md). Other apps should keep following the profile.
+
+- **People are coloured tiles.** There are no photos. Every alum is a rounded tile in one of six colours with their initials, chosen from their ID so it is always the same.
+- **Matching is a deck.** One alum at a time, with **Reach out** and **Not for me**. Everything else (home, profile, network) reads like a professional network.
+- **Colours and type** are Slice's logo orange and slate, with League Spartan for names and headings and DM Sans for text. Every value is named once at the top of `ui/alumni.css` and scoped to `.alumni-workspace`, so nothing leaks into the launcher or another app.
+- **The fonts load from Google Fonts** in the member's browser (`FONTS` in `ui/app.tsx`). If that request fails, the screens fall back to the launcher's font and still work. Hosting the two font files in this repository instead would remove the outside request.
+- **What "Lately in the network" shows** comes from details a member can already see on a listed profile: job changes, alumni added, and help offered. A hidden alum is never named. It reaches back 180 days (`ACTIVITY_DAYS`).
+- **The first message after Reach out** is built from the match's reasons (`matching/opener.ts`). The student edits it and sends it from their own email or LinkedIn. The app sends nothing.
+
 ## Preview and checks
 
 From the repository root:
@@ -145,6 +158,9 @@ These are the maintainer's steps and are not done by merging code:
 
 ## Open items
 
+- **Passing uses up a match.** A student gets three alumni every 30 days, and **Not for me** does not bring a replacement. They can change the decision, but not swap the alum.
+- **A match is one-sided.** The alum has not agreed to anything; the student's first message is still a cold one.
+- **The home list can be quiet.** With a few dozen alumni and yearly confirmations it may show only one or two entries.
 - **Reading LinkedIn with an assistant** may breach LinkedIn's user agreement, and the risk falls on the account of whoever runs the check. This needs Slice's approval before the first real run.
 - **Alumni cannot edit their own profiles.** They can ask not to be listed by replying to the confirmation email; an admin then hides them, which also stops them being matched.
 - **Recording a reply is several changes, not one.** Each is saved with history, but if one fails partway the earlier ones stay. The form checks everything it can before saving.

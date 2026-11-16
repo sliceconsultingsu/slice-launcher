@@ -1,204 +1,1354 @@
-/* Alumni app styles. They use the platform's tokens and sit beside its shared classes
-   (.primary-button, .secondary-button, .text-button, .notice, .form-stack, .status-badge). */
+/* Alumni app styles.
+
+   This app has its own look, agreed with the maintainer: Slice's logo orange and slate, a heavy
+   display face for names and headings, and a coloured tile with initials for every person. The
+   values are named once below and used through variables. Everything is scoped to
+   .alumni-workspace, so nothing here changes the launcher or another app. */
 .alumni-workspace {
-  color: var(--ink);
-  padding: 8px 0 40px;
-}
-.alumni-workspace h1 {
-  margin: 4px 0 20px;
-  overflow-wrap: anywhere;
-}
-.alumni-workspace h2 {
-  font-size: 19px;
-  font-weight: 600;
-  margin: 0 0 12px;
-}
-.alumni-workspace h3 {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 20px 0 8px;
-}
-.alumni-workspace a:not(.primary-button, .secondary-button) {
-  color: var(--accent);
-  text-underline-offset: 3px;
-}
-.alumni-workspace a:focus-visible,
-.alumni-workspace textarea:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 3px;
-}
-.alumni-tabs {
+  --al-ink: #23262d;
+  --al-muted: #5d6169;
+  --al-line: #e8e0d2;
+  --al-control: #8a8376;
+  --al-card: #ffffff;
+  --al-soft: #f4ecdf;
+  --al-orange: #ff8a3d;
+  --al-orange-soft: #ffe6d3;
+  --al-orange-text: #8a330a;
+  --al-link: #a8400d;
+  --al-green: #1c6b36;
+  --al-green-soft: #e6f4d2;
+  --al-yellow-soft: #fff1c2;
+  --al-on-dark: #d9d4ca;
+  --al-display: "League Spartan", "Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif;
+  color: var(--al-ink);
+  font-family: "DM Sans", "Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
   display: flex;
-  gap: 26px;
-  border-bottom: 1px solid var(--line);
-  margin: 0 0 28px;
-  overflow-x: auto;
+  flex-direction: column;
+  gap: 24px;
+  padding: 0 0 40px;
+  overflow-wrap: anywhere;
+  /* The tilted cards behind the match deck must never make the page scroll sideways. */
+  overflow-x: clip;
 }
-.alumni-workspace .alumni-tabs a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  color: var(--muted);
-  border-bottom: 2px solid transparent;
-  font-size: 14px;
-  white-space: nowrap;
-  text-decoration: none;
-}
-.alumni-workspace .alumni-tabs a[aria-current] {
-  border-color: var(--accent);
-  color: var(--ink);
-  font-weight: 600;
-}
-.alumni-workspace .alumni-tabs a:focus-visible {
-  outline-offset: -3px;
-}
-.alumni-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
-  gap: 20px;
-  list-style: none;
+.alumni-workspace :where(h1, h2, h3, p, ul, ol, dl, dd, fieldset) {
   margin: 0;
   padding: 0;
 }
-.alumni-card {
-  border: 1px solid var(--line);
-  background: var(--surface);
-  border-radius: 14px;
-  padding: 24px;
+.alumni-workspace :where(ul, ol) {
+  list-style: none;
+}
+.alumni-workspace fieldset {
+  border: 0;
   min-width: 0;
-  overflow-wrap: anywhere;
 }
-.alumni-card h2,
-.alumni-card h3 {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0 0 8px;
+.alumni-workspace a {
+  color: var(--al-link);
+  text-underline-offset: 3px;
 }
-.alumni-card p,
-.alumni-card li,
-.alumni-detail p,
-.alumni-detail li,
-.alumni-detail dd {
-  font-size: 14px;
-  line-height: 1.6;
-  margin: 0;
+.alumni-workspace :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--al-ink);
+  outline-offset: 3px;
 }
-.alumni-card ul,
-.alumni-detail ul {
-  margin: 0;
-  padding-left: 20px;
+
+/* Type */
+.al-h1,
+.al-h2,
+.al-h3 {
+  font-family: var(--al-display);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
 }
-.alumni-muted {
-  color: var(--muted);
-  font-size: 14px;
+.al-h1 {
+  font-size: clamp(34px, 5.2vw, 60px);
 }
-.alumni-workspace > .alumni-muted {
-  margin: 0 0 16px;
+.al-h2 {
+  font-size: clamp(24px, 3vw, 32px);
+  letter-spacing: -0.01em;
 }
-.alumni-small {
-  color: var(--muted);
+.al-h3 {
+  font-size: 23px;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.al-lead {
+  font-size: 17px;
+}
+.al-muted {
+  color: var(--al-muted);
+}
+.al-small {
+  color: var(--al-muted);
+  font-size: 13px;
+}
+.al-eyebrow {
+  color: var(--al-muted);
   font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
-.alumni-toolbar {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin: 28px 0 16px;
-}
-.alumni-toolbar h2 {
-  margin: 0;
-}
-.alumni-actions {
+
+/* App bar: name, the sections, and the member's own tile */
+.al-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 16px;
+  align-items: center;
+  gap: 12px 16px;
 }
-.alumni-filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
-  gap: 16px;
-  align-items: end;
-}
-.alumni-filters .alumni-wide {
-  grid-column: 1 / -1;
-}
-.alumni-choices {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
-  gap: 4px 16px;
-}
-.alumni-choices .check-label {
+.alumni-workspace .al-brand {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
   min-height: 44px;
+  color: var(--al-ink);
+  font-family: var(--al-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
 }
-.alumni-workspace .form-stack {
-  display: grid;
-  gap: 28px;
+.al-nav {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--al-line);
+  border-radius: 16px;
+  background: var(--al-card);
 }
-.alumni-workspace .form-stack legend {
-  margin-bottom: 8px;
+.alumni-workspace .al-nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 12px;
+  color: var(--al-ink);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
 }
-.alumni-workspace .form-stack .notice {
-  margin: 0;
+.alumni-workspace .al-nav a[aria-current] {
+  background: var(--al-ink);
+  color: #ffffff;
+  font-weight: 700;
 }
-.alumni-workspace .form-stack .primary-button {
-  justify-self: start;
+.al-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  background: var(--al-orange);
+  color: var(--al-ink);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
 }
-.alumni-workspace .form-stack textarea {
-  width: 100%;
-  min-height: 180px;
-  background: white;
-  border: 1px solid #cfcec6;
-  border-radius: 7px;
-  padding: 11px 12px;
+.al-bar-end {
+  flex: 1 1 0;
+  display: flex;
+  justify-content: flex-end;
+}
+.alumni-workspace .al-me {
+  text-decoration: none;
+}
+
+/* A person: a coloured tile with their initials */
+.al-tile {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--al-ink);
+  font-family: var(--al-display);
+  font-weight: 800;
+  line-height: 1;
+}
+.al-tile-sm {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 18px;
+}
+.al-tile-md {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  font-size: 24px;
+}
+.al-tile-lg {
+  width: 84px;
+  height: 84px;
+  border-radius: 22px;
+  font-size: 40px;
+}
+.al-tile-plain {
+  background: var(--al-ink);
+  color: var(--al-orange);
+}
+.al-c0 {
+  background: #b4d2ff;
+}
+.al-c1 {
+  background: #ffb37a;
+}
+.al-c2 {
+  background: #c9ec8f;
+}
+.al-c3 {
+  background: #ffaeb5;
+}
+.al-c4 {
+  background: #ffe27a;
+}
+.al-c5 {
+  background: #d9c8ff;
+}
+
+/* Buttons and links that look like buttons */
+.alumni-workspace .al-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  box-sizing: border-box;
+  padding: 0 24px;
+  border: 2px solid var(--al-ink);
+  border-radius: 16px;
+  background: var(--al-card);
+  color: var(--al-ink);
   font: inherit;
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
 }
-.alumni-detail {
-  display: grid;
-  gap: 20px;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+.alumni-workspace .al-btn-dark {
+  background: var(--al-ink);
+  color: #ffffff;
 }
-.alumni-detail dl {
-  margin: 0;
-  display: grid;
+.alumni-workspace .al-btn-go {
+  min-height: 60px;
+  padding: 0 32px;
+  border-radius: 18px;
+  background: var(--al-orange);
+  font-family: var(--al-display);
+  font-size: 23px;
+  font-weight: 800;
+  box-shadow: 0 5px 0 var(--al-ink);
+}
+.alumni-workspace .al-btn[aria-pressed="true"] {
+  background: var(--al-ink);
+  color: #ffffff;
+}
+.alumni-workspace .al-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.alumni-workspace .al-text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--al-ink);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.alumni-workspace a.al-more {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 700;
+}
+.al-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+/* Cards, chips, badges, notes */
+.al-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 28px;
+  border: 1px solid var(--al-line);
+  border-radius: 24px;
+  background: var(--al-card);
+}
+.al-card-dark {
+  border-color: var(--al-ink);
+  background: var(--al-ink);
+  color: #ffffff;
+}
+.al-card-dark .al-muted,
+.al-card-dark .al-small {
+  color: var(--al-on-dark);
+}
+.alumni-workspace .al-card-dark .al-text-btn {
+  color: #ffffff;
+}
+.al-card-warm {
+  border-color: var(--al-orange-soft);
+  background: var(--al-orange-soft);
+}
+.al-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-weight: 700;
+}
+.al-chips > li {
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: var(--al-soft);
+}
+.al-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 9px;
+  background: var(--al-soft);
+  color: var(--al-ink);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.al-badge-match {
+  background: var(--al-ink);
+  color: #ffffff;
+}
+.al-badge-warm {
+  background: var(--al-orange-soft);
+  color: var(--al-orange-text);
+}
+.al-badge-done {
+  background: var(--al-green-soft);
+  color: var(--al-green);
+}
+.al-badge-wait {
+  background: var(--al-yellow-soft);
+  color: #5c4400;
+}
+.al-note {
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: var(--al-soft);
+}
+.al-note-ok {
+  background: var(--al-green-soft);
+}
+.al-note-warn {
+  background: var(--al-yellow-soft);
+}
+.al-note-error {
+  border: 2px solid var(--al-orange-text);
+  background: #fff0ea;
+}
+.al-foot {
+  color: var(--al-muted);
+  font-size: 13px;
+}
+
+/* Layout */
+.al-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+.al-split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px;
+}
+.al-split > .al-main {
+  flex: 999 1 460px;
+  min-width: 0;
+}
+.al-split > .al-side {
+  flex: 1 1 300px;
+  min-width: 0;
+}
+.al-person-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.al-person-row > :last-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.3;
+}
+.alumni-workspace .al-person-row a {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+.alumni-workspace .al-person-row a:hover {
+  text-decoration: underline;
+}
+.al-rows {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
-.alumni-detail dt {
-  color: var(--muted);
-  font-size: 12px;
+.alumni-workspace a.al-person-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px 0 4px;
+  border: 1px solid var(--al-line);
+  border-radius: 14px;
+  color: var(--al-ink);
+  font-weight: 700;
+  text-decoration: none;
 }
-.alumni-contact {
+.al-person-chip .al-tile {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+/* Home */
+.al-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px 40px;
+  padding: clamp(24px, 4vw, 44px) clamp(22px, 4vw, 48px);
+  border-radius: 28px;
+  background: var(--al-orange);
+}
+.al-hero-slice {
+  position: absolute;
+  right: -120px;
+  bottom: -220px;
+  width: 520px;
+  height: 520px;
+}
+.al-hero-text {
+  position: relative;
+  flex: 1 1 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+.al-hero-text .al-eyebrow {
+  color: var(--al-ink);
+}
+.al-hero-text p {
+  max-width: 46ch;
+}
+.al-fan {
+  position: relative;
+  flex: 0 0 360px;
+  height: 250px;
+}
+.al-fan > span {
+  position: absolute;
+  box-sizing: border-box;
+  width: 150px;
+  height: 196px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 4px solid #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 10px 24px rgba(35, 38, 45, 0.22);
+  font-weight: 700;
+  line-height: 1.2;
+}
+.al-fan > span > span:first-child {
+  font-family: var(--al-display);
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1;
+}
+.al-fan > span:nth-child(1) {
+  left: 0;
+  top: 34px;
+  transform: rotate(-9deg);
+}
+.al-fan > span:nth-child(2) {
+  left: 204px;
+  top: 40px;
+  transform: rotate(8deg);
+}
+.al-fan > span:nth-child(3) {
+  left: 98px;
+  top: 6px;
+  width: 164px;
+  height: 214px;
+}
+.al-feed > li {
+  display: flex;
+  gap: 18px;
+  padding: 20px 0;
+  border-top: 1px solid var(--al-line);
+}
+.al-feed > li:last-child {
+  padding-bottom: 0;
+}
+.al-feed > li > div {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.al-feed-line {
+  font-size: 18px;
+  line-height: 1.35;
+}
+.alumni-workspace .al-feed-line a {
+  color: var(--al-ink);
+  font-weight: 700;
+}
+.al-stats {
+  display: flex;
+  gap: 24px;
+}
+.al-stats > div {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column-reverse;
+}
+.al-stats dt {
+  color: var(--al-on-dark);
+}
+.al-stats dd {
+  color: var(--al-orange);
+  font-family: var(--al-display);
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1;
+}
+.alumni-workspace .al-bars a {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 7px 0;
+  color: var(--al-ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+.al-bars a > span:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.al-bar-track {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--al-soft);
+}
+.al-bar-track > span {
+  display: block;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--al-orange);
+}
+
+/* Matches: one alum at a time */
+.al-deck-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  text-align: center;
+}
+.al-deck {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  text-align: left;
+}
+.al-deck::before,
+.al-deck::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 28px;
+}
+.al-deck::before {
+  background: #ffaeb5;
+  transform: rotate(5deg) translate(18px, 8px);
+}
+.al-deck::after {
+  background: #c9ec8f;
+  transform: rotate(-3.5deg) translate(-12px, 10px);
+}
+.al-deck-last::before,
+.al-deck-last::after {
+  display: none;
+}
+.al-deck-card {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  border: 4px solid #ffffff;
+  border-radius: 28px;
+  background: var(--al-card);
+  box-shadow: 0 18px 40px rgba(35, 38, 45, 0.22);
+}
+.al-face {
+  position: relative;
+  display: block;
+  overflow: hidden;
+}
+.al-face svg {
+  position: absolute;
+  right: -70px;
+  top: -80px;
+  width: 320px;
+  height: 320px;
+  opacity: 0.35;
+}
+.al-face > .al-initials {
+  position: absolute;
+  left: 22px;
+  bottom: 8px;
+  font-family: var(--al-display);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+}
+.al-deck-card .al-face {
+  height: clamp(200px, 34vh, 290px);
+}
+.al-deck-card .al-initials {
+  font-size: clamp(130px, 22vh, 200px);
+}
+.al-progress {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 16px;
+  display: flex;
+  gap: 6px;
+}
+.al-progress > span {
+  flex: 1 1 0;
+  height: 6px;
+  border-radius: 3px;
+  background: #ffffff;
+}
+.al-progress > .al-progress-on {
+  background: var(--al-ink);
+}
+.al-deck-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 22px 26px 28px;
+}
+.al-deck-body > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.al-deck-name {
+  font-family: var(--al-display);
+  font-size: clamp(30px, 5vw, 40px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+.al-reasons {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  font-weight: 700;
+}
+.al-reasons > li {
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: var(--al-orange);
+}
+.al-deck-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+/* The panel that opens after Reach out */
+.alumni-workspace .al-dialog {
+  /* The launcher's base styles clear every margin; a dialog needs this one to sit centred. */
+  margin: auto;
+  width: min(620px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  box-sizing: border-box;
+  padding: clamp(22px, 4vw, 36px) clamp(20px, 4vw, 40px);
+  border: 0;
+  border-radius: 28px;
+  background: var(--al-card);
+  color: var(--al-ink);
+  box-shadow: 0 24px 60px rgba(35, 38, 45, 0.4);
+  overflow-y: auto;
+}
+.al-dialog::backdrop {
+  background: rgba(35, 38, 45, 0.55);
+}
+.al-dialog > div {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.al-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.al-dialog-head > div {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.alumni-workspace .al-close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--al-control);
+  border-radius: 14px;
+  background: var(--al-card);
+  color: var(--al-ink);
+  cursor: pointer;
+}
+.al-dialog-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--al-line);
+}
+
+/* Network */
+.al-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px 40px;
+}
+.al-page-head > div:first-child {
+  flex: 1 1 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.al-search {
+  flex: 1 1 340px;
+  max-width: 480px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 0 16px;
+  border: 2px solid var(--al-ink);
+  border-radius: 18px;
+  background: var(--al-card);
+}
+.alumni-workspace .al-search input {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 52px;
+  border: 0;
+  background: transparent;
+  color: var(--al-ink);
+  font: inherit;
+  font-size: 17px;
+}
+.alumni-workspace .al-search input:focus-visible {
+  outline: none;
+}
+.al-search:focus-within {
+  outline: 3px solid var(--al-ink);
+  outline-offset: 3px;
+}
+.alumni-workspace .al-search button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--al-ink);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.al-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.alumni-workspace .al-pills button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--al-control);
+  border-radius: 14px;
+  background: var(--al-card);
+  color: var(--al-ink);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.al-pills button > span {
+  color: var(--al-muted);
+}
+.alumni-workspace .al-pills button[aria-pressed="true"] {
+  border-color: var(--al-ink);
+  background: var(--al-ink);
+  color: #ffffff;
+  font-weight: 700;
+}
+.al-pills button[aria-pressed="true"] > span {
+  color: #ffb37a;
+}
+.al-filter-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
+}
+.al-filter-row > label {
+  min-width: 0;
+  max-width: 100%;
+}
+.al-filter-row > [role="status"] {
+  margin-left: auto;
+  font-weight: 700;
+}
+.al-people {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
+  gap: 20px;
+}
+.al-person {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--al-line);
+  border-radius: 22px;
+  background: var(--al-card);
+}
+.al-person:hover,
+.al-person:focus-within {
+  border-color: var(--al-ink);
+}
+/* The name is the link; this stretches it so the whole card can be clicked. */
+.alumni-workspace a.al-person-name {
+  color: var(--al-ink);
+  text-decoration: none;
+}
+.al-person-name::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.al-person .al-face {
+  height: 150px;
+}
+.al-person .al-initials {
+  left: 16px;
+  bottom: 4px;
+  font-size: 92px;
+}
+.al-person .al-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #ffffff;
+}
+.al-person .al-badge-match {
+  background: var(--al-ink);
+}
+.al-person-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px 18px;
+}
+
+/* An alum's profile */
+.al-profile {
+  display: flex;
+  flex-wrap: wrap;
+  overflow: hidden;
+  border: 1px solid var(--al-line);
+  border-radius: 28px;
+  background: var(--al-card);
+}
+.al-profile .al-face {
+  flex: 1 1 280px;
+  max-width: 360px;
+  min-height: 280px;
+}
+.al-profile .al-initials {
+  left: 28px;
+  bottom: 14px;
+  font-size: clamp(120px, 14vw, 170px);
+}
+.al-profile-text {
+  flex: 999 1 420px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: clamp(22px, 4vw, 36px) clamp(20px, 4vw, 40px);
+}
+.al-numbered {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.al-numbered > li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.al-numbered > li > span:first-child {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--al-orange);
+  font-family: var(--al-display);
+  font-size: 20px;
+  font-weight: 800;
+}
+.al-path > li {
+  position: relative;
+  display: flex;
+  gap: 18px;
+  padding-bottom: 26px;
+}
+.al-path > li:last-child {
+  padding-bottom: 0;
+}
+.al-path > li::before {
+  content: "";
+  flex: none;
+  width: 28px;
+  height: 28px;
+  box-sizing: border-box;
+  border: 2px solid var(--al-ink);
+  border-radius: 50%;
+  background: var(--al-card);
+}
+.al-path > li.al-path-now::before,
+.al-path > li.al-path-start::before {
+  background: var(--al-orange);
+}
+.al-path > li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 28px;
+  bottom: 0;
+  width: 2px;
+  background: var(--al-ink);
+}
+.al-path > li > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.al-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.al-facts > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
   min-height: 44px;
 }
-.alumni-change {
+.al-facts > li > span:first-child {
+  flex: 0 0 84px;
+  color: var(--al-muted);
+}
+
+/* Forms */
+.al-form {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.al-fields {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 16px;
+  align-items: end;
+}
+.al-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 700;
+}
+.al-field > span,
+.al-field-note {
+  color: var(--al-muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+.alumni-workspace
+  :where(.al-field, .al-filter-row)
+  :where(input:not([type="checkbox"]), select, textarea) {
+  min-height: 48px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0 14px;
+  border: 1px solid var(--al-control);
+  border-radius: 14px;
+  background: var(--al-card);
+  color: var(--al-ink);
+  font: inherit;
+  font-weight: 400;
+}
+.alumni-workspace .al-filter-row select {
+  width: auto;
+  max-width: 100%;
+  min-height: 44px;
+}
+.alumni-workspace .al-filter-row input[type="number"] {
+  width: 124px;
+  min-height: 44px;
+}
+.alumni-workspace .al-field textarea {
+  min-height: 180px;
+  padding: 14px 16px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.al-legend {
+  margin-bottom: 6px;
+  font-family: var(--al-display);
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.al-group {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  margin: 12px 0;
 }
-.alumni-change div {
-  background: var(--selected);
-  border-radius: 9px;
-  padding: 12px 16px;
+.al-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
-.alumni-pressed {
-  background: var(--selected);
-  border-color: var(--accent);
+.al-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid var(--al-control);
+  border-radius: 14px;
+  background: var(--al-card);
+  font-weight: 500;
+  cursor: pointer;
 }
-@media (max-width: 800px) {
-  .alumni-detail {
-    grid-template-columns: minmax(0, 1fr);
+.alumni-workspace .al-option input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--al-ink);
+}
+.al-option:has(input:checked) {
+  border: 2px solid var(--al-ink);
+  padding: 0 17px;
+  background: var(--al-orange);
+  font-weight: 700;
+}
+.al-option:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.al-option:has(input:focus-visible) {
+  outline: 3px solid var(--al-ink);
+  outline-offset: 3px;
+}
+.al-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-weight: 500;
+}
+.alumni-workspace .al-check input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--al-ink);
+}
+.al-steps {
+  display: flex;
+  gap: 8px;
+}
+.al-steps > li {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--al-muted);
+  font-size: 13px;
+}
+.al-steps > li::before {
+  content: "";
+  height: 8px;
+  border-radius: 4px;
+  background: var(--al-line);
+}
+.al-steps > li.al-step-done {
+  color: var(--al-ink);
+  font-weight: 700;
+}
+.al-steps > li.al-step-done::before {
+  background: var(--al-ink);
+}
+.al-steps > li[aria-current] {
+  color: var(--al-ink);
+  font-weight: 700;
+}
+.al-steps > li[aria-current]::before {
+  background: var(--al-orange);
+}
+.al-benefits {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.al-benefits > li {
+  display: flex;
+  gap: 14px;
+}
+.al-benefits > li > span:last-child {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Manage */
+.al-tasks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 20px;
+}
+.al-task {
+  align-items: flex-start;
+  gap: 10px;
+}
+.al-task-first {
+  border-color: var(--al-orange);
+  background: var(--al-orange);
+}
+.al-task > .al-btn {
+  margin-top: auto;
+}
+.al-number {
+  font-family: var(--al-display);
+  font-size: 88px;
+  font-weight: 800;
+  line-height: 0.9;
+}
+.al-change {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 12px;
+}
+.al-change > div {
+  flex: 1 1 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 22px;
+  border: 2px solid transparent;
+  border-radius: 16px;
+  background: var(--al-soft);
+}
+.al-change > div:last-child {
+  border-color: var(--al-ink);
+  background: var(--al-green-soft);
+}
+.al-change > div:last-child .al-eyebrow {
+  color: var(--al-ink);
+}
+.al-change p:last-child {
+  font-size: 18px;
+}
+.al-table {
+  overflow: hidden;
+  border: 1px solid var(--al-line);
+  border-radius: 24px;
+  background: var(--al-card);
+}
+.al-table > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--al-line);
+}
+.al-table > li:first-child {
+  border-top: 0;
+}
+.al-table > li > .al-person-row {
+  flex: 1 1 240px;
+}
+.alumni-workspace details > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.al-email {
+  white-space: pre-wrap;
+}
+
+@media (max-width: 650px) {
+  .alumni-workspace {
+    padding-bottom: 96px;
+  }
+  /* On a phone the sections move to a bar at the bottom of the screen. */
+  .al-nav {
+    position: fixed;
+    z-index: 5;
+    left: 16px;
+    right: 16px;
+    bottom: 14px;
+    border-color: var(--al-ink);
+    border-radius: 20px;
+    background: var(--al-ink);
+    box-shadow: 0 8px 20px rgba(35, 38, 45, 0.3);
+  }
+  .alumni-workspace .al-nav a {
+    flex: 1 1 0;
+    min-height: 48px;
+    padding: 0 6px;
+    border-radius: 16px;
+    color: #ffffff;
+  }
+  .alumni-workspace .al-nav a[aria-current] {
+    background: var(--al-orange);
+    color: var(--al-ink);
+  }
+  .al-fan {
+    display: none;
+  }
+  .al-deck::before {
+    transform: rotate(3deg) translate(6px, 4px);
+  }
+  .al-deck::after {
+    transform: rotate(-2deg) translate(-5px, 6px);
+  }
+  /* The industries become one row that scrolls sideways inside itself. */
+  .al-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 4px;
+    margin: -4px;
+  }
+  .alumni-workspace .al-pills button {
+    flex: none;
+  }
+  .al-card {
+    padding: 22px;
+  }
+  .al-profile .al-face {
+    max-width: none;
+    min-height: 200px;
+  }
+  .al-stats dd,
+  .al-number {
+    font-size: 56px;
+  }
+  .al-filter-row > [role="status"] {
+    margin-left: 0;
+    flex: 1 1 100%;
+  }
+  /* Each filter takes the full width on a phone; the two years share a row. */
+  .al-filter-row > label:not(.al-check) {
+    flex: 1 1 100%;
+  }
+  .al-filter-row > label:has(input[type="number"]) {
+    flex: 1 1 40%;
+  }
+  .alumni-workspace .al-filter-row select,
+  .alumni-workspace .al-filter-row input[type="number"] {
+    width: 100%;
   }
 }
 @media (max-width: 500px) {
-  .alumni-actions > * {
+  .al-actions > .al-btn,
+  .al-deck-actions > .al-btn-go {
     flex: 1 1 100%;
+  }
+  .al-people {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .al-person .al-face {
+    height: 104px;
+  }
+  .al-person .al-initials {
+    font-size: 64px;
+  }
+  .al-person-text {
+    padding: 12px 14px 14px;
+  }
+  .al-person .al-badge {
+    top: 8px;
+    right: 8px;
+    font-size: 11px;
   }
 }
