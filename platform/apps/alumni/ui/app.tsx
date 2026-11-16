@@ -15,12 +15,15 @@ import { Tile } from "./people";
 import { ReplyFormView } from "./reply-form";
 import { ReviewView } from "./review";
 import { LoadError, useLoad } from "./use-load";
+// The two typefaces of the alumni look, in the weights the screens use. The font files ship with
+// the launcher, so a member's browser asks nobody else for them and the page security policy
+// (src/platform/security-headers.ts) needs no exception.
+import "@fontsource/dm-sans/400.css";
+import "@fontsource/dm-sans/500.css";
+import "@fontsource/dm-sans/700.css";
+import "@fontsource/league-spartan/700.css";
+import "@fontsource/league-spartan/800.css";
 import "./alumni.css";
-
-// The two typefaces of the alumni look. The browser fetches them from Google Fonts; if that
-// fails, the screens fall back to the launcher's own font and still work.
-const FONTS =
-  "https://fonts.googleapis.com/css2?family=League+Spartan:wght@700;800&family=DM+Sans:wght@400;500;700&display=swap";
 
 interface Me {
   name: string;
@@ -74,7 +77,6 @@ export function AlumniApp({ path }: { path: string[] }) {
 
   return (
     <section className="alumni-workspace" aria-label="Slice alumni">
-      <link rel="stylesheet" href={FONTS} precedence="default" />
       <div className="al-bar">
         <a className="al-brand" href={APP}>
           SLICE ALUMNI

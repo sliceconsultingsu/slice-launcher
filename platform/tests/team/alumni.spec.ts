@@ -135,6 +135,10 @@ test("a new student answers three steps, then goes through the match deck", asyn
   await accessible(page);
 });
 test("home says where the student stands and what changed lately", async ({ page }) => {
+  // The launcher's page security policy lets a page load only from its own address, so the two
+  // typefaces must come from the launcher itself.
+  const requested: string[] = [];
+  page.on("request", (request) => requested.push(request.url()));
   await page.goto("/apps/alumni");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Hey Learner. Two alumni are still in your deck.",
@@ -143,6 +147,16 @@ test("home says where the student stands and what changed lately", async ({ page
   await expect(page.getByText("28 alumni joined the network.")).toBeVisible();
   await expect(page.getByText(/Devon Okafor is now Operations Director at /)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Where alumni work" })).toBeVisible();
+  const loaded = await page.evaluate(async () => {
+    await document.fonts.ready;
+    return [...document.fonts]
+      .filter((face) => face.status === "loaded")
+      .map((face) => face.family.replaceAll(/["']/g, ""));
+  });
+  expect(loaded).toContain("League Spartan");
+  expect(loaded).toContain("DM Sans");
+  const here = new URL(page.url()).origin;
+  expect(requested.filter((url) => new URL(url).origin !== here)).toEqual([]);
   await accessible(page);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await noSidewaysScroll(page)).toBe(true);

@@ -124,7 +124,7 @@ This app has its own look, which the maintainer approved as a departure from the
 - **People are coloured tiles.** There are no photos. Every alum is a rounded tile in one of six colours with their initials, chosen from their ID so it is always the same.
 - **Matching is a deck.** One alum at a time, with **Reach out** and **Not for me**. Everything else (home, profile, network) reads like a professional network.
 - **Colours and type** are Slice's logo orange and slate, with League Spartan for names and headings and DM Sans for text. Every value is named once at the top of `ui/alumni.css` and scoped to `.alumni-workspace`, so nothing leaks into the launcher or another app.
-- **The fonts load from Google Fonts** in the member's browser (`FONTS` in `ui/app.tsx`). If that request fails, the screens fall back to the launcher's font and still work. Hosting the two font files in this repository instead would remove the outside request.
+- **The font files ship with the launcher.** They come from two packages, `@fontsource/league-spartan` and `@fontsource/dm-sans`, imported at the top of `ui/app.tsx` in the five weights the screens use. A member's browser asks no other site for them, so the launcher's page security policy needs no exception. Both fonts are under the SIL Open Font License 1.1; each package carries its licence file.
 - **What "Lately in the network" shows** comes from details a member can already see on a listed profile: job changes, alumni added, and help offered. A hidden alum is never named. It reaches back 180 days (`ACTIVITY_DAYS`).
 - **The first message after Reach out** is built from the match's reasons (`matching/opener.ts`). The student edits it and sends it from their own email or LinkedIn. The app sends nothing.
 
