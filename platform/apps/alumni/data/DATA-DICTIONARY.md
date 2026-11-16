@@ -378,6 +378,26 @@ Reasons are stored when the match is made, so changing a profile later never rew
 | `pending_change_id`            | The proposal it came from, if any. That proposal records who approved it.                               |
 | `changed_at`                   | When it was applied                                                                                     |
 
+## Confirmation emails
+
+### `alumni_confirmation_requests`: who was asked to confirm their details
+
+**Admins only.** One row per confirmation email sent or attempted. Created by `0008_alumni_confirmations.sql`. It holds no message text and no email address.
+
+| Field                        | Meaning                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| `id`                         | ID                                                                             |
+| `person_id`                  | The alum who was asked                                                         |
+| `contact_id`                 | The email contact detail it went to. The address itself is not copied          |
+| `requested_at`               | When the send was attempted                                                    |
+| `requested_by`               | The admin who sent it. Replies go to that admin's own email                    |
+| `outcome`                    | `sent` (accepted by the mail service) or `failed` (refused for this recipient) |
+| `detail`                     | For a failure, the mail service's short error code. Never message text         |
+| `message_id`                 | The mail service's ID for an accepted message                                  |
+| `answered_at`, `answered_by` | When an admin recorded the alum's reply, and who; empty until then             |
+
+When an admin records a reply, each contact detail the alum chose to share gets `consent_at` set to that moment, and the profile's `last_verified_at` is updated. History gains two kinds of entry: `help_offered` and `confirmed`.
+
 ## Sample data
 
 [`seed.sql`](seed.sql) holds 30 **fictional** alumni and 10 **fictional** students for tests and local previews. It is deliberately not a migration, so it can never reach production. Every email address uses the reserved `example.com` domain. Phone numbers use the 555-01xx range reserved for fiction.

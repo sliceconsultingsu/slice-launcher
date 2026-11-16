@@ -187,6 +187,12 @@ export function AlumView({ id, admin }: { id: string; admin: boolean }) {
               >
                 {alum.hidden ? "List this alum again" : "Hide this alum from members"}
               </button>
+              <a
+                className="secondary-button"
+                href={`${APP}/alumni/${encodeURIComponent(alum.id)}/reply`}
+              >
+                Record a reply from them
+              </a>
             </div>
           )}
         </div>

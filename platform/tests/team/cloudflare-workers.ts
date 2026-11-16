@@ -9,7 +9,18 @@ const holder = globalThis as typeof globalThis & { slicePreviewDatabase?: Previe
 export function setPreviewDatabase(db: PreviewDatabase) {
   holder.slicePreviewDatabase = db;
 }
+/** Emails "sent" in the preview. They go nowhere: this list is all that happens to them. */
+export const previewOutbox: { to: string; subject: string }[] = [];
+
 export const env = {
+  // A stand-in mail service, so the confirmation screens can be tried without sending anything.
+  ALUMNI_EMAIL: {
+    async send(message: { to: string; subject: string }) {
+      previewOutbox.push({ to: message.to, subject: message.subject });
+      return { messageId: `preview-${previewOutbox.length}` };
+    },
+  },
+  ALUMNI_EMAIL_FROM: "alumni@example.com",
   get MEMBERSHIP_DB() {
     if (!holder.slicePreviewDatabase) throw new Error("The preview database is not ready.");
     return holder.slicePreviewDatabase;

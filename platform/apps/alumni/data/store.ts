@@ -675,6 +675,140 @@ export class AlumniStore {
     ]);
   }
 
+  /**
+   * An admin adds a contact detail an alum gave, visible to members, with history. `consentAt`
+   * records when the alum agreed to share it. Does nothing if the alum already has that detail.
+   */
+  async addContact(
+    personId: string,
+    contact: { kind: ContactKind; value: string },
+    adminMemberId: string,
+    consentAt: string | null,
+  ): Promise<void> {
+    const value = contact.value.trim();
+    const key = contactKey(contact.kind, value);
+    if (!value || value.length > 300 || !key)
+      throw new AlumniDataError("invalid", "The contact detail is not valid.");
+    if (contact.kind === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+      throw new AlumniDataError("invalid", "The email address is not valid.");
+    const profile = await this.db
+      .prepare(
+        "SELECT (SELECT 1 FROM alumni_contacts c WHERE c.person_id = pr.person_id AND c.kind = ? AND c.value_key = ?) AS known FROM alumni_profiles pr WHERE pr.person_id = ?",
+      )
+      .bind(contact.kind, key, personId)
+      .first<{ known: number | null }>();
+    if (!profile) throw new AlumniDataError("not-found", "No such alumni profile.");
+    if (profile.known) return;
+    const now = this.now();
+    await this.run([
+      this.historyRow(
+        "alumni_profile",
+        personId,
+        "contact_added",
+        null,
+        JSON.stringify({ kind: contact.kind, value, visibility: "members" }),
+        { type: "admin", memberId: adminMemberId },
+        null,
+        now,
+      ),
+      this.db
+        .prepare(
+          "INSERT INTO alumni_contacts(id, person_id, kind, value, value_key, visibility, consent_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'members', ?, ?, ?)",
+        )
+        .bind(this.newId(), personId, contact.kind, value, key, consentAt, now, now),
+    ]);
+  }
+
+  /** An admin replaces the kinds of help an alum offers, with history. */
+  async setHelpOffered(
+    personId: string,
+    helpKindIds: string[],
+    adminMemberId: string,
+  ): Promise<void> {
+    const next = [...new Set(helpKindIds)].sort();
+    const before = (
+      await this.db
+        .prepare(
+          "SELECT help_kind_id FROM alumni_help_offered WHERE person_id = ? ORDER BY help_kind_id",
+        )
+        .bind(personId)
+        .all<{ help_kind_id: string }>()
+    ).results.map((row) => row.help_kind_id);
+    if (JSON.stringify(before) === JSON.stringify(next)) return;
+    const now = this.now();
+    await this.run([
+      this.historyRow(
+        "alumni_profile",
+        personId,
+        "help_offered",
+        JSON.stringify(before),
+        JSON.stringify(next),
+        { type: "admin", memberId: adminMemberId },
+        null,
+        now,
+        {
+          sql: "EXISTS (SELECT 1 FROM alumni_profiles WHERE person_id = ?)",
+          params: [personId],
+        },
+      ),
+      this.db.prepare("DELETE FROM alumni_help_offered WHERE person_id = ?").bind(personId),
+      ...next.map((id) =>
+        this.db
+          .prepare("INSERT INTO alumni_help_offered(person_id, help_kind_id) VALUES (?, ?)")
+          .bind(personId, id),
+      ),
+    ]);
+  }
+
+  /**
+   * An admin records that the alum confirmed their details by replying to a confirmation email.
+   * The profile and its current job count as checked now, the contact details the alum chose to
+   * share get the date they agreed, and any confirmation email still waiting is marked answered.
+   */
+  async markConfirmed(
+    personId: string,
+    adminMemberId: string,
+    sharedContactIds: string[],
+  ): Promise<void> {
+    const profile = await this.db
+      .prepare("SELECT last_verified_at FROM alumni_profiles WHERE person_id = ?")
+      .bind(personId)
+      .first<{ last_verified_at: string | null }>();
+    if (!profile) throw new AlumniDataError("not-found", "No such alumni profile.");
+    const now = this.now();
+    await this.run([
+      this.historyRow(
+        "alumni_profile",
+        personId,
+        "confirmed",
+        profile.last_verified_at,
+        now,
+        { type: "admin", memberId: adminMemberId },
+        null,
+        now,
+      ),
+      this.db
+        .prepare(
+          `UPDATE alumni_profiles SET last_verified_at = ?,
+             job_last_verified_at = CASE WHEN job_employer_id IS NULL THEN NULL ELSE ? END,
+             updated_at = ? WHERE person_id = ?`,
+        )
+        .bind(now, now, now, personId),
+      ...sharedContactIds.map((id) =>
+        this.db
+          .prepare(
+            "UPDATE alumni_contacts SET consent_at = ?, updated_at = ? WHERE id = ? AND person_id = ?",
+          )
+          .bind(now, now, id, personId),
+      ),
+      this.db
+        .prepare(
+          "UPDATE alumni_confirmation_requests SET answered_at = ?, answered_by = ? WHERE person_id = ? AND answered_at IS NULL",
+        )
+        .bind(now, adminMemberId, personId),
+    ]);
+  }
+
   // ---- helpers -------------------------------------------------------------------------------
 
   private insertContact(

@@ -4,6 +4,10 @@
 import { z } from "zod";
 import { MembershipError } from "../../src/membership/contracts";
 import type { AppApiProps } from "../../src/platform/contracts";
+import type { Mailer } from "./confirmation/mail";
+import { confirmationMessage } from "./confirmation/message";
+import { recordReply, replyForm, replySchema } from "./confirmation/reply";
+import { confirmationPeople, sendConfirmations } from "./confirmation/send";
 import { createSampleRepository, readDirectory } from "./data";
 import { isAdmin, viewerOf } from "./access";
 import { importAlumni, importSchema } from "./data/import";
@@ -21,6 +25,7 @@ const outcomeSchema = z.strictObject({
 });
 const listingSchema = z.strictObject({ status: z.enum(["listed", "hidden"]) });
 const visibilitySchema = z.strictObject({ visibility: z.enum(["hidden", "members"]) });
+const sendSchema = z.strictObject({ limit: z.number().int().min(1).max(10).optional() });
 
 const json = (body: unknown, status = 200, headers?: HeadersInit) =>
   Response.json(body, { status, headers });
@@ -78,6 +83,8 @@ function searchFromQuery(params: URLSearchParams) {
 export async function alumniApi(
   { context, path, searchParams, method, input }: AppApiProps,
   open: () => AlumniData,
+  /** The mail service, or null while email is not set up. Tests pass a stand-in. */
+  mail: () => Mailer | null = () => null,
 ): Promise<Response> {
   const [area, id, action] = path;
   const reading = method === "GET" || method === "HEAD";
@@ -95,6 +102,46 @@ export async function alumniApi(
         return json({ status: decision });
       }
       return notFound();
+    }
+    if (area === "confirmations") {
+      context.requirePermission("admin");
+      if (path.length === 1) {
+        if (!reading) return notAllowed("GET, HEAD");
+        return json({
+          // False until the maintainer has set up the mail service. Nothing can be sent before.
+          ready: mail() !== null,
+          people: await confirmationPeople(open()),
+          // The exact wording, shown with an invented alum so an admin can read it before sending.
+          example: confirmationMessage({
+            fullName: "Alex Example",
+            graduationYear: 2022,
+            job: { title: "Analyst", employer: "Example Company" },
+            adminName: context.member.name,
+          }),
+        });
+      }
+      if (path.length === 2 && id === "send") {
+        if (method !== "POST") return notAllowed("POST");
+        const { limit } = parse(sendSchema, input);
+        const mailer = mail();
+        if (!mailer)
+          return json(
+            { error: "Email is not set up yet. Ask the Slice maintainer to switch it on." },
+            409,
+          );
+        return json(await sendConfirmations(open(), mailer, context.member, { limit }));
+      }
+      return notFound();
+    }
+    if (area === "alumni" && path.length === 3 && id && action === "reply") {
+      context.requirePermission("admin");
+      if (reading) {
+        const form = await replyForm(open(), id);
+        return form ? json({ form }) : json({ error: "No alum has that ID." }, 404);
+      }
+      if (method !== "POST") return notAllowed("GET, HEAD, POST");
+      await recordReply(open(), context.member.id, id, parse(replySchema, input));
+      return json({ status: "saved" });
     }
     if (area === "import" && path.length === 1) {
       context.requirePermission("admin");

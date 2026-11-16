@@ -42,7 +42,7 @@ describe("self-describing schema", () => {
         )
         .all<{ name: string; sql: string }>()
     ).results;
-    expect(tables).toHaveLength(26);
+    expect(tables).toHaveLength(27);
     for (const table of tables) {
       const lines = table.sql.split("\n");
       expect(lines[1], `${table.name} needs a description`).toMatch(/^\s*--/);

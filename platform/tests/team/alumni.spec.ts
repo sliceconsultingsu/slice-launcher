@@ -184,6 +184,44 @@ test("an admin adds alumni by pasting rows, and loading them twice adds nobody",
   await expect(page.getByRole("link", { name: "Dana Whitcombe" })).toBeVisible();
   await expect(page.getByText("Associate · Juniper Row Partners")).toBeVisible();
 });
+test("an admin sends confirmation emails once, then records a reply", async ({ page }) => {
+  await page.goto("/apps/alumni/confirm");
+  await expect(
+    page.getByRole("heading", { name: "Confirm alumni details", level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "11 alumni can be asked now" })).toBeVisible();
+  await page.getByText("Read the email before sending").click();
+  await expect(page.getByText(/Hi Alex,/)).toBeVisible();
+  await accessible(page);
+  // Sending takes two deliberate steps, because the emails cannot be taken back.
+  await page.getByRole("button", { name: "Send confirmation emails" }).click();
+  await expect(page.getByText("These are real emails to real people")).toBeVisible();
+  await page.getByRole("button", { name: "Yes, send 11 emails" }).click();
+  await expect(page.getByText("11 emails sent.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "0 alumni can be asked now" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send confirmation emails" })).toBeDisabled();
+  await expect(page.getByText(/^Asked /).first()).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await noSidewaysScroll(page)).toBe(true);
+
+  await page.getByRole("link", { name: "Record their reply for Jordan Avery" }).first().click();
+  await expect(page.getByRole("heading", { name: "Record a reply", level: 1 })).toBeVisible();
+  await expect(page.getByLabel("Company")).toHaveValue("Harbor & Pine Capital");
+  expect(await noSidewaysScroll(page)).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await accessible(page);
+  await page.getByLabel("Role").fill("Vice President");
+  await page.getByRole("checkbox", { name: "Resume review" }).check();
+  await page.getByLabel("The new detail").fill("jordan.personal@example.com");
+  await page.getByRole("button", { name: "Save their reply" }).click();
+  await expect(page.getByText(/Saved\. Jordan Avery’s profile is updated/)).toBeVisible();
+  await page.getByRole("link", { name: "See the profile" }).click();
+  await expect(page.getByText(/Vice President · Harbor & Pine Capital/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "jordan.personal@example.com" })).toBeVisible();
+  await expect(page.getByText(/Resume review/)).toBeVisible();
+  await page.goto("/apps/alumni/confirm");
+  await expect(page.getByText(/^Answered /)).toHaveCount(1);
+});
 test("preview rejects cross-site callers; API stays read-only", async ({ request, baseURL }) => {
   expect(
     (

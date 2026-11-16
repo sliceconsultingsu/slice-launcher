@@ -3,9 +3,11 @@ import type { StudentProfile } from "../data/reads";
 import { APP } from "./client";
 import { AddAlumniView } from "./add";
 import { AlumView } from "./alum";
+import { ConfirmView } from "./confirm";
 import { ExplorerView } from "./explorer";
 import { MatchesView } from "./matches";
 import { ProfileForm } from "./profile-form";
+import { ReplyFormView } from "./reply-form";
 import { ReviewView } from "./review";
 import { LoadError, useLoad } from "./use-load";
 import "./alumni.css";
@@ -15,7 +17,8 @@ interface Me {
   admin: boolean;
   profile: StudentProfile | null;
 }
-type View = "matches" | "explore" | "alum" | "profile" | "review" | "add" | "not-found";
+type View =
+  "matches" | "explore" | "alum" | "profile" | "review" | "add" | "confirm" | "reply" | "not-found";
 
 function viewOf(path: string[]): View {
   if (path.length === 0) return "matches";
@@ -24,6 +27,8 @@ function viewOf(path: string[]): View {
   if (path.length === 1 && path[0] === "profile") return "profile";
   if (path.length === 1 && path[0] === "review") return "review";
   if (path.length === 1 && path[0] === "add") return "add";
+  if (path.length === 1 && path[0] === "confirm") return "confirm";
+  if (path.length === 3 && path[0] === "alumni" && path[2] === "reply") return "reply";
   return "not-found";
 }
 const TITLES: Record<View, string> = {
@@ -33,6 +38,8 @@ const TITLES: Record<View, string> = {
   profile: "My profile",
   review: "Review proposed changes",
   add: "Add alumni",
+  confirm: "Confirm alumni details",
+  reply: "Record a reply",
   "not-found": "Page not found",
 };
 
@@ -48,10 +55,11 @@ export function AlumniApp({ path }: { path: string[] }) {
       ? [
           { view: "review" as const, href: `${APP}/review`, label: "Review changes" },
           { view: "add" as const, href: `${APP}/add`, label: "Add alumni" },
+          { view: "confirm" as const, href: `${APP}/confirm`, label: "Confirm details" },
         ]
       : []),
   ];
-  const current = view === "alum" ? "explore" : view;
+  const current = view === "alum" ? "explore" : view === "reply" ? "confirm" : view;
   const firstUse = view === "matches" && me.data !== null && !me.data.profile?.complete;
   const name = me.data?.name ?? "";
   const admin = me.data?.admin ?? false;
@@ -85,12 +93,16 @@ export function AlumniApp({ path }: { path: string[] }) {
         <ExplorerView admin={me.data.admin} />
       ) : view === "alum" ? (
         <AlumView id={path[1] ?? ""} admin={me.data.admin} />
-      ) : view === "review" || view === "add" ? (
+      ) : view === "review" || view === "add" || view === "confirm" || view === "reply" ? (
         admin ? (
           view === "review" ? (
             <ReviewView />
-          ) : (
+          ) : view === "add" ? (
             <AddAlumniView />
+          ) : view === "confirm" ? (
+            <ConfirmView />
+          ) : (
+            <ReplyFormView id={path[1] ?? ""} />
           )
         ) : (
           <p className="notice" role="status">

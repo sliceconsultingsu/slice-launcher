@@ -2,7 +2,7 @@
 
 Helps Slice consultants find alumni whose experience fits their career interests. A consultant (called a "student" in this app) saves a short profile, browses and filters alumni, and is given three alumni every 30 days with the reasons for each. An approved AI assistant can do the same through the Slice MCP connection, and an admin keeps alumni jobs current by reviewing changes the refresh proposes.
 
-**Status: work in progress.** The code is complete for the first version described in the product requirements, with tests. It is not live: the alumni database changes (migrations 0004 to 0007) have not been applied to production, and no real alumni have been loaded. The repository contains invented people only.
+**Status: work in progress.** The code is complete for the first version described in the product requirements, with tests. It is not live: the alumni database changes (migrations 0004 to 0008) have not been applied to production, and no real alumni have been loaded. The repository contains invented people only.
 
 Screenshots with fictional data: [matches](../../../docs/images/alumni/matches-desktop.png) · [explorer](../../../docs/images/alumni/explore-desktop.png) · [profile](../../../docs/images/alumni/alum-profile-desktop.png) · [first use](../../../docs/images/alumni/first-use-desktop.png) · [review](../../../docs/images/alumni/review-desktop.png) · [add alumni](../../../docs/images/alumni/add-alumni-desktop.png). Phone-width versions sit beside them.
 
@@ -17,6 +17,7 @@ Screenshots with fictional data: [matches](../../../docs/images/alumni/matches-d
 | `data/database.ts`                 | The only file that reaches the real database                                                                            |
 | `matching/`                        | The matching rules (`score.ts`), the settings (`config.ts`) and giving a student their next set (`assign.ts`)           |
 | `refresh/`                         | The alumni refresh: who is due, filing a result, graduation, and the review list                                        |
+| `confirmation/`                    | Confirmation emails: the wording, sending, the log of who was asked, and recording a reply                              |
 | `mcp/tools.ts`, `refresh/tools.ts` | The assistant tools                                                                                                     |
 | `api.ts`                           | The API routes under `/api/apps/alumni/`                                                                                |
 | `ui/`                              | The screens                                                                                                             |
@@ -47,23 +48,26 @@ A member holding `refresh.run` without `admin` cannot use a LinkedIn link an adm
 
 ## Pages and API routes
 
-Pages: `/apps/alumni` (matches, or the first-use profile), `/explore`, `/alumni/<id>`, `/profile`, and for admins `/review` and `/add`.
+Pages: `/apps/alumni` (matches, or the first-use profile), `/explore`, `/alumni/<id>`, `/profile`, and for admins `/review`, `/add`, `/confirm` and `/alumni/<id>/reply`.
 
-| Route                      | Method    | Needs          | Does                                                                    |
-| -------------------------- | --------- | -------------- | ----------------------------------------------------------------------- |
-| `alumni`                   | GET       | `records.read` | Search with filters, sorting and paging                                 |
-| `alumni/<id>`              | GET       | `records.read` | One profile                                                             |
-| `lists`                    | GET       | `records.read` | The fixed choices                                                       |
-| `me`                       | GET       | `records.read` | Who is signed in and their own profile                                  |
-| `me/profile`               | PUT       | `records.read` | Save the student's own answers                                          |
-| `me/matches`               | GET, POST | `records.read` | GET lists matches. POST also gives the next set when due                |
-| `me/matches/<id>/outcome`  | POST      | `records.read` | Record "contacted" or "not for me"                                      |
-| `proposals`                | GET       | `admin`        | Pending proposed changes                                                |
-| `proposals/<id>/review`    | POST      | `admin`        | Approve or reject one                                                   |
-| `alumni/<id>/listing`      | POST      | `admin`        | Hide or list an alum                                                    |
-| `contacts/<id>/visibility` | POST      | `admin`        | Hide or show one contact detail                                         |
-| `import`                   | POST      | `admin`        | Load up to 25 contact-book rows                                         |
-| `records`                  | GET       | `records.read` | The original starter's three sample records, kept for the starter tasks |
+| Route                      | Method    | Needs          | Does                                                                     |
+| -------------------------- | --------- | -------------- | ------------------------------------------------------------------------ |
+| `alumni`                   | GET       | `records.read` | Search with filters, sorting and paging                                  |
+| `alumni/<id>`              | GET       | `records.read` | One profile                                                              |
+| `lists`                    | GET       | `records.read` | The fixed choices                                                        |
+| `me`                       | GET       | `records.read` | Who is signed in and their own profile                                   |
+| `me/profile`               | PUT       | `records.read` | Save the student's own answers                                           |
+| `me/matches`               | GET, POST | `records.read` | GET lists matches. POST also gives the next set when due                 |
+| `me/matches/<id>/outcome`  | POST      | `records.read` | Record "contacted" or "not for me"                                       |
+| `proposals`                | GET       | `admin`        | Pending proposed changes                                                 |
+| `proposals/<id>/review`    | POST      | `admin`        | Approve or reject one                                                    |
+| `alumni/<id>/listing`      | POST      | `admin`        | Hide or list an alum                                                     |
+| `contacts/<id>/visibility` | POST      | `admin`        | Hide or show one contact detail                                          |
+| `import`                   | POST      | `admin`        | Load up to 25 contact-book rows                                          |
+| `confirmations`            | GET       | `admin`        | Where each alum stands, whether email is set up, and the email's wording |
+| `confirmations/send`       | POST      | `admin`        | Send up to 10 confirmation emails to alumni who are due                  |
+| `alumni/<id>/reply`        | GET, POST | `admin`        | Read what is on file for an alum, and record their reply                 |
+| `records`                  | GET       | `records.read` | The original starter's three sample records, kept for the starter tasks  |
 
 ## Assistant tools
 
@@ -83,6 +87,34 @@ Each appears to an assistant as `alumni__<name>`. The [guide](guide.md) lists th
 
 The app never contacts LinkedIn and holds no LinkedIn-specific code except `refresh/linkedin.ts`, which builds a text address. A Slice admin's own assistant reads each alum's experience page in the admin's own browser and calls `refresh_file` with what it found. The app compares that with the stored job and logs the check. A difference becomes a proposal on the review page. Copied page text is never accepted or stored. The run instructions are kept in the product requirements document, not in this public repository.
 
+## Confirmation emails
+
+An admin can have the app email each listed alum to ask whether their job is still right, which contact details they are happy to share, and what they could help with. Slice decided this on 15 November 2026, reversing the earlier choice to send no email.
+
+- **Only an admin starts a send**, on the **Confirm details** screen, in two deliberate steps. Nothing goes out on a timer.
+- **One email per alum**, to the address already on file. A request cannot supply an address. Nobody is emailed twice within a year (`confirmation/config.ts`), even if two admins press send together.
+- **The alum replies by email.** The reply goes to the admin who sent it, because that admin's own address is the reply-to. Alumni cannot sign in, and the app has no public page.
+- **The admin records the reply** on **Record a reply**: the job, which contact details to share, any new detail, what they can help with, and whether they asked not to be listed. Shared details get the date the alum agreed. Until an alum answers, details from the contact book stay visible as before.
+- **The email says only** the alum's own job and class year. It contains no address, phone number or link, and no one else's details. The wording is in `confirmation/message.ts`.
+- **The log** (`alumni_confirmation_requests`) holds who was asked, when and by whom. It holds no message text and no address.
+- Alumni with no email on file cannot be asked this way. The screen counts them.
+
+The mail service is Cloudflare Email Service, which is for emails a person's own relationship with the sender explains, not marketing. A one-time request to Slice's own alumni fits; a newsletter would not.
+
+### Switching email on
+
+Email is off until the maintainer does all of this. Until then the screen says so and nothing can be sent.
+
+1. Set up a sending domain that Slice controls in Cloudflare Email Service (`wrangler email sending enable <domain>`). Before a domain is set up, the service delivers only to addresses verified on the account, which is a safe way to try one email to yourself.
+2. In a reviewed PR, add to `platform/wrangler.jsonc` an email binding named `ALUMNI_EMAIL`, limited to the one sending address, and that address as the variable `ALUMNI_EMAIL_FROM`:
+
+   ```jsonc
+   "send_email": [{ "name": "ALUMNI_EMAIL", "allowed_sender_addresses": ["alumni@<domain>"] }],
+   "vars": { "ALUMNI_EMAIL_FROM": "alumni@<domain>" }
+   ```
+
+3. Apply migration `0008`.
+
 ## Preview and checks
 
 From the repository root:
@@ -92,7 +124,7 @@ corepack pnpm install --frozen-lockfile
 corepack pnpm team:dev
 ```
 
-The preview opens the real app on a disposable database filled with 30 fictional alumni and 10 fictional students, signed in as a fictional admin who has no student profile yet. The default port is 4310; prepared person workspaces use 4311 to 4315. See [workspaces](../../../docs/team/workspaces.md). Restarting the preview resets its data.
+In the preview, confirmation emails go to a stand-in that sends nothing. The preview opens the real app on a disposable database filled with 30 fictional alumni and 10 fictional students, signed in as a fictional admin who has no student profile yet. The default port is 4310; prepared person workspaces use 4311 to 4315. See [workspaces](../../../docs/team/workspaces.md). Restarting the preview resets its data.
 
 ```sh
 corepack pnpm --filter @slice/launcher exec vitest run apps/alumni
@@ -106,7 +138,7 @@ Before a PR run all [contributor checks](../../../CONTRIBUTING.md#4-implement-an
 
 These are the maintainer's steps and are not done by merging code:
 
-1. Apply migrations `0004` to `0007`, in order, through the approved process in [migrations](../../../docs/migrations.md). The app's pages fail until they are applied.
+1. Apply migrations `0004` to `0008`, in order, through the approved process in [migrations](../../../docs/migrations.md). The app's pages fail until they are applied.
 2. Grant `admin` and `refresh.run` to the members who should hold them.
 3. Load the alumni contact book on the **Add alumni** screen by pasting its rows, headings included. The screen reads the book's own columns: Name, Company, Role, Industry, Email, LinkedIn, Grad Year and Date updated. Every industry label the book uses is on the app's list, including Sales, Communications, Recruiting/HR and Other; its shorter labels Finance, Marketing and Government are understood. An unknown label is refused by row number with the industries to choose from.
 4. Remove `"workInProgress": true` from `app.json` when the app is ready.
@@ -114,7 +146,8 @@ These are the maintainer's steps and are not done by merging code:
 ## Open items
 
 - **Reading LinkedIn with an assistant** may breach LinkedIn's user agreement, and the risk falls on the account of whoever runs the check. This needs Slice's approval before the first real run.
-- **Alumni cannot opt out of matching** and cannot edit their own profiles. Both need agreement first.
+- **Alumni cannot edit their own profiles.** They can ask not to be listed by replying to the confirmation email; an admin then hides them, which also stops them being matched.
+- **Recording a reply is several changes, not one.** Each is saved with history, but if one fails partway the earlier ones stay. The form checks everything it can before saving.
 - **A proposal cannot say "no current job".** The refresh sends that case to manual review.
 - **A rejected proposal can leave an unused employer or city** in the reference lists. It is never offered to members.
 - **Editing the fixed lists** (majors, industries, skills, kinds of help) is done by a developer for now.

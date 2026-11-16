@@ -33,6 +33,7 @@ What your assistant reads leaves Slice for that AI app and its provider, so ask 
 
 - **Review changes** lists updates the alumni refresh has suggested. Nothing changes a profile until you choose **Approve**. **Reject** leaves the profile as it is.
 - **Add alumni** loads rows pasted from the alumni contact book. Loading the same rows twice adds nobody twice.
+- **Confirm details** emails each listed alum once, asking them to confirm their job and say which contact details they are happy to share. Read the email on the screen first; sending cannot be undone. Their reply arrives in your own email. Open their profile, choose **Record a reply from them**, and enter what they said. If they ask not to be listed, tick that box and they are hidden.
 - On a profile you can hide one contact detail from members, or hide the alum from listings altogether, and undo either.
 
 ## Getting access
@@ -43,4 +44,4 @@ You need an active Slice membership with **Open Alumni directory** and **Browse 
 
 - Your answers and matches are visible only to you and Slice admins.
 - An alum hidden by an admin, and any contact detail an admin has hidden, is never shown to members or to an assistant.
-- Contact details come from Slice's alumni contact book. Use them to make a considerate first approach, and do not pass them on.
+- Contact details come from Slice's alumni contact book, or from the alum's own reply to a confirmation email. Use them to make a considerate first approach, and do not pass them on.
