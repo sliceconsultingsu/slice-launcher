@@ -31,11 +31,11 @@ The approval page (`src/ai-connections/consent.ts`) uses the person's Slice sess
 
 Any MCP app may register, so the name on the approval page is only what the app calls itself. The return address is the part Slice can check (`src/ai-connections/supported-apps.ts`):
 
-- **A checked hosted app** (Claude at `claude.ai` or `claude.com`, ChatGPT at `chatgpt.com`): the page names the app the address belongs to.
+- **A checked hosted app** (Claude's and ChatGPT's sign-in addresses on `claude.ai`, `claude.com` and `chatgpt.com`): the page names the app the address belongs to. The whole address must match, not just the site.
 - **An app on the person's own computer** (a loopback address): the page says so.
 - **Any other HTTPS address:** the page warns that Slice does not recognize it, and Cancel rather than Allow is the emphasized button.
 
-Control characters and invisible formatting characters, including the ones that reverse text direction, are removed from app names before they are shown. To add a hosted app to the checked list, add the origin its sign-in returns to, taken from that vendor's own documentation.
+Control characters and invisible formatting characters, including the ones that reverse text direction, are removed from app names before they are shown. To add a hosted app to the checked list, add the exact address its sign-in returns to, taken from that vendor's own documentation.
 
 A recognized address does not prove who started the connection. Someone can register their own app that returns to a checked address and send a member the approval link, so the page also tells the person to allow only a connection they started themselves.
 

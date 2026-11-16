@@ -2,12 +2,18 @@
 // (docs/mcp.md), and an app's name is whatever it calls itself, so the address its sign-in returns
 // to is the only part of a request Slice can check.
 
-/** Hosted AI apps Slice has checked, by the origin their sign-in returns to. */
-const HOSTED_APPS: Record<string, string> = {
-  "https://claude.ai": "Claude",
-  "https://claude.com": "Claude",
-  "https://chatgpt.com": "ChatGPT",
-};
+/**
+ * Hosted AI apps Slice has checked, by the exact address their sign-in returns to. The whole
+ * address must match, not just the site: another page on the same site could pass a sign-in code
+ * on to someone else. A trailing "/" marks a folder whose direct children are accepted.
+ */
+const HOSTED_APPS: [address: string, app: string][] = [
+  ["https://claude.ai/api/mcp/auth_callback", "Claude"],
+  ["https://claude.com/api/mcp/auth_callback", "Claude"],
+  ["https://chatgpt.com/connector_platform_oauth_redirect", "ChatGPT"],
+  // ChatGPT's per-connection form: /connector/oauth/{callback_id}
+  ["https://chatgpt.com/connector/oauth/", "ChatGPT"],
+];
 const LOCAL_HOSTS = ["127.0.0.1", "localhost", "[::1]"];
 
 export type ReturnTarget =
@@ -30,8 +36,19 @@ export function returnTarget(value: unknown): ReturnTarget | null {
   if (url.protocol !== "https:" && url.protocol !== "http:") return null;
   if (LOCAL_HOSTS.includes(url.hostname)) return { kind: "local" };
   if (url.protocol !== "https:") return null;
-  const app = HOSTED_APPS[url.origin];
-  return app ? { kind: "hosted", app } : { kind: "unrecognized" };
+  // Compared as written, so encoded or dotted paths that only resolve to a checked address do
+  // not count. A query string or fragment is never part of a checked address.
+  const address = `${url.origin}${url.pathname}`;
+  const hosted =
+    !url.search &&
+    !url.hash &&
+    value === address &&
+    HOSTED_APPS.find(([checked]) =>
+      checked.endsWith("/")
+        ? address.startsWith(checked) && /^[A-Za-z0-9_-]+$/.test(address.slice(checked.length))
+        : address === checked,
+    );
+  return hosted ? { kind: "hosted", app: hosted[1] } : { kind: "unrecognized" };
 }
 
 const NAME_LIMIT = 80;

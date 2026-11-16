@@ -11,10 +11,11 @@ describe("return addresses", () => {
       kind: "hosted",
       app: "Claude",
     });
-    expect(returnTarget("https://chatgpt.com/connector/oauth/abc123")).toEqual({
-      kind: "hosted",
-      app: "ChatGPT",
-    });
+    for (const address of [
+      "https://chatgpt.com/connector_platform_oauth_redirect",
+      "https://chatgpt.com/connector/oauth/abc_123-XYZ",
+    ])
+      expect(returnTarget(address), address).toEqual({ kind: "hosted", app: "ChatGPT" });
   });
 
   it("recognizes apps on the person's own computer", () => {
@@ -32,7 +33,20 @@ describe("return addresses", () => {
       "https://attacker.example/cb",
       "https://claude.ai.attacker.example/cb",
       "https://attacker.example/claude.ai",
-      "https://claude.ai:8443/cb",
+      "https://claude.ai:8443/api/mcp/auth_callback",
+      // Only the exact sign-in address counts, not the rest of a checked app's site.
+      "https://claude.ai/",
+      "https://claude.ai/redirect",
+      "https://claude.ai/api/mcp/auth_callback/extra",
+      "https://claude.ai/api/mcp/auth_callback?next=https://attacker.example",
+      "https://claude.ai/api/mcp/auth_callback#fragment",
+      "https://claude.ai/api/mcp/../mcp/auth_callback",
+      "https://claude.ai/api/mcp/%61uth_callback",
+      "https://CLAUDE.AI/api/mcp/auth_callback",
+      "https://chatgpt.com/connector/oauth/",
+      "https://chatgpt.com/connector/oauth/abc/def",
+      "https://chatgpt.com/connector/oauth/..%2F..%2Fshare",
+      "https://chatgpt.com/share/abc",
       "https://xn--clade-0ra.ai/cb",
     ])
       expect(returnTarget(address), address).toEqual({ kind: "unrecognized" });
