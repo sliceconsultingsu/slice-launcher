@@ -51,6 +51,11 @@ describe("fixed lists", () => {
     });
     expect(lists.cities).toContainEqual({ id: "loc-nyc", name: "New York, NY" });
     expect(lists.cities).toContainEqual({ id: "loc-lon", name: "London, United Kingdom" });
+    // A city nobody listed works in is not offered: one added by an unreviewed proposal, say.
+    await data.store.findOrCreateLocation("Reykjavik", null, "Iceland");
+    expect((await data.reads.lists()).cities.map((city) => city.name)).not.toContain(
+      "Reykjavik, Iceland",
+    );
   });
 });
 

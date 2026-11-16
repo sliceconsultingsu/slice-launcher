@@ -168,6 +168,16 @@ const ORDER = {
   checked: "last_checked_at IS NULL, last_checked_at DESC, p.name_key, p.id",
 } as const;
 
+/**
+ * The cities people may choose: those where a listed alum works now. A city only named on a
+ * proposal that no admin has approved, or only on a hidden alum's job, is not offered.
+ */
+export const CITY_CHOICES = `SELECT l.id, l.city, l.region, l.country FROM alumni_locations l
+  WHERE EXISTS (
+    SELECT 1 FROM alumni_profiles pr JOIN alumni_people p ON p.id = pr.person_id
+    WHERE pr.job_location_id = l.id AND pr.listing_status = 'listed' AND p.merged_into IS NULL)
+  ORDER BY l.city, l.region`;
+
 export function cityName(city: string, region: string | null, country: string): string {
   return `${city}, ${region || country}`;
 }
@@ -187,9 +197,7 @@ export class AlumniReads {
       this.db.prepare(
         "SELECT id, name, school_id FROM alumni_majors WHERE active = 1 AND current_major_id IS NULL ORDER BY name",
       ),
-      this.db.prepare(
-        "SELECT id, city, region, country FROM alumni_locations ORDER BY city, region",
-      ),
+      this.db.prepare(CITY_CHOICES),
     ]);
     const choices = (result: D1Result<Record<string, string>> | undefined): Choice[] =>
       (result?.results ?? []).map((row) => ({ id: row.id ?? "", name: row.name ?? "" }));

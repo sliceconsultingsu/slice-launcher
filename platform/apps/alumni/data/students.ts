@@ -7,7 +7,7 @@
 // checks that the member may use the app first.
 import { z } from "zod";
 import { AlumniDataError, contactKey, nameKey } from "./store";
-import { InvalidChoiceError, type Choice, type MatchOutcome } from "./reads";
+import { CITY_CHOICES, InvalidChoiceError, type Choice, type MatchOutcome } from "./reads";
 
 type Database = Pick<D1Database, "prepare" | "batch">;
 
@@ -234,8 +234,7 @@ const MAJORS =
 const SKILLS = "SELECT id, name FROM alumni_skills WHERE active = 1 ORDER BY name";
 const INDUSTRIES = "SELECT id, name FROM alumni_industries WHERE active = 1 ORDER BY name";
 const HELP_KINDS = "SELECT id, name FROM alumni_help_kinds WHERE active = 1 ORDER BY name";
-const CITIES =
-  "SELECT id, city || ', ' || CASE WHEN region = '' THEN country ELSE region END AS name FROM alumni_locations ORDER BY city, region";
+const CITIES = `SELECT id, city || ', ' || CASE WHEN region = '' THEN country ELSE region END AS name FROM (${CITY_CHOICES})`;
 
 function unique(ids: string[]): string[] {
   return [...new Set(ids)];
