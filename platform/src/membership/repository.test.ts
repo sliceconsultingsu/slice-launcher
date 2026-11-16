@@ -104,6 +104,64 @@ it("removing a member deletes their record and sessions, and keeps everyone else
   expect((await repo.history())[0]).toMatchObject({ action: "member.remove", after: null });
 });
 
+it("suspending a member ends their sessions once, and nobody else's", async () => {
+  const { repo, db } = await setup();
+  const person = { subject: "person", email: "person@example.test", emailManaged: true };
+  const owner = { subject: "owner", email: "owner@example.test", emailManaged: true };
+  const joining = await repo.load();
+  const joined = enroll(joining, person, { id: "person-member", now: new Date().toISOString() });
+  if (!joined.audit) throw new Error("Expected enrollment");
+  await repo.commit(joining, { ...joined, audit: joined.audit });
+  const subjects = async () =>
+    (await db.prepare("SELECT subject FROM sessions ORDER BY subject").all()).results.map(
+      (row: Record<string, unknown>) => row.subject,
+    );
+  const update = async (status: "active" | "suspended", id: string) => {
+    const before = await repo.load();
+    await repo.commit(
+      before,
+      applyCommand(
+        before,
+        "owner",
+        {
+          type: "member.update",
+          id: "person-member",
+          status,
+          levelId: "member",
+          allow: [],
+          deny: [],
+          owner: false,
+        },
+        { id, now: new Date().toISOString() },
+      ),
+    );
+  };
+  await db.prepare("DELETE FROM sessions").run();
+  await createSession(db, owner, "test");
+  await update("active", "approve");
+  await createSession(db, person, "test");
+  await createSession(db, person, "test");
+  expect(await subjects()).toEqual(["owner", "person", "person"]);
+
+  await update("suspended", "suspend");
+  expect(await subjects()).toEqual(["owner"]);
+
+  // Reinstated, they sign in again; an unrelated later change does not sign them out.
+  await update("active", "reinstate");
+  await createSession(db, person, "test");
+  const before = await repo.load();
+  await repo.commit(
+    before,
+    applyCommand(
+      before,
+      "owner",
+      { type: "level.save", name: "Another level", permissions: [] },
+      { id: "level", now: new Date().toISOString() },
+    ),
+  );
+  expect(await subjects()).toEqual(["owner", "person"]);
+});
+
 it("removes an invited person who never signed in", async () => {
   const { repo, db } = await setup();
   const owner = { subject: "owner", email: "owner@example.test", emailManaged: true };

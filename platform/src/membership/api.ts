@@ -2,7 +2,7 @@ import { z } from "zod";
 import { readCommand } from "./auth";
 import { applyCommand, effectivePermissions, enroll, memberView } from "./domain";
 import { MembershipError } from "./contracts";
-import type { SignedInIdentity } from "./contracts";
+import type { SignedInIdentity, State } from "./contracts";
 import type { HistoryCursor, Repository } from "./repository";
 
 /** Profile edits one person may save in a day. Each one adds an entry to access history. */
@@ -15,7 +15,24 @@ export type MembershipDeps = {
    * Production passes a per-person rate limiter. Without one, changes are not limited.
    */
   allowWrite?: (subject: string) => Promise<boolean>;
+  /**
+   * Called after a change that takes active membership away from a signed-in person (suspended,
+   * returned to pending) or removes them. Production disconnects their AI apps here.
+   */
+  onAccessLoss?: (subject: string) => Promise<void>;
 };
+
+/** Signed-in people who were removed in this commit, or were active before it and are not now. */
+function lostAccess(before: State, after: State): string[] {
+  const subjects: string[] = [];
+  for (const member of before.members) {
+    if (!member.subject) continue;
+    const now = after.members.find((m) => m.id === member.id);
+    if (!now || (member.status === "active" && now.status !== "active"))
+      subjects.push(member.subject);
+  }
+  return subjects;
+}
 
 /** History pages are addressed by an opaque token the previous page returned. */
 function readCursor(value: string | null): HistoryCursor | undefined {
@@ -113,5 +130,20 @@ export async function membershipRequest(
       );
   }
   await repository.commit(state, result);
+  if (deps.onAccessLoss)
+    for (const subject of lostAccess(state, result.state)) {
+      try {
+        await deps.onAccessLoss(subject);
+      } catch (error) {
+        // The membership change is already saved and takes effect on the person's next request.
+        // Their connections are also refused at renewal, so a failure here is logged, not fatal.
+        console.error(
+          JSON.stringify({
+            event: "access_loss_cleanup_failed",
+            error: error instanceof Error ? error.name : "UnknownError",
+          }),
+        );
+      }
+    }
   return json(memberView(result.state, identity.subject));
 }

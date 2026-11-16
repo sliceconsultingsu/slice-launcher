@@ -277,3 +277,108 @@ it("keeps profile edits out of access history unless asked, and pages through th
   for (const bad of ["&before=", "&before=yesterday", "&before=2026-11-16T00:00:00.000Z~x"])
     expect((await call(owner, undefined, `?view=history${bad}`)).status).toBe(400);
 });
+
+it("reports people who lose active membership, once, after the change is saved", async () => {
+  const { repo, owner, call } = await ownerAndPending();
+  const lost: string[] = [];
+  const deps = {
+    onAccessLoss: async (subject: string) => {
+      // The change is already stored when this runs.
+      const stored = (await repo.load()).members.find((m) => m.subject === subject);
+      lost.push(`${subject}:${stored?.status ?? "removed"}`);
+    },
+  };
+  const personId = (await repo.load()).members.find((m) => m.subject === "person")!.id;
+  const set = async (status: string) => {
+    const view = (await (await call(owner)).json()) as View;
+    return call(
+      owner,
+      {
+        revision: view.revision,
+        command: {
+          type: "member.update",
+          id: personId,
+          status,
+          levelId: "member",
+          allow: [],
+          deny: [],
+          owner: false,
+        },
+      },
+      "",
+      deps,
+    );
+  };
+  // Approving, and a pending person editing their own profile, take nothing away.
+  expect((await set("active")).status).toBe(200);
+  expect(lost).toEqual([]);
+  expect((await set("suspended")).status).toBe(200);
+  expect(lost).toEqual(["person:suspended"]);
+  // Saving a suspended person again reports nothing new.
+  expect((await set("suspended")).status).toBe(200);
+  expect(lost).toHaveLength(1);
+  expect((await set("active")).status).toBe(200);
+  expect((await set("pending")).status).toBe(200);
+  expect(lost).toEqual(["person:suspended", "person:pending"]);
+  // Removal is always reported, whatever the person's status was.
+  const view = (await (await call(owner)).json()) as View;
+  const removed = await call(
+    owner,
+    { revision: view.revision, command: { type: "member.remove", id: personId } },
+    "",
+    deps,
+  );
+  expect(removed.status).toBe(200);
+  expect(lost).toEqual(["person:suspended", "person:pending", "person:removed"]);
+});
+
+it("keeps a membership change when the follow-up cleanup fails, and refused changes report nothing", async () => {
+  const { repo, owner, person, call } = await ownerAndPending();
+  const personId = (await repo.load()).members.find((m) => m.subject === "person")!.id;
+  const approve = {
+    type: "member.update",
+    id: personId,
+    levelId: "member",
+    allow: [],
+    deny: [],
+    owner: false,
+  };
+  let view = (await (await call(owner)).json()) as View;
+  await call(owner, { revision: view.revision, command: { ...approve, status: "active" } });
+  let calls = 0;
+  const failing = {
+    onAccessLoss: async () => {
+      calls += 1;
+      throw new Error("storage unavailable");
+    },
+  };
+  // A stale revision is refused before anything is saved or reported.
+  expect(
+    (await call(owner, { revision: 0, command: { ...approve, status: "suspended" } }, "", failing))
+      .status,
+  ).toBe(409);
+  expect(calls).toBe(0);
+  // Someone without permission cannot trigger it either.
+  view = (await (await call(person)).json()) as View;
+  expect(
+    (
+      await call(
+        person,
+        { revision: view.revision, command: { ...approve, status: "suspended" } },
+        "",
+        failing,
+      )
+    ).status,
+  ).toBe(403);
+  expect(calls).toBe(0);
+  view = (await (await call(owner)).json()) as View;
+  const saved = await call(
+    owner,
+    { revision: view.revision, command: { ...approve, status: "suspended" } },
+    "",
+    failing,
+  );
+  expect(saved.status).toBe(200);
+  expect(calls).toBe(1);
+  expect((await repo.load()).members.find((m) => m.id === personId)?.status).toBe("suspended");
+});

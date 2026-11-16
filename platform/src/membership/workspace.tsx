@@ -211,6 +211,9 @@ export function MembershipWorkspace() {
                   <button type="submit" className="text-button">
                     Sign out
                   </button>
+                  <button type="submit" name="everywhere" value="1" className="text-button">
+                    Sign out everywhere
+                  </button>
                 </form>
               </aside>
               <div>

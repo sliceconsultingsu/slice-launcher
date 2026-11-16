@@ -79,4 +79,5 @@ export default createSliceWorker({
       verify: async () => identity,
       loadState: async () => structuredClone(state),
     })(request),
+  loadState: async () => structuredClone(state),
 });

@@ -234,6 +234,63 @@ describe("Slice OAuth for AI apps", () => {
     expect((await listTools(access_token)).status).toBe(403);
   });
 
+  it("a suspended member cannot renew, and the connection does not return when reinstated", async () => {
+    const { clientId, access_token, refresh_token } = await connect();
+    const renew = () =>
+      call("/oauth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token,
+          client_id: clientId,
+        }),
+      });
+    await call("/__test/member", { method: "POST", body: JSON.stringify({ status: "suspended" }) });
+    const refused = await renew();
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toMatchObject({ error: "invalid_grant" });
+    expect(await activity()).toEqual([]);
+    // Reinstated: the old pass and its renewal stay dead; the person has to connect again.
+    await call("/__test/member", { method: "POST", body: JSON.stringify({ status: "active" }) });
+    expect((await listTools(access_token)).status).toBe(401);
+    expect((await renew()).status).toBe(400);
+    expect((await listTools((await connect()).access_token)).status).toBe(200);
+  });
+
+  it("no pass is issued when membership ends between approval and exchange", async () => {
+    const id = ((await (await register()).json()) as { client_id: string }).client_id;
+    const { verifier, challenge } = await pkce();
+    const query = new URLSearchParams({
+      response_type: "code",
+      client_id: id,
+      redirect_uri: "https://client.example/cb",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      state: "state-1",
+      scope: "slice",
+      resource: `${origin}/mcp`,
+    });
+    const approval = await call(`/authorize?${query}`);
+    const code = new URL(approval.headers.get("location") ?? "").searchParams.get("code") ?? "";
+    await call("/__test/member", { method: "POST", body: JSON.stringify({ status: "pending" }) });
+    const token = await call("/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: "https://client.example/cb",
+        client_id: id,
+        code_verifier: verifier,
+        resource: `${origin}/mcp`,
+      }),
+    });
+    expect(token.status).toBe(400);
+    expect(await token.json()).toMatchObject({ error: "invalid_grant" });
+    expect(await activity()).toEqual([]);
+  });
+
   it("identity rebinding is refused", async () => {
     const { access_token } = await connect();
     await call("/__test/member", {

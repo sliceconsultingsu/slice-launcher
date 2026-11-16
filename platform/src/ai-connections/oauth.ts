@@ -3,11 +3,12 @@
 // this provider issued. See docs/superpowers/specs/2026-11-05-ai-connections-design.md.
 import {
   getOAuthApi,
+  OAuthError,
   OAuthProvider,
   type OAuthHelpers,
   type OAuthProviderOptions,
 } from "@cloudflare/workers-oauth-provider";
-import type { Identity } from "../membership/contracts";
+import type { Identity, State } from "../membership/contracts";
 import { withSecurityHeaders } from "../platform/security-headers";
 import { ActivityStore } from "./activity";
 
@@ -58,6 +59,8 @@ export function oauthOptions<Env extends OAuthEnv>(
     mcp: McpHandler<Env>;
     defaultHandler: ExportedHandler<Env>;
     activity?: (env: Env) => ActivityStore;
+    /** Current membership, checked before any pass is issued or renewed. */
+    loadState?: (env: Env) => Promise<State>;
   },
 ): OAuthProviderOptions<Env> {
   const activity = deps.activity ?? ((env: Env) => new ActivityStore(env.OAUTH_KV));
@@ -103,6 +106,19 @@ export function oauthOptions<Env extends OAuthEnv>(
         };
     },
     async tokenExchangeCallback({ userId, grantId, props, env }) {
+      // A pass is issued or renewed only for someone who is an active member right now.
+      // Refusing with invalid_grant also makes the library revoke the connection, so it cannot
+      // come back to life if the person is reinstated later.
+      if (deps.loadState) {
+        const { subject, email } = props as GrantProps;
+        const member = (await deps.loadState(env)).members.find((m) => m.subject === subject);
+        if (!member || member.email !== email || member.status !== "active") {
+          await activity(env).remove(userId, grantId);
+          throw new OAuthError("invalid_grant", {
+            description: "This connection is no longer valid. Connect to Slice again.",
+          });
+        }
+      }
       await activity(env).renewed(userId, grantId);
       return { accessTokenProps: { ...(props as GrantProps), grantId } };
     },
@@ -135,6 +151,7 @@ const privatePath = (path: string) =>
 export function createSliceWorker<Env extends SliceWorkerEnv>(deps: {
   defaultHandler: ExportedHandler<Env>;
   mcp: McpHandler<Env>;
+  loadState: (env: Env) => Promise<State>;
 }): ExportedHandler<Env> {
   const providers = new Map<string, OAuthProvider<Env>>();
   return {

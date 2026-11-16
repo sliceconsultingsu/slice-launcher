@@ -25,11 +25,15 @@ Slice runs its own OAuth server for AI apps with `@cloudflare/workers-oauth-prov
 - `/mcp`, which requires a Slice-issued pass and never accepts a `Cf-Access-Jwt-Assertion`;
 - discovery metadata at `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`;
 - dynamic client registration at `/oauth/register` (HTTPS callbacks, or loopback for apps on the person's computer; rate-limited per address);
-- passes at `/oauth/token`: authorization code with PKCE, 7-day access passes, renewal passes that rotate and lapse after 30 days without renewal.
+- passes at `/oauth/token`: authorization code with PKCE, 7-day access passes, renewal passes that rotate and lapse after 30 days without renewal. A pass is issued or renewed only for someone who is an active member at that moment; otherwise the request is refused and the connection is revoked.
 
 The approval page (`src/ai-connections/consent.ts`) uses the person's Slice session (sending them through Google sign-in first if needed), checks active membership, shows the app's self-declared name and its return address, and records a grant whose props hold the member's subject and email. The grant's user ID is a digest of the subject, so no email or subject appears in codes or passes. Grants, passes and per-grant activity (last use, last renewal) are stored in the `OAUTH_KV` namespace.
 
 Screenshots of the approval page, the top-bar states and the connected-apps list are in [docs/images/ai-connections](images/ai-connections/).
+
+When a member is suspended, returned to pending or removed, the membership API disconnects every AI app they approved (`disconnectAll` in `src/ai-connections/connections.ts`). The membership change is saved first and is what stops access: `/mcp` reloads membership on every request. If the disconnect step fails it is logged as `access_loss_cleanup_failed`, and the renewal check above revokes the connection the next time the app tries to renew.
+
+One library behaviour to know: after a renewal pass is rotated, the previous one stays valid until the new one is first used, so that an app whose renewal response was lost can retry. A copied renewal pass is therefore not detected by reuse. It stops working when the connection is disconnected or the person loses active membership.
 
 Members list and disconnect their connected apps on the account page (`/api/membership/connections`); the launcher's top bar shows connection status. Both stay hidden until `AI_CONNECTIONS_ENABLED` is `"true"`. A client-supplied email, role or plain bearer token is not an application identity, and CI service credentials never become one.
 
