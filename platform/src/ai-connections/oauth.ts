@@ -1,6 +1,6 @@
 // Slice's own sign-in for AI apps (MCP clients), modelled on Deal Toy's Mantel setup.
-// Cloudflare Access keeps protecting the launcher; these OAuth paths bypass it and accept only
-// passes this provider issued. See docs/superpowers/specs/2026-11-05-ai-connections-design.md.
+// Pages and APIs use the Slice session from Google sign-in; these OAuth paths accept only passes
+// this provider issued. See docs/superpowers/specs/2026-11-05-ai-connections-design.md.
 import {
   getOAuthApi,
   OAuthProvider,
@@ -8,6 +8,7 @@ import {
   type OAuthProviderOptions,
 } from "@cloudflare/workers-oauth-provider";
 import type { Identity } from "../membership/contracts";
+import { withSecurityHeaders } from "../platform/security-headers";
 import { ActivityStore } from "./activity";
 
 /** Access passes last a week; every request still reloads the member's current access. */
@@ -26,7 +27,7 @@ type McpHandler<Env> = (request: Request, identity: Identity, env: Env) => Promi
 
 /**
  * The grant's user ID. The library puts it in plain text at the front of every code and pass,
- * and forbids ":", which Access subjects contain, so it is a digest of the subject instead.
+ * and forbids ":", which some member subjects contain, so it is a digest of the subject instead.
  */
 export async function grantUserId(subject: string): Promise<string> {
   const digest = await crypto.subtle.digest(
@@ -142,7 +143,10 @@ export function createSliceWorker<Env extends SliceWorkerEnv>(deps: {
       if (request.method === "POST" && rateLimited.includes(url.pathname)) {
         const address = request.headers.get("CF-Connecting-IP") ?? "unknown";
         const { success } = await env.OAUTH_LIMITER.limit({ key: `${url.pathname}:${address}` });
-        if (!success) return secure(Response.json({ error: "rate_limited" }, { status: 429 }));
+        if (!success)
+          return withSecurityHeaders(
+            secure(Response.json({ error: "rate_limited" }, { status: 429 })),
+          );
       }
       let provider = providers.get(url.origin);
       if (!provider) {
@@ -156,7 +160,7 @@ export function createSliceWorker<Env extends SliceWorkerEnv>(deps: {
         !response.headers.get("content-type")
       )
         response = signInRequired(response);
-      return privatePath(url.pathname) ? secure(response) : response;
+      return withSecurityHeaders(privatePath(url.pathname) ? secure(response) : response);
     },
   };
 }

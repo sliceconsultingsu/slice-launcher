@@ -9,7 +9,13 @@ class RolloutPending extends Error {}
 
 export async function checkLauncher(
   baseUrl,
-  { signal, expectedRelease, timeoutMs = 30000, retryDelayMs = 500 } = {},
+  {
+    signal,
+    expectedRelease,
+    timeoutMs = 30000,
+    retryDelayMs = 500,
+    requireSecurityHeaders = false,
+  } = {},
 ) {
   const base = new URL(baseUrl);
   const request = (path) => {
@@ -56,6 +62,14 @@ export async function checkLauncher(
   const page = await request("/");
   assert.equal(page.status, 200, "Launcher page must return 200");
   assert.match(page.headers.get("content-type") ?? "", /text\/html/);
+  // Off by default so the same check still accepts older releases as rollback targets.
+  if (requireSecurityHeaders) {
+    const policy = page.headers.get("content-security-policy") ?? "";
+    assert.match(policy, /default-src 'self'/, "Pages must limit where they load from");
+    assert.match(policy, /frame-ancestors 'none'/, "Pages must forbid framing");
+    assert.equal(page.headers.get("x-content-type-options"), "nosniff");
+    assert.match(page.headers.get("strict-transport-security") ?? "", /max-age=\d+/);
+  }
   const html = await page.text();
   assert.match(html, /App Launcher/);
 

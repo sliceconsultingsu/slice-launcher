@@ -13,7 +13,7 @@ import { grantUserId, SCOPE, type GrantProps } from "./oauth";
 
 export type ConsentDeps = {
   helpers: OAuthHelpers;
-  /** Verifies the Cloudflare Access sign-in on this request. */
+  /** Verifies the Slice session on this request. */
   identify: (request: Request) => Promise<Identity>;
   loadState: () => Promise<State>;
 };
@@ -79,7 +79,6 @@ const expired = () =>
     "This approval expired or was already used. Start connecting again from your AI app.",
   );
 
-/** The active member behind this Access sign-in, or null when they may not connect apps. */
 /** The active member signed in on this browser; "signed-out" without a session; null otherwise. */
 async function activeMember(
   request: Request,

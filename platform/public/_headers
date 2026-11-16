@@ -2,5 +2,9 @@
 # these headers stop it acting as a page on the Slice origin.
 /app-icons/*
   Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox
-  X-Content-Type-Options: nosniff
   Cache-Control: public, max-age=86400
+
+# Scripts, styles and images are served directly by Cloudflare, not by the Worker, so the
+# Worker's own headers (src/platform/security-headers.ts) do not reach them.
+/*
+  X-Content-Type-Options: nosniff

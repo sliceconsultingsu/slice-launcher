@@ -145,6 +145,20 @@ test("onboarding, approval, persistent profile, permission changes, revocation a
     await accessible(member);
     await member.getByRole("link", { name: /Synthetic Member/ }).click();
     await expect(member.getByText("suspended", { exact: true })).toBeVisible();
+
+    // Removal asks for confirmation, deletes the record, and leaves the person free to ask again.
+    await owner.getByRole("button", { name: "Remove member", exact: true }).click();
+    await accessible(owner);
+    await owner.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(owner.getByRole("button", { name: /member@example.test/ })).toHaveCount(1);
+    await owner.getByRole("button", { name: "Remove member", exact: true }).click();
+    await owner.getByRole("button", { name: /^Yes, remove Synthetic Member/ }).click();
+    await expect(owner.getByRole("status")).toHaveText("Changes saved.");
+    await expect(owner.getByRole("button", { name: /member@example.test/ })).toHaveCount(0);
+    await expect(owner.getByRole("button", { name: "Remove member", exact: true })).toHaveCount(0);
+    expect(await (await memberContext.request.get("/api/membership")).json()).toEqual({
+      needsEnrollment: true,
+    });
   } finally {
     await Promise.allSettled([memberContext.close(), ownerContext.close()]);
   }

@@ -7,7 +7,7 @@ const empty: Activity = { lastUsedAt: null, renewedAt: null };
 
 /**
  * Activity records live in the OAuth KV namespace under a Slice-owned prefix, next to the
- * library's grants. Keys use the grant's digest user ID, never an email or Access subject.
+ * library's grants. Keys use the grant's digest user ID, never an email or sign-in subject.
  */
 export class ActivityStore {
   constructor(
