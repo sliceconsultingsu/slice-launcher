@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
 import { database, migrate, reset } from "../../tests/database";
-import { Repository } from "./repository";
+import { HISTORY_PAGE, Repository, type HistoryCursor } from "./repository";
 import { applyCommand, enroll } from "./domain";
 import { createSession } from "./session";
 let fixture: Awaited<ReturnType<typeof database>>;
@@ -131,4 +131,66 @@ it("removes an invited person who never signed in", async () => {
   );
   expect((await repo.load()).members.map((m) => m.email)).toEqual(["owner@example.test"]);
   expect(await sessions(), "nobody else is signed out").toBe(sessionsBefore);
+});
+
+it("pages through history newest first without repeating or skipping an entry", async () => {
+  const { repo, db } = await setup();
+  // 120 entries, several sharing a timestamp, so a page boundary can fall inside a tie.
+  const at = (i: number) => new Date(Date.UTC(2026, 0, 1, 0, 0, Math.floor(i / 3))).toISOString();
+  await db.batch(
+    Array.from({ length: 120 }, (_, i) =>
+      db.prepare("INSERT INTO access_audit(id, at, document) VALUES (?, ?, ?)").bind(
+        `entry-${i}`,
+        at(i),
+        JSON.stringify({
+          id: `entry-${i}`,
+          at: at(i),
+          actorId: "someone",
+          action: i % 2 ? "profile.update" : "member.update",
+          targetId: "someone",
+          before: null,
+          after: null,
+        }),
+      ),
+    ),
+  );
+  const seen: string[] = [];
+  let before: HistoryCursor | undefined;
+  let pages = 0;
+  do {
+    const page = await repo.historyPage({ includeProfileEdits: true, before });
+    expect(page.items.length).toBeLessThanOrEqual(HISTORY_PAGE);
+    seen.push(...page.items.map((item) => item.id));
+    before = page.next ?? undefined;
+    pages += 1;
+  } while (before);
+  expect(pages).toBe(3);
+  // 120 inserted here plus the owner's sign-in from setup.
+  expect(seen).toHaveLength(121);
+  expect(new Set(seen).size).toBe(121);
+  expect(seen.slice(1, 4)).toEqual(["entry-119", "entry-118", "entry-117"]);
+
+  const quiet = await repo.historyPage();
+  expect(quiet.items).toHaveLength(HISTORY_PAGE);
+  expect(quiet.items.some((item) => item.action === "profile.update")).toBe(false);
+  const rest = await repo.historyPage({ before: quiet.next ?? undefined });
+  expect(rest.items).toHaveLength(11);
+  expect(rest.next).toBeNull();
+});
+
+it("counts one member's recent actions of one kind", async () => {
+  const { repo, db } = await setup();
+  const entry = (id: string, at: string, actorId: string, action: string) =>
+    db
+      .prepare("INSERT INTO access_audit(id, at, document) VALUES (?, ?, ?)")
+      .bind(id, at, JSON.stringify({ id, at, actorId, action }));
+  await db.batch([
+    entry("a", "2026-01-02T00:00:00.000Z", "pat", "profile.update"),
+    entry("b", "2026-01-02T01:00:00.000Z", "pat", "profile.update"),
+    entry("c", "2026-01-01T00:00:00.000Z", "pat", "profile.update"),
+    entry("d", "2026-01-02T02:00:00.000Z", "pat", "member.update"),
+    entry("e", "2026-01-02T03:00:00.000Z", "sam", "profile.update"),
+  ]);
+  expect(await repo.actionsSince("pat", "profile.update", "2026-01-01T12:00:00.000Z")).toBe(2);
+  expect(await repo.actionsSince("nobody", "profile.update", "2026-01-01T12:00:00.000Z")).toBe(0);
 });
