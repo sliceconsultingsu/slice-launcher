@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { database, migrate, reset } from "../../tests/database";
 import { Repository } from "./repository";
 import { membershipRequest, errorResponse } from "./api";
@@ -169,4 +169,27 @@ it("keeps duplicate enrollment idempotent and protects invitations from another 
     (await call({ ...member, email: "different@example.test" }, { type: "join" })).status,
   ).toBe(403);
   expect(await repo.load()).toEqual(before);
+});
+
+it("logs why an unexpected failure happened, and tells the person nothing about it", async () => {
+  const lines: string[] = [];
+  const log = vi
+    .spyOn(console, "error")
+    .mockImplementation((line: string) => void lines.push(line));
+  let response: Response;
+  try {
+    response = errorResponse(new TypeError(`D1_ERROR: no such table${"!".repeat(400)}`));
+    errorResponse("not an error");
+  } finally {
+    log.mockRestore();
+  }
+  expect(response.status).toBe(500);
+  expect(await response.json()).toEqual({
+    error: "Membership could not be loaded. Please try again.",
+  });
+  const [first, second] = lines.map((line) => JSON.parse(line));
+  expect(first).toMatchObject({ event: "membership_request_failed", error: "TypeError" });
+  expect(first.message).toMatch(/^D1_ERROR: no such table!/);
+  expect(first.message).toHaveLength(300);
+  expect(second).toEqual({ event: "membership_request_failed", error: "UnknownError" });
 });

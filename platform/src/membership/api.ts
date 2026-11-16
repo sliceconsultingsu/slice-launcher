@@ -21,10 +21,13 @@ export function json(data: unknown, status = 200): Response {
 }
 export function errorResponse(error: unknown): Response {
   if (error instanceof MembershipError) return json({ error: error.message }, error.status);
+  // The message is what makes a failure diagnosable. Slice's own errors never reach this point,
+  // and messages from the database and runtime describe the failure, not the stored data.
   console.error(
     JSON.stringify({
       event: "membership_request_failed",
       error: error instanceof Error ? error.name : "UnknownError",
+      message: error instanceof Error ? error.message.slice(0, 300) : undefined,
     }),
   );
   return json({ error: "Membership could not be loaded. Please try again." }, 500);

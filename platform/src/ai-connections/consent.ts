@@ -216,6 +216,15 @@ export async function authorize(request: Request, deps: ConsentDeps): Promise<Re
         props,
         metadata: { clientName: displayName(description) },
       });
+      // A record of who connected which app, and where it returned to, for later review.
+      console.log(
+        JSON.stringify({
+          event: "ai_connection_approved",
+          subject: member.subject,
+          clientId: approved.request.clientId,
+          returnsTo: new URL(approved.request.redirectUri).origin,
+        }),
+      );
       return redirect(redirectTo, approved.headers);
     }
     const denied = await helpers.denyConsent(request, handle);
