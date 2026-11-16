@@ -20,6 +20,21 @@ AI sign-in changes (`platform/worker/index.ts`, `src/ai-connections/`): confirm 
 
 Ivan is the sole maintainer and the only code owner. A `main` ruleset requires a code-owner approval on PRs. Every repository admin can bypass it when merging a PR, so admins merge their own PRs without independent approval; required checks still apply. Revisit this before adding admins. Only admins can run rollback. No AI check can approve, merge, deploy, mutate the database, or waive deterministic checks.
 
+## Browser security headers
+
+The Worker adds these to every response it produces (`platform/src/platform/security-headers.ts`), unless a route already set its own value:
+
+- `Strict-Transport-Security` and `X-Content-Type-Options: nosniff` on everything.
+- On pages: a `Content-Security-Policy` that loads scripts, styles, images and data only from Slice's own origin and forbids framing, plus `X-Frame-Options: DENY` and `Referrer-Policy: same-origin`.
+
+The AI approval page keeps its own stricter policy. Static files are served by Cloudflare before the Worker runs, so their headers are in `platform/public/_headers`.
+
+Limits to keep in mind:
+
+- The page framework writes page data into inline scripts, so the policy allows inline scripts. It limits where a page can load from, send data to and be framed by. It does not stop script that has been injected into a page; that would need per-request nonces from the framework.
+- zod tests whether it may compile code at runtime. The policy refuses, zod falls back, and the browser console shows one policy report on pages that validate data in the browser (the alumni page). Nothing is broken.
+- `pnpm smoke:launcher` requires these headers on the compiled Worker. The post-deploy check does not, so that it still accepts older releases as rollback targets.
+
 ## Existing dependency risk observed 2026-10-04
 
 Dependabot alert #1, [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), flags stack-exhaustion denial of service in `braces <=3.0.3`; GitHub currently reports no patched version. The locked path is vinext → vite-plugin-commonjs → vite-plugin-dynamic-import → fast-glob → micromatch → braces 3.0.3. It is build tooling, but the package is transitively classified as a runtime dependency by GitHub. This task does not claim the vulnerability fixed or conclusively unreachable. Time-limited isolated CI limits a build denial of service; it is not a vulnerability patch. Keep the alert open and monitor an upstream fix or replacement. Dependency review gates newly introduced vulnerable dependencies; existing alerts remain visible and require triage.

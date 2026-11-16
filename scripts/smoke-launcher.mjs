@@ -66,6 +66,7 @@ try {
   await checkLauncher(`http://127.0.0.1:${port}`, {
     signal: controller.signal,
     expectedRelease: process.env.SLICE_RELEASE_SHA,
+    requireSecurityHeaders: true,
   });
   // A compiled route probe: missing routes and forged/service headers must not pass.
   await checkMcpDenied(`http://127.0.0.1:${port}`, {

@@ -52,6 +52,13 @@ test("checks the served launcher and its stylesheet and JavaScript", async (t) =
   await checkLauncher(await serve(t));
 });
 
+test("fails a build whose pages lack security headers when they are required", async (t) => {
+  await assert.rejects(
+    checkLauncher(await serve(t), { requireSecurityHeaders: true }),
+    /Pages must limit where they load from/,
+  );
+});
+
 test("fails a release when health works but a page asset is missing", async (t) => {
   await assert.rejects(checkLauncher(await serve(t, true)), /Asset failed/);
 });
