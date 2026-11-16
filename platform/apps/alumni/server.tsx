@@ -1,22 +1,21 @@
 import type { AppModule } from "../../src/platform/contracts";
-import { DirectoryView } from "./ui/directory";
-import { createSampleRepository, readDirectory } from "./data";
+import { alumniApi } from "./api";
+import { openMailer } from "./confirmation/runtime";
+import { openAlumniData } from "./data/database";
+import { studentTools } from "./mcp/tools";
+import { refreshTools } from "./refresh/tools";
+import { AlumniApp } from "./ui/app";
 
-const repository = createSampleRepository();
+/** Pages only a Slice admin may open. Their API routes check the same permission again. */
+const ADMIN_PAGES = new Set(["manage", "review", "add", "confirm"]);
+
 export default {
-  Page({ context }) {
+  tools: [...studentTools(openAlumniData), ...refreshTools(openAlumniData)],
+  Page({ context, path }) {
     context.requirePermission("records.read");
-    return <DirectoryView />;
+    const recordingReply = path[0] === "alumni" && path[2] === "reply";
+    if ((path[0] && ADMIN_PAGES.has(path[0])) || recordingReply) context.requirePermission("admin");
+    return <AlumniApp path={path} />;
   },
-  async api({ context, path, method }) {
-    context.requirePermission("records.read");
-    if (path.length !== 1 || path[0] !== "records")
-      return Response.json({ error: "Operation not found." }, { status: 404 });
-    if (method !== "GET" && method !== "HEAD")
-      return Response.json(
-        { error: "This starter is read-only. No records were changed." },
-        { status: 405, headers: { Allow: "GET, HEAD" } },
-      );
-    return Response.json(await readDirectory(context, repository));
-  },
+  api: (props) => alumniApi(props, openAlumniData, openMailer),
 } satisfies AppModule;

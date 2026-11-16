@@ -6,7 +6,7 @@ import type { State } from "../../src/membership/contracts";
 import descriptor from "./app.json";
 import alumni from "./server";
 import { directorySchema } from "./contracts";
-import { DirectoryView } from "./ui/directory";
+import { AlumniApp } from "./ui/app";
 import { createSampleRepository, readDirectory } from "./data";
 import type { AppContext } from "../../src/platform/contracts";
 
@@ -100,9 +100,19 @@ it("rejects unexpected fields from storage instead of leaking them to the client
     }),
   ).rejects.toThrow();
 });
-it("tells consultants the directory is a work in progress", () => {
+it("tells consultants the app is a work in progress", () => {
   expect(descriptor.workInProgress).toBe(true);
-  const html = renderToStaticMarkup(createElement(DirectoryView));
+  const html = renderToStaticMarkup(createElement(AlumniApp, { path: [] }));
   expect(html).toContain("Work in progress");
-  expect(html).toContain("fictional");
+  expect(html).toContain("Loading the alumni app");
+});
+it("lets only an admin open the review page", async () => {
+  const page = (permissions: string[]) =>
+    host(permissions).page(request(), "alumni", { path: ["review"], searchParams: {} });
+  await expect(page(["app.alumni.open", "app.alumni.records.read"])).rejects.toMatchObject({
+    status: 403,
+  });
+  await expect(
+    page(["app.alumni.open", "app.alumni.records.read", "app.alumni.admin"]),
+  ).resolves.toBeTruthy();
 });
