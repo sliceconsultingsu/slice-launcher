@@ -17,8 +17,10 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: [
-        "src/membership/{auth,api,domain,repository,contracts}.ts",
+        "src/membership/{auth,api,domain,repository,contracts,session,google}.ts",
         "src/platform/{access,dispatch,mcp,mcp-tool}.ts",
+        // oauth.ts is left out: its tests run it inside Miniflare, which V8 here cannot measure.
+        "src/ai-connections/{activity,connections,consent,status}.ts",
       ],
       reporter: ["text", "json-summary", "html"],
       // Per-module floors from measured authorization scenarios; see docs/testing.md.
@@ -30,6 +32,39 @@ export default defineConfig({
           statements: 96,
           branches: 91,
           functions: 100,
+          lines: 100,
+        },
+        // The production sign-in path: Slice sessions and Google sign-in.
+        "src/membership/session.ts": { statements: 100, branches: 94, functions: 100, lines: 100 },
+        "src/membership/google.ts": { statements: 92, branches: 86, functions: 100, lines: 96 },
+        // Guarded dispatch for apps and AI tools.
+        "src/platform/access.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
+        "src/platform/dispatch.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
+        "src/platform/mcp-tool.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
+        "src/platform/mcp.ts": { statements: 92, branches: 88, functions: 81, lines: 93 },
+        // AI connection approval, listing and removal.
+        "src/ai-connections/consent.ts": {
+          statements: 94,
+          branches: 83,
+          functions: 100,
+          lines: 97,
+        },
+        "src/ai-connections/connections.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        "src/ai-connections/status.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        "src/ai-connections/activity.ts": {
+          statements: 95,
+          branches: 90,
+          functions: 87,
           lines: 100,
         },
       },
