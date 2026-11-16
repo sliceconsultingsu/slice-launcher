@@ -53,7 +53,7 @@ describe("name and contact keys", () => {
 });
 
 describe("adding alumni without duplicates", () => {
-  it("creates a new person with an alumni profile and hidden contact details", async () => {
+  it("creates a new person with an alumni profile and contact details members can see", async () => {
     const result = await store.addAlumnus({
       fullName: "Quinn Example",
       graduationYear: 2021,
@@ -77,8 +77,8 @@ describe("adding alumni without duplicates", () => {
         .all<{ visibility: string }>()
     ).results;
     expect(visibility.map((v: { visibility: string }) => v.visibility)).toEqual([
-      "hidden",
-      "hidden",
+      "members",
+      "members",
     ]);
   });
 
@@ -99,7 +99,7 @@ describe("adding alumni without duplicates", () => {
         "SELECT visibility FROM alumni_contacts WHERE person_id = 'p-a01' AND kind = 'phone'",
       )
       .first();
-    expect(phone).toEqual({ visibility: "hidden" });
+    expect(phone).toEqual({ visibility: "members" });
     expect(await history("p-a01")).toEqual([
       expect.objectContaining({ field: "contact_added", actor_type: "system" }),
     ]);

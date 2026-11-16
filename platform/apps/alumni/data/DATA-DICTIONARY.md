@@ -1,28 +1,28 @@
 # Alumni data dictionary
 
-This is the plain-language guide to the alumni app's database: what each table and field means, and who may see it. The tables are created by [`0004_alumni_schema.sql`](../../../migrations/0004_alumni_schema.sql). The starting lists are in [`0005_alumni_reference_lists.sql`](../../../migrations/0005_alumni_reference_lists.sql). The same descriptions also appear as comments inside the database.
+This is the plain-language guide to the alumni app's database: what each table and field means, and who may see it. The tables are created by [`0004_alumni_schema.sql`](../../../migrations/0004_alumni_schema.sql). The starting lists are in [`0005_alumni_reference_lists.sql`](../../../migrations/0005_alumni_reference_lists.sql). The rest of a student's first-use answers, the match record and the contact-detail change are in [`0006_alumni_app.sql`](../../../migrations/0006_alumni_app.sql). The same descriptions also appear as comments inside the database.
 
-**Status:** proposed schema for review. It is not yet applied to production, and the app's screens, API, matching, MCP tools and refresh runner do not use it yet. Teammates building those parts read from and write to these tables through [`store.ts`](store.ts).
+**Status:** proposed schema for review. It is not yet applied to production. App code changes alumni records through [`store.ts`](store.ts), saves a student's own profile through [`students.ts`](students.ts), and reads everything back through [`reads.ts`](reads.ts), which returns only what the person asking may see.
 
 ## Who can see what
 
 The database stores the visibility choices. **The app code must enforce them**: the database cannot know who is asking. Every screen, API route and MCP tool must check permissions before returning data.
 
-| Audience                   | Who that is                                                                     | Can see                                                                                                                                                                                                |
-| -------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Admins**                 | Members granted the alumni admin permission (proposed below)                    | Everything, including hidden contact details, unlisted alumni, duplicates, proposals, refresh checks and history                                                                                       |
-| **The alumnus**            | The person whose alumni profile is linked to their member account (`member_id`) | Their own full profile, including hidden contact details                                                                                                                                               |
-| **Slice members**          | Active members with alumni app access (`app.alumni.records.read`)               | **Listed** alumni only (listing status `listed`, not merged): name, tie-breaker, graduation year, majors and schools, current and past jobs, kinds of help, note, and contact details marked `members` |
-| **The student**            | The member linked to a student profile                                          | Their own student profile                                                                                                                                                                              |
-| **Consultants**            | Members granted the student-profile permission (proposed below)                 | Student profiles                                                                                                                                                                                       |
-| **Behind the scenes only** | App code, never shown directly                                                  | Name keys, normalized contact keys, member IDs                                                                                                                                                         |
+| Audience                   | Who that is                                                                           | Can see                                                                                                                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Admins**                 | Members granted the alumni admin permission (proposed below)                          | Everything, including hidden contact details, unlisted alumni, duplicates, proposals, refresh checks and history                                                                             |
+| **The alumnus**            | The person whose alumni profile is linked to their member account (`member_id`)       | Their own full profile, including hidden contact details                                                                                                                                     |
+| **Slice members**          | Active members with alumni app access (`app.alumni.records.read`)                     | **Listed** alumni only (listing status `listed`, not merged): name, graduation year, majors and schools, current and past jobs, kinds of help, note, and contact details not marked `hidden` |
+| **The student**            | The member linked to a student profile. A student is a Slice consultant using the app | Their own student profile, answers and matches                                                                                                                                               |
+| **Behind the scenes only** | App code, never shown directly                                                        | Name keys, normalized contact keys, member IDs                                                                                                                                               |
 
-**Proposed permissions (not declared yet).** Ivan owns `app.json`, where permissions are declared. These names are a suggestion for that change:
+**Permissions.** Declared in the app's `app.json`:
 
-- `students.read`: view student profiles (consultants and admins).
-- `admin`: manage alumni data, see hidden details, review duplicates and proposals.
+- `records.read`: browse listed alumni, keep a student profile and receive matches.
+- `admin`: manage alumni data, see hidden details and unlisted alumni, review duplicates and proposals.
+- `refresh.run`: run the alumni refresh and file proposed changes.
 
-Students also sign in as members. So "student vs. consultant" must come from these permissions, never from the student table alone.
+Decided on 15 November 2026: the students are the Slice consultants themselves, so there is no separate permission for reading student profiles. Only the student and admins can read a student's answers and matches.
 
 ## Conventions
 
@@ -219,17 +219,19 @@ Same audience as the profile. Fields: `id`, `person_id`, `employer_id`, `title`,
 
 ### `alumni_contacts`: contact details, one row each
 
-| Field                      | Meaning                                                                                     | Who sees                                                             |
-| -------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `id`                       | ID                                                                                          | Behind the scenes                                                    |
-| `person_id`                | The alumnus                                                                                 | Behind the scenes                                                    |
-| `kind`                     | `email`, `phone`, `linkedin` or `other`                                                     | As below                                                             |
-| `label`                    | Optional description, e.g. "Personal website"                                               | As below                                                             |
-| `value`                    | The detail itself                                                                           | **`hidden`: alumnus and admins only. `members`: Slice members too.** |
-| `value_key`                | Normalized copy for duplicate checks (lowercase email; LinkedIn profile path; phone digits) | Behind the scenes                                                    |
-| `visibility`               | **`hidden` by default**, or `members`                                                       | Alumnus, admins                                                      |
-| `consent_at`               | When the alumnus agreed to share it. A detail **cannot** be set to `members` without this.  | Alumnus, admins                                                      |
-| `created_at`, `updated_at` | When added and last changed                                                                 | Admins                                                               |
+| Field                      | Meaning                                                                                     | Who sees                                             |
+| -------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `id`                       | ID                                                                                          | Behind the scenes                                    |
+| `person_id`                | The alumnus                                                                                 | Behind the scenes                                    |
+| `kind`                     | `email`, `phone`, `linkedin` or `other`                                                     | As below                                             |
+| `label`                    | Optional description, e.g. "Personal website"                                               | As below                                             |
+| `value`                    | The detail itself                                                                           | **`members`: Slice members. `hidden`: admins only.** |
+| `value_key`                | Normalized copy for duplicate checks (lowercase email; LinkedIn profile path; phone digits) | Behind the scenes                                    |
+| `visibility`               | **`members` by default**, or `hidden` when an admin hides it                                | Admins                                               |
+| `consent_at`               | When the alumnus agreed to share it, if that was recorded. Optional                         | Admins                                               |
+| `created_at`, `updated_at` | When added and last changed                                                                 | Admins                                               |
+
+Slice decided on 15 November 2026 that details from its own alumni contact book are shown to members without a recorded consent time. Migration 0006 rebuilds this table without the earlier rule that required one. An admin can still hide any detail, and a hidden detail is never shown to members.
 
 ### `alumni_help_offered`: kinds of help an alumnus offers
 
@@ -239,7 +241,7 @@ Same audience as the profile. Fields: `person_id`, `help_kind_id`.
 
 ### `alumni_student_profiles`: the student side of a person
 
-**Visible only to the student, consultants and admins.** Never shown in alumni listings.
+**Visible only to the student and admins.** Never shown in alumni listings.
 
 | Field                      | Meaning                                                                                |
 | -------------------------- | -------------------------------------------------------------------------------------- |
@@ -256,6 +258,36 @@ Majors and graduation year come from `alumni_person_majors` and `alumni_people`.
 - `alumni_student_industries` (`person_id`, `industry_id`): industries of interest, several allowed.
 - `alumni_student_cities` (`person_id`, `location_id`): preferred cities, several allowed.
 - `alumni_help_sought` (`person_id`, `help_kind_id`): kinds of help wanted.
+- `alumni_student_skills` (`person_id`, `skill_id`): skills the student says they are good at, from the fixed list `alumni_skills` (`id`, `name`, `active`), which admins maintain like industries.
+
+### `alumni_student_answers`: first-use answers that are not lists
+
+Same audience as the student profile. One row per student.
+
+| Field          | Meaning                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| `person_id`    | The student                                                                                |
+| `career_goal`  | One short sentence in the student's own words. Shown on their profile; not scored          |
+| `linkedin_url` | The student's LinkedIn profile address. Copied to their contact details when they graduate |
+| `updated_at`   | When these answers last changed                                                            |
+
+## Matches
+
+### `alumni_matches`: who was given to whom, and why
+
+**Visible only to the student and admins.** One row per alum given to a student. The same student and alum can never be recorded twice.
+
+| Field                   | Meaning                                                                           |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| `id`                    | ID                                                                                |
+| `student_id`, `alum_id` | The student and the alum given to them                                            |
+| `round`, `slot`         | Which set of matches this is for the student, and its position in the set         |
+| `matched_at`            | When the set was worked out. The next set is due one period after this            |
+| `score`                 | Total from the matching rules at the time                                         |
+| `reasons`               | The plain-language reasons shown to the student, as a JSON list with at least one |
+| `outcome`, `outcome_at` | What the student said they did: `contacted` or `not-for-me`; empty until they say |
+
+Reasons are stored when the match is made, so changing a profile later never rewrites an earlier match.
 
 **Matching uses only structured fields:** major (the current program, `current_major_id` in `alumni_person_schools`, so a former degree name matches its replacement), school (derived), graduation year, industry, employer, city and kinds of help. Free-text notes are never matching inputs.
 

@@ -9,7 +9,7 @@
 --     2019 told apart by a tie-breaker; Chris O'Neil vs Christopher ONeil awaiting admin review;
 --     Patrick Kim already merged into Pat Kim (kept, logged, reversible).
 --   * Accents and punctuation in names: Renée Dubois, Mei-Lin Zhao, Samantha Rivera-Lopez (aliases).
---   * Hidden contact details (the default) and a few shared with recorded consent.
+--   * Contact details an admin has hidden, and others members can see.
 --   * A job change: Marcus Bellweather's old job moved to past jobs.
 --   * Former degree names: Elena Kowalczyk holds Magazine, News and Digital Journalism and Priya
 --     Natarajan holds Applied Data Analytics; both map to today's program and school.
@@ -182,7 +182,7 @@ INSERT INTO alumni_experiences(id, person_id, employer_id, title, industry_id, l
   ('exp-02', 'p-a23', 'emp-maplecrest', 'Buyer', 'consumer-retail', 'loc-chi', '2017-08', '2025-12', NULL, '2026-10-01T12:00:00.000Z'),
   ('exp-03', 'p-a01', 'emp-copperfield', 'Audit Associate', 'accounting', 'loc-nyc', '2015-09', '2019-05', NULL, '2026-10-01T12:00:00.000Z');
 
--- Contact details. Visibility is 'hidden' unless the alumnus consented (consent_at set).
+-- Contact details. A few are marked 'hidden' by an admin; the rest are visible to members.
 INSERT INTO alumni_contacts(id, person_id, kind, label, value, value_key, visibility, consent_at, created_at, updated_at) VALUES
   ('c-01', 'p-a01', 'email', NULL, 'jordan.avery15@example.com', 'jordan.avery15@example.com', 'hidden', NULL, '2026-10-01T12:00:00.000Z', '2026-10-01T12:00:00.000Z'),
   ('c-02', 'p-a01', 'linkedin', NULL, 'https://www.linkedin.com/in/example-jordan-avery-15', 'linkedin.com/in/example-jordan-avery-15', 'members', '2026-09-15T12:00:00.000Z', '2026-10-01T12:00:00.000Z', '2026-10-01T12:00:00.000Z'),

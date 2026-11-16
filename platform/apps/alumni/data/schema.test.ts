@@ -42,7 +42,7 @@ describe("self-describing schema", () => {
         )
         .all<{ name: string; sql: string }>()
     ).results;
-    expect(tables).toHaveLength(22);
+    expect(tables).toHaveLength(26);
     for (const table of tables) {
       const lines = table.sql.split("\n");
       expect(lines[1], `${table.name} needs a description`).toMatch(/^\s*--/);
@@ -236,7 +236,7 @@ describe("school derived from major", () => {
 });
 
 describe("contact visibility", () => {
-  it("hides a new contact detail unless visibility is set", async () => {
+  it("shows a new contact detail to members unless it is marked hidden", async () => {
     await db
       .prepare(
         "INSERT INTO alumni_contacts(id, person_id, kind, value, value_key, created_at, updated_at) VALUES ('c-new', 'p-a03', 'phone', '315-555-0199', '3155550199', ?, ?)",
@@ -246,22 +246,21 @@ describe("contact visibility", () => {
     const row = await db
       .prepare("SELECT visibility, consent_at FROM alumni_contacts WHERE id = 'c-new'")
       .first();
-    expect(row).toEqual({ visibility: "hidden", consent_at: null });
+    expect(row).toEqual({ visibility: "members", consent_at: null });
   });
 
-  it("refuses to share a detail with members without a recorded consent time", async () => {
-    await expect(
-      db.prepare("UPDATE alumni_contacts SET visibility = 'members' WHERE id = 'c-04'").run(),
-    ).rejects.toThrow(/CHECK/);
-    await db
-      .prepare(
-        "UPDATE alumni_contacts SET visibility = 'members', consent_at = ? WHERE id = 'c-04'",
-      )
-      .bind(T)
-      .run();
+  it("lets a detail be shared or hidden without a consent time, and refuses other values", async () => {
+    await db.prepare("UPDATE alumni_contacts SET visibility = 'members' WHERE id = 'c-04'").run();
+    await db.prepare("UPDATE alumni_contacts SET visibility = 'hidden' WHERE id = 'c-04'").run();
     await expect(
       db.prepare("UPDATE alumni_contacts SET visibility = 'everyone' WHERE id = 'c-04'").run(),
     ).rejects.toThrow(/CHECK/);
+  });
+
+  it("keeps every contact detail and its settings when the table is rebuilt", async () => {
+    // The seed is loaded after migration 0006, so this checks the rebuilt table holds the seed.
+    expect(await count(db, "alumni_contacts")).toBeGreaterThan(10);
+    expect(await count(db, "alumni_contacts WHERE visibility = 'hidden'")).toBeGreaterThan(0);
   });
 });
 

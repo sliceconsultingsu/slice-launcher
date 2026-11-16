@@ -8,6 +8,9 @@ export type TestDatabase = Awaited<ReturnType<typeof database>>["db"];
 
 // Rows the seed adds, cleared children-first so links between tables stay valid.
 const SEEDED_TABLES = [
+  "alumni_matches",
+  "alumni_student_skills",
+  "alumni_student_answers",
   "alumni_change_history",
   "alumni_refresh_checks",
   "alumni_pending_changes",

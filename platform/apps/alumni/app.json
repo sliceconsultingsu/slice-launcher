@@ -3,5 +3,18 @@
   "name": "Alumni directory",
   "description": "A learning starter with fictional alumni and student profiles.",
   "workInProgress": true,
-  "permissions": [{ "id": "records.read", "label": "Read sample alumni and student profiles" }]
+  "permissions": [
+    {
+      "id": "records.read",
+      "label": "Browse alumni, keep a student profile and receive matches"
+    },
+    {
+      "id": "admin",
+      "label": "Manage alumni data and review proposed changes"
+    },
+    {
+      "id": "refresh.run",
+      "label": "Run the alumni refresh and file proposed changes"
+    }
+  ]
 }

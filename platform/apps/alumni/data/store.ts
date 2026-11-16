@@ -167,7 +167,7 @@ export class AlumniStore {
   /**
    * Adds an alumnus, unless an active person with the same name key, year and tie-breaker exists.
    * Then: if they share an email or LinkedIn and none conflicts, the new contact details are
-   * attached to the existing person (saved hidden). Otherwise nothing is saved to profiles and the
+   * attached to the existing person. Otherwise nothing is saved to profiles and the
    * incoming record goes to alumni_merge_candidates for an admin to decide.
    */
   async addAlumnus(input: NewAlumnus): Promise<AddAlumnusResult> {
@@ -255,7 +255,7 @@ export class AlumniStore {
             existing.id,
             "contact_added",
             null,
-            JSON.stringify({ kind: contact.kind, value: contact.value, visibility: "hidden" }),
+            JSON.stringify({ kind: contact.kind, value: contact.value, visibility: "members" }),
             { type: "system" },
             null,
             now,
@@ -546,6 +546,135 @@ export class AlumniStore {
     );
   }
 
+  /**
+   * Returns the ID of the employer with this name, adding it to the list if it is new. Safe when
+   * two requests add the same employer at once: the insert is skipped if the name key already
+   * exists, then the row is read.
+   */
+  async findOrCreateEmployer(name: string): Promise<string> {
+    const trimmed = name.trim();
+    const key = nameKey(trimmed);
+    if (!key || trimmed.length > 120)
+      throw new AlumniDataError("invalid", "The employer name is not valid.");
+    await this.db
+      .prepare(
+        "INSERT INTO alumni_employers(id, name, name_key) VALUES (?, ?, ?) ON CONFLICT(name_key) DO NOTHING",
+      )
+      .bind(this.newId(), trimmed, key)
+      .run();
+    const row = await this.db
+      .prepare("SELECT id FROM alumni_employers WHERE name_key = ?")
+      .bind(key)
+      .first<{ id: string }>();
+    if (!row) throw new AlumniDataError("not-found", "The employer could not be saved.");
+    return row.id;
+  }
+
+  /** Returns the ID of this city, adding it to the list if it is new. Safe under the same race. */
+  async findOrCreateLocation(
+    city: string,
+    region: string | null,
+    country: string,
+  ): Promise<string> {
+    const place = { city: city.trim(), region: (region ?? "").trim(), country: country.trim() };
+    if (!place.city || !place.country || Object.values(place).some((part) => part.length > 80))
+      throw new AlumniDataError("invalid", "The city is not valid.");
+    await this.db
+      .prepare(
+        "INSERT INTO alumni_locations(id, city, region, country) VALUES (?, ?, ?, ?) ON CONFLICT(city, region, country) DO NOTHING",
+      )
+      .bind(this.newId(), place.city, place.region, place.country)
+      .run();
+    const row = await this.db
+      .prepare("SELECT id FROM alumni_locations WHERE city = ? AND region = ? AND country = ?")
+      .bind(place.city, place.region, place.country)
+      .first<{ id: string }>();
+    if (!row) throw new AlumniDataError("not-found", "The city could not be saved.");
+    return row.id;
+  }
+
+  /**
+   * Turns a student into an alum: creates their alumni profile (listed, with the student's member
+   * ID) and carries over the LinkedIn link they gave as a student. The student profile stays.
+   * Does nothing and returns false if the person already has an alumni profile.
+   */
+  async graduateStudent(personId: string): Promise<boolean> {
+    const student = await this.db
+      .prepare(
+        `SELECT sp.member_id, a.linkedin_url,
+                EXISTS (SELECT 1 FROM alumni_profiles ap WHERE ap.person_id = sp.person_id) AS is_alum
+         FROM alumni_student_profiles sp
+         LEFT JOIN alumni_student_answers a ON a.person_id = sp.person_id
+         WHERE sp.person_id = ?`,
+      )
+      .bind(personId)
+      .first<{ member_id: string; linkedin_url: string | null; is_alum: number }>();
+    if (!student) throw new AlumniDataError("not-found", "No such student profile.");
+    if (student.is_alum) return false;
+    const now = this.now();
+    const statements = [
+      this.db
+        .prepare(
+          `INSERT INTO alumni_profiles(person_id, member_id, listing_status, created_at, updated_at)
+           SELECT ?, ?, 'listed', ?, ?
+           WHERE NOT EXISTS (SELECT 1 FROM alumni_profiles WHERE person_id = ?)`,
+        )
+        .bind(personId, student.member_id, now, now, personId),
+    ];
+    if (student.linkedin_url)
+      statements.push(
+        this.db
+          .prepare(
+            `INSERT INTO alumni_contacts(id, person_id, kind, value, value_key, created_at, updated_at)
+             VALUES (?, ?, 'linkedin', ?, ?, ?, ?) ON CONFLICT(person_id, kind, value_key) DO NOTHING`,
+          )
+          .bind(
+            this.newId(),
+            personId,
+            student.linkedin_url,
+            contactKey("linkedin", student.linkedin_url),
+            now,
+            now,
+          ),
+      );
+    const [created] = await this.db.batch(statements);
+    return Boolean(created?.meta.changes);
+  }
+
+  /** An admin hides a contact detail from members or shows it again, with history. */
+  async setContactVisibility(
+    contactId: string,
+    visibility: "hidden" | "members",
+    adminMemberId: string,
+  ): Promise<void> {
+    const contact = await this.db
+      .prepare("SELECT visibility FROM alumni_contacts WHERE id = ?")
+      .bind(contactId)
+      .first<{ visibility: string }>();
+    if (!contact) throw new AlumniDataError("not-found", "No such contact detail.");
+    if (contact.visibility === visibility) return;
+    const now = this.now();
+    await this.run([
+      this.historyRow(
+        "contact",
+        contactId,
+        "visibility",
+        contact.visibility,
+        visibility,
+        { type: "admin", memberId: adminMemberId },
+        null,
+        now,
+        {
+          sql: "EXISTS (SELECT 1 FROM alumni_contacts WHERE id = ? AND visibility = ?)",
+          params: [contactId, contact.visibility],
+        },
+      ),
+      this.db
+        .prepare("UPDATE alumni_contacts SET visibility = ?, updated_at = ? WHERE id = ?")
+        .bind(visibility, now, contactId),
+    ]);
+  }
+
   // ---- helpers -------------------------------------------------------------------------------
 
   private insertContact(
@@ -553,7 +682,8 @@ export class AlumniStore {
     contact: { kind: ContactKind; value: string; key: string },
     now: string,
   ): Statement {
-    // visibility is deliberately omitted so the table default ('hidden') applies.
+    // visibility is deliberately omitted so the table default ('members') applies: details from
+    // the contact book are shown to members unless an admin hides them.
     return this.db
       .prepare(
         "INSERT INTO alumni_contacts(id, person_id, kind, value, value_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
