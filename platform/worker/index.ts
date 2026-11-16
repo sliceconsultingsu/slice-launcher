@@ -1,6 +1,6 @@
 // Slice's Worker entry. vinext serves every page and API; the Slice OAuth provider sits in front
-// of it to serve AI sign-in (/mcp, /oauth/*, /.well-known/oauth-*), which bypasses Cloudflare
-// Access and accepts only Slice-issued passes. Everything else reaches vinext unchanged.
+// of it to serve AI sign-in (/mcp, /oauth/*, /.well-known/oauth-*), which accepts only
+// Slice-issued passes. Everything else reaches vinext unchanged.
 import vinext from "vinext/server/fetch-handler";
 import { createSliceWorker } from "../src/ai-connections/oauth";
 import { apps } from "../src/lib/apps";
@@ -13,7 +13,7 @@ export default createSliceWorker<CloudflareEnv>({
     fetch: (request, env, ctx) => vinext.fetch(request, env, ctx),
   },
   // The same adapter the platform used before, with the identity taken from the grant instead of
-  // an Access header. It reloads current membership on every request.
+  // a browser session. It reloads current membership on every request.
   mcp: (request, identity, env) =>
     createMcpAdapter({
       catalog: apps,

@@ -46,7 +46,7 @@ export function createPlatform(dependencies: PlatformDependencies) {
         });
         const headers = new Headers(response.headers);
         headers.set("Cache-Control", "private, no-store");
-        headers.append("Vary", "Cookie, Cf-Access-Jwt-Assertion");
+        headers.append("Vary", "Cookie");
         headers.delete("CDN-Cache-Control");
         headers.delete("Cloudflare-CDN-Cache-Control");
         headers.delete("Surrogate-Control");

@@ -206,6 +206,15 @@ export function applyCommand(
     return finish(state, meta, actor.id, command.type, member.id, null, member);
   }
   const target = state.members.find((m) => m.id === command.id) ?? fail(404, "Member not found.");
+  if (command.type === "member.remove") {
+    // Nobody removes themselves, so the acting manager always remains and an owner who removes
+    // another owner is still an active owner afterwards.
+    if (target.id === actor.id) fail(400, "You cannot remove yourself.");
+    if (target.owner && !actor.owner) fail(403, "Only an owner can make this change.");
+    canDelegate(effectivePermissions(state, { ...target, status: "active" }));
+    state.members = state.members.filter((m) => m.id !== target.id);
+    return finish(state, meta, actor.id, command.type, target.id, target, null);
+  }
   if (!actor.owner && (target.id === actor.id || target.owner || command.owner))
     fail(403, "Only an owner can make this change.");
   if (command.levelId) levelById(command.levelId);

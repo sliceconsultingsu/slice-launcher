@@ -14,7 +14,7 @@ const MAX_RESULT_BYTES = 65536;
 function privateResponse(response: Response) {
   const headers = new Headers(response.headers);
   headers.set("Cache-Control", "private, no-store");
-  headers.set("Vary", "Origin, Authorization, Cookie, Cf-Access-Jwt-Assertion");
+  headers.set("Vary", "Origin, Authorization, Cookie");
   headers.set("X-Content-Type-Options", "nosniff");
   return new Response(response.body, { status: response.status, headers });
 }
@@ -63,7 +63,7 @@ export function createMcpAdapter(dependencies: PlatformDependencies) {
   return async (request: Request): Promise<Response> => {
     let server: McpServer | undefined;
     try {
-      // Access verifies client OAuth at the edge; this is the SAME signed identity verifier as UI/API.
+      // The Worker's OAuth layer has already checked the pass; this supplies the member it names.
       const identity = await dependencies.verify(request);
       const state = await dependencies.loadState();
       authorizeMember(state, identity);

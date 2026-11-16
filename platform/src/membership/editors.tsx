@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import type { FormEvent } from "react";
 import type { Command, Level, Member, View } from "./contracts";
 import { organizationRole } from "./access-summary";
@@ -239,7 +240,52 @@ export function MemberEditor({
           <p>No permissions.</p>
         )}
       </section>
+      {!locked && member.id !== view.me.id && (
+        <RemoveMember member={member} save={save} busy={busy} />
+      )}
     </form>
+  );
+}
+function RemoveMember({ member, save, busy }: { member: Member; save: Save; busy: boolean }) {
+  const [confirming, setConfirming] = useState(false);
+  const who = member.name || member.email;
+  return (
+    <section className="remove-member">
+      <h3>Remove member</h3>
+      <p className="field-note">
+        Removing deletes this person&apos;s record and signs them out. They can ask to join again.
+        To keep someone out, set their status to Suspended instead.
+      </p>
+      {confirming ? (
+        <div className="remove-member-actions">
+          <button
+            className="secondary-button danger-button"
+            type="button"
+            disabled={busy}
+            onClick={() => void save({ type: "member.remove", id: member.id })}
+          >
+            {busy ? "Removing…" : `Yes, remove ${who}`}
+          </button>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={busy}
+            onClick={() => setConfirming(false)}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          className="secondary-button"
+          type="button"
+          disabled={busy}
+          onClick={() => setConfirming(true)}
+        >
+          Remove member
+        </button>
+      )}
+    </section>
   );
 }
 export function LevelEditor({
