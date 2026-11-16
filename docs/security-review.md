@@ -24,14 +24,14 @@ Ivan is the sole maintainer and the only code owner. A `main` ruleset requires a
 
 Sign-in and connection events go to the Worker's logs (Cloudflare Workers Logs; `observability` is on in `platform/wrangler.jsonc`) as one JSON line each:
 
-| Event                       | When                                             | Fields                                                                           |
-| --------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------- |
-| `sign_in_succeeded`         | A Google sign-in completed and a session started | `subject`, `emailManaged`, `known` (false for someone Slice had not seen before) |
-| `sign_in_failed`            | A sign-in attempt was refused                    | `reason`: `state`, `google`, `unverified`, `email`, `rate` or `unavailable`      |
-| `ai_connection_approved`    | A member chose Allow on the approval page        | `subject`, `clientId`, `returnsTo` (the origin the app returns to)               |
-| `membership_request_failed` | The membership API hit an unexpected error       | `error` (the error's name), `message` (first 300 characters)                     |
+| Event                       | When                                                             | Fields                                                                                        |
+| --------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `sign_in_succeeded`         | A Google sign-in completed and a session started                 | `subject`, `emailManaged`, `known` (false for someone Slice had not seen before)              |
+| `sign_in_failed`            | A sign-in attempt was refused                                    | `reason`: `state`, `google`, `unverified`, `email`, `rate` or `unavailable`                   |
+| `ai_connection_approved`    | A member chose Allow on the approval page                        | `subject`, `clientId`, `returnsTo` (the origin the app returns to)                            |
+| `membership_request_failed` | The membership API, an app or an AI tool hit an unexpected error | `error` (the error's name); `message` (first 300 characters) only when the database raised it |
 
-Lines carry a person's sign-in account ID, never their email address, and nothing from Google's reply. Cloudflare attaches the request's time, address and ray ID to each line. Membership changes themselves are in access history, not here. How long these logs are kept is a Cloudflare account setting; check it before relying on them after an incident.
+Lines carry a person's sign-in account ID, never their email address, and nothing from Google's reply. Apps and AI tools report failures through the same path and their messages may quote the records they were handling, so only database messages, which name a statement or constraint, are logged. Cloudflare attaches the request's time, address and ray ID to each line. Membership changes themselves are in access history, not here. How long these logs are kept is a Cloudflare account setting; check it before relying on them after an incident.
 
 Completed sign-ins are limited to 60 a minute per network address (`AUTH_LIMITER`). Starting a sign-in is not counted, because it does no work on Slice's side. The limit is per address, so someone on the same network as other members can still use up that network's allowance; people already signed in are unaffected.
 
