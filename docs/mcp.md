@@ -31,7 +31,12 @@ The approval page (`src/ai-connections/consent.ts`) uses the person's Slice sess
 
 Screenshots of the approval page, the top-bar states and the connected-apps list are in [docs/images/ai-connections](images/ai-connections/).
 
-When a member is suspended, returned to pending or removed, the membership API disconnects every AI app they approved (`disconnectAll` in `src/ai-connections/connections.ts`). The membership change is saved first and is what stops access: `/mcp` reloads membership on every request. If the disconnect step fails it is logged as `access_loss_cleanup_failed`, and the renewal check above revokes the connection the next time the app tries to renew.
+When an administrator suspends a member, returns them to pending or removes them, the membership API disconnects every AI app they approved (`disconnectAll` in `src/ai-connections/connections.ts`). Memberships and connections live in different stores, so the two steps cannot be one transaction:
+
+- **Suspension** is saved first, because it is what stops access: `/mcp` reloads membership on every request. If the disconnect then fails, the API answers 502, logs `access_loss_cleanup_failed`, and saving the member again retries it.
+- **Removal** disconnects first. If that fails, the API answers 502 and the person is not removed.
+
+Whatever happens here, the renewal check above also revokes a connection the next time its app tries to renew.
 
 One library behaviour to know: after a renewal pass is rotated, the previous one stays valid until the new one is first used, so that an app whose renewal response was lost can retry. A copied renewal pass is therefore not detected by reuse. It stops working when the connection is disconnected or the person loses active membership.
 

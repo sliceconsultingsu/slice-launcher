@@ -104,7 +104,7 @@ it("removing a member deletes their record and sessions, and keeps everyone else
   expect((await repo.history())[0]).toMatchObject({ action: "member.remove", after: null });
 });
 
-it("suspending a member ends their sessions once, and nobody else's", async () => {
+it("ending a member's active status ends their sessions once, and nobody else's", async () => {
   const { repo, db } = await setup();
   const person = { subject: "person", email: "person@example.test", emailManaged: true };
   const owner = { subject: "owner", email: "owner@example.test", emailManaged: true };
@@ -116,7 +116,7 @@ it("suspending a member ends their sessions once, and nobody else's", async () =
     (await db.prepare("SELECT subject FROM sessions ORDER BY subject").all()).results.map(
       (row: Record<string, unknown>) => row.subject,
     );
-  const update = async (status: "active" | "suspended", id: string) => {
+  const update = async (status: "active" | "suspended" | "pending", id: string) => {
     const before = await repo.load();
     await repo.commit(
       before,
@@ -159,6 +159,13 @@ it("suspending a member ends their sessions once, and nobody else's", async () =
       { id: "level", now: new Date().toISOString() },
     ),
   );
+  expect(await subjects()).toEqual(["owner", "person"]);
+
+  // Returning them to pending signs them out too. Saving a pending person again does not.
+  await update("pending", "unapprove");
+  expect(await subjects()).toEqual(["owner"]);
+  await createSession(db, person, "test");
+  await update("pending", "unapprove-again");
   expect(await subjects()).toEqual(["owner", "person"]);
 });
 

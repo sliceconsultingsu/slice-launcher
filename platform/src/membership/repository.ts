@@ -58,10 +58,11 @@ export class Repository {
       );
     }
     for (const member of state.members) {
-      // A suspended person is signed out everywhere. Access was already checked on every
-      // request; this also stops the session from coming back to life if they are reinstated.
-      if (member.status !== "suspended" || !member.subject) continue;
-      if (before.members.find((m) => m.id === member.id)?.status === "suspended") continue;
+      // Someone who stops being an active member (suspended, or returned to pending) is signed
+      // out everywhere. Access was already checked on every request; this also stops an old
+      // session from coming back to life if they are reinstated.
+      if (!member.subject || member.status === "active") continue;
+      if (before.members.find((m) => m.id === member.id)?.status !== "active") continue;
       statements.push(
         this.db.prepare("DELETE FROM sessions WHERE subject = ?").bind(member.subject),
       );

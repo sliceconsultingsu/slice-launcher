@@ -2,7 +2,7 @@ import { z } from "zod";
 import { readCommand } from "./auth";
 import { applyCommand, effectivePermissions, enroll, memberView } from "./domain";
 import { MembershipError } from "./contracts";
-import type { SignedInIdentity, State } from "./contracts";
+import type { Mutation, SignedInIdentity, State } from "./contracts";
 import type { HistoryCursor, Repository } from "./repository";
 
 /** Profile edits one person may save in a day. Each one adds an entry to access history. */
@@ -16,22 +16,24 @@ export type MembershipDeps = {
    */
   allowWrite?: (subject: string) => Promise<boolean>;
   /**
-   * Called after a change that takes active membership away from a signed-in person (suspended,
-   * returned to pending) or removes them. Production disconnects their AI apps here.
+   * Called when an administrator's change leaves a signed-in person without active membership
+   * (suspended, returned to pending, or removed). Production disconnects their AI apps here.
    */
   onAccessLoss?: (subject: string) => Promise<void>;
 };
 
-/** Signed-in people who were removed in this commit, or were active before it and are not now. */
-function lostAccess(before: State, after: State): string[] {
-  const subjects: string[] = [];
-  for (const member of before.members) {
-    if (!member.subject) continue;
-    const now = after.members.find((m) => m.id === member.id);
-    if (!now || (member.status === "active" && now.status !== "active"))
-      subjects.push(member.subject);
-  }
-  return subjects;
+/**
+ * The signed-in person an administrator's change leaves without active membership, if any:
+ * someone removed, or a member saved as suspended or pending. A repeat save counts too, so an
+ * administrator can retry a disconnect that failed.
+ */
+function accessLost(before: State, { state: after, audit }: Mutation): string | null {
+  if (audit.action !== "member.update" && audit.action !== "member.remove") return null;
+  const was = before.members.find((m) => m.id === audit.targetId);
+  if (!was?.subject) return null;
+  return after.members.find((m) => m.id === audit.targetId)?.status === "active"
+    ? null
+    : was.subject;
 }
 
 /** History pages are addressed by an opaque token the previous page returned. */
@@ -129,21 +131,35 @@ export async function membershipRequest(
         "You have changed your profile many times today. Try again tomorrow.",
       );
   }
-  await repository.commit(state, result);
-  if (deps.onAccessLoss)
-    for (const subject of lostAccess(state, result.state)) {
-      try {
-        await deps.onAccessLoss(subject);
-      } catch (error) {
-        // The membership change is already saved and takes effect on the person's next request.
-        // Their connections are also refused at renewal, so a failure here is logged, not fatal.
-        console.error(
-          JSON.stringify({
-            event: "access_loss_cleanup_failed",
-            error: error instanceof Error ? error.name : "UnknownError",
-          }),
-        );
-      }
+  const loser = deps.onAccessLoss ? accessLost(state, result) : null;
+  const cleanUp = async (failure: string) => {
+    if (!loser || !deps.onAccessLoss) return;
+    try {
+      await deps.onAccessLoss(loser);
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "access_loss_cleanup_failed",
+          action: result.audit.action,
+          error: error instanceof Error ? error.name : "UnknownError",
+        }),
+      );
+      // Never reported as success: the administrator is told, and saving again retries it.
+      throw new MembershipError(502, failure);
     }
+  };
+  // A removed person leaves nothing to save again, so their apps are disconnected first and a
+  // failure stops the removal. Suspension is the other way round: it is what keeps someone out,
+  // so it is saved first and must never wait on another store.
+  const removing = result.audit.action === "member.remove";
+  if (removing)
+    await cleanUp(
+      "This person's AI apps could not be disconnected, so they were not removed. Try again.",
+    );
+  await repository.commit(state, result);
+  if (!removing)
+    await cleanUp(
+      "The change was saved, but this person's AI apps could not be disconnected. Reload, then save the member again to retry.",
+    );
   return json(memberView(result.state, identity.subject));
 }
