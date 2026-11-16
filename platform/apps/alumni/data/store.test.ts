@@ -2,7 +2,7 @@
 // changes, the pending-change review flow, and reversible merges.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AlumniDataError, AlumniStore, contactKey, nameKey } from "./store";
-import { count, loadSeed, openAlumniDatabase, type TestDatabase } from "./test-database";
+import { count, loadSeed, openAlumniDatabase, type TestDatabase } from "../tests/database";
 
 let fixture: Awaited<ReturnType<typeof openAlumniDatabase>>;
 let db: TestDatabase;

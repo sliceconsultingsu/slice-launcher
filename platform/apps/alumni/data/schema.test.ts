@@ -1,7 +1,7 @@
 // Rules the database itself enforces, whichever code writes to it.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AlumniStore, contactKey, nameKey } from "./store";
-import { count, loadSeed, openAlumniDatabase, type TestDatabase } from "./test-database";
+import { count, loadSeed, openAlumniDatabase, type TestDatabase } from "../tests/database";
 
 let fixture: Awaited<ReturnType<typeof openAlumniDatabase>>;
 let db: TestDatabase;
@@ -85,7 +85,8 @@ describe("fictional seed", () => {
       expect(contact.value_key).toBe(contactKey(contact.kind, contact.value));
       if (contact.kind === "email") expect(contact.value).toMatch(/@example\.com$/);
       if (contact.kind === "phone") expect(contact.value).toMatch(/555-01\d\d$/);
-      if (contact.kind === "linkedin") expect(contact.value).toMatch(/linkedin\.com\/in\/example-/);
+      if (contact.kind === "linkedin")
+        expect(contact.value).toMatch(/^https:\/\/www\.linkedin\.com\/in\/example-/);
       if (contact.kind === "other") expect(contact.value).toMatch(/^https:\/\/example\.com\//);
     }
   });

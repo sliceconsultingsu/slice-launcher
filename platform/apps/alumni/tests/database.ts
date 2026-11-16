@@ -47,7 +47,7 @@ export async function loadSeed(db: TestDatabase) {
     new URL("../../../migrations/0005_alumni_reference_lists.sql", import.meta.url),
     "utf8",
   );
-  const seed = await readFile(new URL("./seed.sql", import.meta.url), "utf8");
+  const seed = await readFile(new URL("../data/seed.sql", import.meta.url), "utf8");
   await db.batch([
     // One DELETE per table: links between rows of the same table are checked when it finishes.
     ...SEEDED_TABLES.map((table) => db.prepare(`DELETE FROM ${table}`)),
