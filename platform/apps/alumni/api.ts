@@ -6,6 +6,7 @@ import { MembershipError } from "../../src/membership/contracts";
 import type { AppApiProps } from "../../src/platform/contracts";
 import { createSampleRepository, readDirectory } from "./data";
 import { isAdmin, viewerOf } from "./access";
+import { importAlumni, importSchema } from "./data/import";
 import { InvalidChoiceError, searchSchema } from "./data/reads";
 import type { AlumniData } from "./data/services";
 import { AlumniDataError } from "./data/store";
@@ -94,6 +95,11 @@ export async function alumniApi(
         return json({ status: decision });
       }
       return notFound();
+    }
+    if (area === "import" && path.length === 1) {
+      context.requirePermission("admin");
+      if (method !== "POST") return notAllowed("POST");
+      return json(await importAlumni(open(), parse(importSchema, input), context.member.id));
     }
     if (area === "contacts" && path.length === 3 && id && action === "visibility") {
       context.requirePermission("admin");

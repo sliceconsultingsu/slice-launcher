@@ -1,0 +1,204 @@
+/* Alumni app styles. They use the platform's tokens and sit beside its shared classes
+   (.primary-button, .secondary-button, .text-button, .notice, .form-stack, .status-badge). */
+.alumni-workspace {
+  color: var(--ink);
+  padding: 8px 0 40px;
+}
+.alumni-workspace h1 {
+  margin: 4px 0 20px;
+  overflow-wrap: anywhere;
+}
+.alumni-workspace h2 {
+  font-size: 19px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+.alumni-workspace h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 20px 0 8px;
+}
+.alumni-workspace a:not(.primary-button, .secondary-button) {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}
+.alumni-workspace a:focus-visible,
+.alumni-workspace textarea:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+.alumni-tabs {
+  display: flex;
+  gap: 26px;
+  border-bottom: 1px solid var(--line);
+  margin: 0 0 28px;
+  overflow-x: auto;
+}
+.alumni-workspace .alumni-tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  font-size: 14px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.alumni-workspace .alumni-tabs a[aria-current] {
+  border-color: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+.alumni-workspace .alumni-tabs a:focus-visible {
+  outline-offset: -3px;
+}
+.alumni-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 20px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.alumni-card {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 24px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.alumni-card h2,
+.alumni-card h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+.alumni-card p,
+.alumni-card li,
+.alumni-detail p,
+.alumni-detail li,
+.alumni-detail dd {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+.alumni-card ul,
+.alumni-detail ul {
+  margin: 0;
+  padding-left: 20px;
+}
+.alumni-muted {
+  color: var(--muted);
+  font-size: 14px;
+}
+.alumni-workspace > .alumni-muted {
+  margin: 0 0 16px;
+}
+.alumni-small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.alumni-toolbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 28px 0 16px;
+}
+.alumni-toolbar h2 {
+  margin: 0;
+}
+.alumni-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+.alumni-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: 16px;
+  align-items: end;
+}
+.alumni-filters .alumni-wide {
+  grid-column: 1 / -1;
+}
+.alumni-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 4px 16px;
+}
+.alumni-choices .check-label {
+  min-height: 44px;
+}
+.alumni-workspace .form-stack {
+  display: grid;
+  gap: 28px;
+}
+.alumni-workspace .form-stack legend {
+  margin-bottom: 8px;
+}
+.alumni-workspace .form-stack .notice {
+  margin: 0;
+}
+.alumni-workspace .form-stack .primary-button {
+  justify-self: start;
+}
+.alumni-workspace .form-stack textarea {
+  width: 100%;
+  min-height: 180px;
+  background: white;
+  border: 1px solid #cfcec6;
+  border-radius: 7px;
+  padding: 11px 12px;
+  font: inherit;
+  font-size: 14px;
+}
+.alumni-detail {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+.alumni-detail dl {
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+.alumni-detail dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.alumni-contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 44px;
+}
+.alumni-change {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  margin: 12px 0;
+}
+.alumni-change div {
+  background: var(--selected);
+  border-radius: 9px;
+  padding: 12px 16px;
+}
+.alumni-pressed {
+  background: var(--selected);
+  border-color: var(--accent);
+}
+@media (max-width: 800px) {
+  .alumni-detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 500px) {
+  .alumni-actions > * {
+    flex: 1 1 100%;
+  }
+}

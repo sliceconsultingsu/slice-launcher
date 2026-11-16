@@ -2,7 +2,7 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import { rmSync } from "node:fs";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,7 +11,7 @@ import react from "@vitejs/plugin-react";
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from "jose";
 import { database, migrate, reset } from "../database";
 import { Repository } from "../../src/membership/repository";
-import { enroll } from "../../src/membership/domain";
+import { applyCommand, enroll } from "../../src/membership/domain";
 import { verifyIdentity } from "../../src/membership/auth";
 import { createPlatform } from "../../src/platform/dispatch";
 import type { AppModule } from "../../src/platform/contracts";
@@ -48,6 +48,10 @@ await migrate(fixture.db);
 await reset(fixture.db);
 // App code reaches this same disposable database through the stand-in module aliased below.
 setPreviewDatabase(fixture.db);
+// Fill it with the alumni app's fictional people, so the preview has something to browse.
+const { unstable_splitSqlQuery: splitSql } = await import("wrangler");
+const seed = await readFile(new URL("../../apps/alumni/data/seed.sql", import.meta.url), "utf8");
+await fixture.db.batch(splitSql(seed).map((statement) => fixture.db.prepare(statement)));
 const repository = new Repository(fixture.db);
 const config = {
   issuer: "https://slice-learning-only.cloudflareaccess.com",
@@ -62,6 +66,18 @@ const joined = enroll(
 );
 if (!joined.audit) throw new Error("Unable to seed learning identity.");
 await repository.commit(initial, { ...joined, audit: joined.audit });
+// Give the fictional learner a name, as a real member does on their account page. The alumni
+// app uses it for the student's own profile.
+const enrolled = await repository.load();
+await repository.commit(
+  enrolled,
+  applyCommand(
+    enrolled,
+    `${config.issuer}|learner`,
+    { type: "profile.update", name: "Learner Example", title: "" },
+    { id: "learning-owner-name", now: new Date().toISOString() },
+  ),
+);
 const pair = await generateKeyPair("RS256");
 const keys = createLocalJWKSet({
   keys: [{ ...(await exportJWK(pair.publicKey)), kid: "learning-only" }],
@@ -189,7 +205,13 @@ server.on("request", async (req, res) => {
       );
       res.writeHead(response.status, Object.fromEntries(response.headers));
       res.end(await response.text());
-    } else if (url.pathname === "/" || url.pathname === "/apps/alumni") {
+    } else if (
+      url.pathname === "/" ||
+      url.pathname === "/apps/alumni" ||
+      // An app screen such as /apps/alumni/explore. The app's source files are served from the
+      // same folder name, so anything with a file extension is left to Vite below.
+      (url.pathname.startsWith("/apps/alumni/") && !/\.[a-z0-9]+$/i.test(url.pathname))
+    ) {
       if (req.method !== "GET" && req.method !== "HEAD") {
         res.writeHead(405);
         res.end();

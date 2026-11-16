@@ -2,7 +2,7 @@
   {
     "id": "alumni",
     "name": "Alumni directory",
-    "description": "A learning starter with fictional alumni and student profiles.",
+    "description": "Find alumni whose experience fits your career interests, and get suggested matches.",
     "workInProgress": true,
     "permissions": [
       {

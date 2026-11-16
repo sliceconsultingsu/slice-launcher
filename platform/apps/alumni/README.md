@@ -1,19 +1,87 @@
-# Alumni directory starter
+# Alumni directory
 
-A read-only learning app with three invented alumni and two invented students. The directory runs inside the Slice platform and in an isolated contributor preview. It does not yet implement persistent alumni storage, editing, matching, alumni MCP tools or refresh jobs.
+Helps Slice consultants find alumni whose experience fits their career interests. A consultant (called a "student" in this app) saves a short profile, browses and filters alumni, and is given three alumni every 30 days with the reasons for each. An approved AI assistant can do the same through the Slice MCP connection, and an admin keeps alumni jobs current by reviewing changes the refresh proposes.
 
-Start with the [team guide](../../../docs/team/README.md), [shared contracts](#common-interfaces) and your assigned task. Do not scaffold another alumni app.
+**Status: work in progress.** The code is complete for the first version described in the product requirements, with tests. It is not live: the alumni database changes (migrations 0004 to 0006) have not been applied to production, and no real alumni have been loaded. The repository contains invented people only.
 
-## Ownership
+Screenshots with fictional data: [matches](../../../docs/images/alumni/matches-desktop.png) · [explorer](../../../docs/images/alumni/explore-desktop.png) · [profile](../../../docs/images/alumni/alum-profile-desktop.png) · [first use](../../../docs/images/alumni/first-use-desktop.png) · [review](../../../docs/images/alumni/review-desktop.png) · [add alumni](../../../docs/images/alumni/add-alumni-desktop.png). Phone-width versions sit beside them.
 
-- `contracts.ts`, `fixtures.ts`, `data.ts`, `server.tsx`, `app.json`: shared integration baseline, coordinated by Ivan.
-- `data/`: import/storage contributor; the initial read-only adapter remains in `data.ts`.
-- `ui/`: directory/student interface contributor.
-- `matching/`: matching contributor; create in the first task.
-- `mcp/`: MCP contributor; create in the first task.
-- `refresh/`: refresh contributor; create in the first task.
+## How it is organized
 
-Only create files needed for your task. App code uses the platform's login, permission enforcement, MCP transport and deployment. No independent app server, production credential or cron configuration belongs here.
+| Folder or file                     | What it holds                                                                                                           |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `data/store.ts`                    | Changes to alumni records: add an alum, change a job, propose and review a change, merge duplicates, graduate a student |
+| `data/students.ts`                 | A student's own profile and what they did with a match                                                                  |
+| `data/reads.ts`                    | Every read. Each takes who is asking and returns only what they may see                                                 |
+| `data/import.ts`                   | Loading rows from the alumni contact book                                                                               |
+| `data/database.ts`                 | The only file that reaches the real database                                                                            |
+| `matching/`                        | The matching rules (`score.ts`), the settings (`config.ts`) and giving a student their next set (`assign.ts`)           |
+| `refresh/`                         | The alumni refresh: who is due, filing a result, graduation, and the review list                                        |
+| `mcp/tools.ts`, `refresh/tools.ts` | The assistant tools                                                                                                     |
+| `api.ts`                           | The API routes under `/api/apps/alumni/`                                                                                |
+| `ui/`                              | The screens                                                                                                             |
+| `tests/`                           | Test-only helpers: a disposable database with the fictional seed, and invented members                                  |
+
+The data dictionary, [`data/DATA-DICTIONARY.md`](data/DATA-DICTIONARY.md), describes every table and field and who may see it.
+
+## Rules every part follows
+
+1. **Check permission first.** Every page, API route and tool checks what the signed-in person may do before returning anything.
+2. **One set of read rules.** Screens and tools read through `data/reads.ts`, so they cannot show different things.
+3. **Hidden means hidden.** A hidden alum, a merged duplicate and a hidden contact detail are never shown to members or returned by a student tool.
+4. **A student's answers are private.** Only the student and admins can read them. The member ID always comes from the platform, never from a request.
+5. **Nothing changes an alum's profile without an admin.** The refresh files proposals; a person approves or rejects them.
+6. **No real people in the code.** Tests, examples and screenshots use invented people.
+
+## Permissions
+
+Declared in [`app.json`](app.json). Owners inherit all three.
+
+| Action         | Lets a member                                                                          |
+| -------------- | -------------------------------------------------------------------------------------- |
+| `records.read` | Browse alumni, keep a student profile and receive matches                              |
+| `admin`        | Review proposed changes, add alumni, hide an alum or a contact detail, see hidden ones |
+| `refresh.run`  | Call the three refresh tools                                                           |
+
+A member holding `refresh.run` without `admin` cannot use a LinkedIn link an admin has hidden.
+
+## Pages and API routes
+
+Pages: `/apps/alumni` (matches, or the first-use profile), `/explore`, `/alumni/<id>`, `/profile`, and for admins `/review` and `/add`.
+
+| Route                      | Method    | Needs          | Does                                                                    |
+| -------------------------- | --------- | -------------- | ----------------------------------------------------------------------- |
+| `alumni`                   | GET       | `records.read` | Search with filters, sorting and paging                                 |
+| `alumni/<id>`              | GET       | `records.read` | One profile                                                             |
+| `lists`                    | GET       | `records.read` | The fixed choices                                                       |
+| `me`                       | GET       | `records.read` | Who is signed in and their own profile                                  |
+| `me/profile`               | PUT       | `records.read` | Save the student's own answers                                          |
+| `me/matches`               | GET, POST | `records.read` | GET lists matches. POST also gives the next set when due                |
+| `me/matches/<id>/outcome`  | POST      | `records.read` | Record "contacted" or "not for me"                                      |
+| `proposals`                | GET       | `admin`        | Pending proposed changes                                                |
+| `proposals/<id>/review`    | POST      | `admin`        | Approve or reject one                                                   |
+| `alumni/<id>/listing`      | POST      | `admin`        | Hide or list an alum                                                    |
+| `contacts/<id>/visibility` | POST      | `admin`        | Hide or show one contact detail                                         |
+| `import`                   | POST      | `admin`        | Load up to 25 contact-book rows                                         |
+| `records`                  | GET       | `records.read` | The original starter's three sample records, kept for the starter tasks |
+
+## Assistant tools
+
+Each appears to an assistant as `alumni__<name>`. The [guide](guide.md) lists them with an example request.
+
+- Students (`records.read`): `search`, `get`, `lists`, `my_profile`, `update_my_profile`, `my_matches`.
+- Refresh (`refresh.run`): `refresh_due`, `refresh_file`, `refresh_graduates`.
+
+`update_my_profile`, `my_matches`, `refresh_file` and `refresh_graduates` are marked as changing data. `my_matches` is included because asking may record the student's next set. Expected refusals come back as a result with a `status`, such as `invalid_choice` with the valid choices, because the platform replaces thrown errors with one generic message.
+
+## Settings
+
+- Matching, in [`matching/config.ts`](matching/config.ts): three matches every 30 days, at most three students per alum in a period, and the points for each thing in common.
+- Refresh, in [`refresh/config.ts`](refresh/config.ts): an alum is due 120 days after their last successful check; graduation counts from June 1.
+
+## How the refresh works
+
+The app never contacts LinkedIn and holds no LinkedIn-specific code except `refresh/linkedin.ts`, which builds a text address. A Slice admin's own assistant reads each alum's experience page in the admin's own browser and calls `refresh_file` with what it found. The app compares that with the stored job and logs the check. A difference becomes a proposal on the review page. Copied page text is never accepted or stored. The run instructions are kept in the product requirements document, not in this public repository.
 
 ## Preview and checks
 
@@ -24,7 +92,7 @@ corepack pnpm install --frozen-lockfile
 corepack pnpm team:dev
 ```
 
-The default preview is loopback port 4310; prepared person workspaces use 4311–4315. Remote contributors need their own approved SSH access and forwarding; see [workspaces](../../../docs/team/workspaces.md). The preview is fictional and local-only, not a production login bypass.
+The preview opens the real app on a disposable database filled with 30 fictional alumni and 10 fictional students, signed in as a fictional admin who has no student profile yet. The default port is 4310; prepared person workspaces use 4311 to 4315. See [workspaces](../../../docs/team/workspaces.md). Restarting the preview resets its data.
 
 ```sh
 corepack pnpm --filter @slice/launcher exec vitest run apps/alumni
@@ -32,19 +100,33 @@ corepack pnpm --filter @slice/launcher exec playwright install chromium
 corepack pnpm test:team
 ```
 
-Before a PR run all [contributor checks](../../../CONTRIBUTING.md#4-implement-and-check). The app lives at `/apps/alumni` in the real platform. Active members need `app.alumni.open` and `app.alumni.records.read`; owners inherit these permissions. Real platform access is not granted by launching a local preview.
+Before a PR run all [contributor checks](../../../CONTRIBUTING.md#4-implement-and-check).
 
-## Data and operations
+## Before this goes live
 
-`GET /api/apps/alumni/records` loads validated fixture copies; writes are rejected. The page and API require `records.read`. All examples are synthetic and safe for this public repository. Do not replace fixture files with real data. Persistent storage, field visibility, record ownership and import/update permissions require agreed requirements and reviewed integration before real data is introduced.
+These are the maintainer's steps and are not done by merging code:
 
-A proposed database schema for persistent storage is in `platform/migrations/0004_alumni_schema.sql` and `0005_alumni_reference_lists.sql`, with operations in [`data/store.ts`](data/store.ts), fictional test data in [`data/seed.sql`](data/seed.sql) and a plain-language [data dictionary](data/DATA-DICTIONARY.md) explaining every field and who may see it. The directory, API and MCP tools do not use it yet.
+1. Apply migrations `0004`, `0005` and `0006`, in order, through the approved process in [migrations](../../../docs/migrations.md). The app's pages fail until they are applied.
+2. Grant `admin` and `refresh.run` to the members who should hold them.
+3. Load the alumni contact book on the **Add alumni** screen. Check the columns against that screen's list first.
+4. Remove `"workInProgress": true` from `app.json` when the app is ready.
+
+## Open items
+
+- **Reading LinkedIn with an assistant** may breach LinkedIn's user agreement, and the risk falls on the account of whoever runs the check. This needs Slice's approval before the first real run.
+- **Alumni cannot opt out of matching** and cannot edit their own profiles. Both need agreement first.
+- **A proposal cannot say "no current job".** The refresh sends that case to manual review.
+- **A rejected proposal can leave an unused employer or city** in the reference lists. It is never offered to members.
+- **Editing the fixed lists** (majors, industries, skills, kinds of help) is done by a developer for now.
+- **Settling possible duplicates** has operations in `store.ts` but no screen yet.
 
 ## Icon
 
 Original artwork created for this repository by Ivan Chen: two overlapping circles for a student and an alumnus making a connection. Released under the repository's MIT licence.
 
-## Common interfaces
+## The original starter's interfaces
+
+This section describes the three-record learning starter the app began as. Its `records` route and the files `contracts.ts`, `fixtures.ts` and `data.ts` are kept for the starter tasks in the team guide. The app described above does not use them.
 
 These are the development baseline for parallel work, not final client-approved requirements. Propose shared changes to Ivan before implementing them in multiple branches.
 
