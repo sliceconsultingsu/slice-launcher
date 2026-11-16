@@ -192,6 +192,7 @@ Target WCAG 2.1 AA. The browser tests run axe with the `wcag2a`, `wcag2aa` and `
 ## App modules
 
 - Render inside the platform shell; do not add another header, logo, footer, theme or global stylesheet.
+- **One approved exception:** the alumni directory has its own colours, typefaces and person tiles, agreed with the maintainer. Its values live in `platform/apps/alumni/ui/alumni.css` and are explained in [its README](../platform/apps/alumni/README.md#how-it-looks). Do not copy them into another app.
 - Use the shared classes and `@slice/ui` components. App-specific styles stay in the app folder and use the tokens above.
 - Do not add UI frameworks, component libraries, icon packs or web fonts without maintainer agreement.
 - Public metadata in `app.json` (name and description) shows on the launcher tile. Keep the name short and the description to one plain sentence saying who it helps and how.
