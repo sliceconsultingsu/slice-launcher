@@ -1,6 +1,6 @@
 // Slice's own sign-in for AI apps (MCP clients), modelled on Deal Toy's Mantel setup.
-// Cloudflare Access keeps protecting the launcher; these OAuth paths bypass it and accept only
-// passes this provider issued. See docs/superpowers/specs/2026-11-05-ai-connections-design.md.
+// Pages and APIs use the Slice session from Google sign-in; these OAuth paths accept only passes
+// this provider issued. See docs/superpowers/specs/2026-11-05-ai-connections-design.md.
 import {
   getOAuthApi,
   OAuthProvider,
@@ -26,7 +26,7 @@ type McpHandler<Env> = (request: Request, identity: Identity, env: Env) => Promi
 
 /**
  * The grant's user ID. The library puts it in plain text at the front of every code and pass,
- * and forbids ":", which Access subjects contain, so it is a digest of the subject instead.
+ * and forbids ":", which some member subjects contain, so it is a digest of the subject instead.
  */
 export async function grantUserId(subject: string): Promise<string> {
   const digest = await crypto.subtle.digest(

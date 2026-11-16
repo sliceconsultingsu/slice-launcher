@@ -1,4 +1,4 @@
-// The member's connected AI apps: list them, and disconnect one. Browser-only (behind Access).
+// The member's connected AI apps: list them, and disconnect one. Browser-only (needs a Slice session).
 import type { GrantSummary, OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import { MembershipError, type Identity, type State } from "../membership/contracts";
 import { authorizeMember } from "../platform/access";

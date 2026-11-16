@@ -84,7 +84,7 @@ Apps under `platform/apps` are compiled into `platform/dist` by the existing bui
 
 ## Remote MCP sign-in
 
-The platform owns `/mcp` and shares its deployment and security checks with all modules. AI apps sign in through Slice's own OAuth (no Access configuration). Follow [MCP activation and rollback](mcp.md#activate-remote-sign-in). Worker rollback does not restore Access configuration. Release smoke checks the perimeter and service denial; it does not establish that a human client can finish OAuth.
+The platform owns `/mcp` and shares its deployment and security checks with all modules. AI apps sign in through Slice's own OAuth. Follow [MCP activation and rollback](mcp.md#activate-remote-sign-in). Worker rollback does not restore stored connections or sessions. Release smoke checks the perimeter and service denial; it does not establish that a human client can finish OAuth.
 
 ## Repository layout changes
 

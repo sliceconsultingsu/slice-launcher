@@ -14,7 +14,7 @@ export function json(data: unknown, status = 200): Response {
     status,
     headers: {
       "Cache-Control": "private, no-store",
-      Vary: "Cookie, Cf-Access-Jwt-Assertion",
+      Vary: "Cookie",
       "X-Content-Type-Options": "nosniff",
     },
   });
