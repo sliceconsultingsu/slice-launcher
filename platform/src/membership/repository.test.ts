@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
 import { database, migrate, reset } from "../../tests/database";
 import { Repository } from "./repository";
 import { applyCommand, enroll } from "./domain";
+import { createSession } from "./session";
 let fixture: Awaited<ReturnType<typeof database>>;
 beforeAll(async () => {
   fixture = await database();
@@ -68,4 +69,66 @@ it("rolls back earlier writes when an audit insert fails later in the transactio
   await expect(repo.commit(before, change)).rejects.toThrow();
   expect(await repo.load()).toEqual(before);
   expect(await repo.history()).toEqual(history);
+});
+
+it("removing a member deletes their record and sessions, and keeps everyone else's", async () => {
+  const { repo, db } = await setup();
+  const person = { subject: "person", email: "person@example.test", emailManaged: true };
+  const owner = { subject: "owner", email: "owner@example.test", emailManaged: true };
+  const joining = await repo.load();
+  const joined = enroll(joining, person, { id: "person-member", now: new Date().toISOString() });
+  if (!joined.audit) throw new Error("Expected enrollment");
+  await repo.commit(joining, { ...joined, audit: joined.audit });
+  await createSession(db, person, "test");
+  await createSession(db, person, "test");
+  await createSession(db, owner, "test");
+
+  const before = await repo.load();
+  await repo.commit(
+    before,
+    applyCommand(
+      before,
+      "owner",
+      { type: "member.remove", id: "person-member" },
+      { id: "removal", now: new Date().toISOString() },
+    ),
+  );
+
+  const after = await repo.load();
+  expect(after.members.map((m) => m.email)).toEqual(["owner@example.test"]);
+  expect(after.revision).toBe(before.revision + 1);
+  const sessions = await db.prepare("SELECT subject FROM sessions").all();
+  const subjects = sessions.results.map((row: Record<string, unknown>) => row.subject);
+  expect(subjects).not.toContain("person");
+  expect(subjects).toContain("owner");
+  expect((await repo.history())[0]).toMatchObject({ action: "member.remove", after: null });
+});
+
+it("removes an invited person who never signed in", async () => {
+  const { repo, db } = await setup();
+  const owner = { subject: "owner", email: "owner@example.test", emailManaged: true };
+  await createSession(db, owner, "test");
+  const before = await repo.load();
+  const invited = applyCommand(
+    before,
+    "owner",
+    { type: "member.add", email: "invited@example.test", name: "Invited", levelId: "member" },
+    { id: "invited-member", now: new Date().toISOString() },
+  );
+  await repo.commit(before, invited);
+  const listed = await repo.load();
+  expect(listed.members).toHaveLength(2);
+  const sessions = () => db.prepare("SELECT COUNT(*) as count FROM sessions").first("count");
+  const sessionsBefore = await sessions();
+  await repo.commit(
+    listed,
+    applyCommand(
+      listed,
+      "owner",
+      { type: "member.remove", id: "invited-member" },
+      { id: "removal", now: new Date().toISOString() },
+    ),
+  );
+  expect((await repo.load()).members.map((m) => m.email)).toEqual(["owner@example.test"]);
+  expect(await sessions(), "nobody else is signed out").toBe(sessionsBefore);
 });

@@ -116,6 +116,7 @@ export const commandSchema = z.discriminatedUnion("type", [
     deny: permissions,
     owner: z.boolean(),
   }),
+  z.strictObject({ type: z.literal("member.remove"), id }),
   z.strictObject({ type: z.literal("level.save"), id: id.optional(), name, permissions }),
 ]);
 export type Command = z.infer<typeof commandSchema>;
