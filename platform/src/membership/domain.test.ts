@@ -290,3 +290,101 @@ describe("membership mutation rejection invariants", () => {
     expect(memberView(s, person.subject).permissions).toEqual([]);
   });
 });
+
+describe("removing a member", () => {
+  const other = { subject: "other-sub", email: "other@example.test", emailManaged: true };
+  const remove = (id: string) => ({ type: "member.remove", id });
+  const idOf = (s: ReturnType<typeof setup>, subject: string) =>
+    s.members.find((m) => m.subject === subject)!.id;
+  /** An owner, a manager (the person) and a pending newcomer (the other). */
+  function withManager() {
+    let s = setup();
+    s = run(s, {
+      type: "level.save",
+      name: "Manager",
+      permissions: ["members.manage", "members.read"],
+    });
+    const manager = s.levels.find((l) => l.name === "Manager")!;
+    s = enroll(s, person, { ...meta, id: crypto.randomUUID() }).state;
+    s = run(s, {
+      type: "member.update",
+      id: idOf(s, person.subject),
+      status: "active",
+      levelId: manager.id,
+      allow: [],
+      deny: [],
+      owner: false,
+    });
+    return enroll(s, other, { ...meta, id: crypto.randomUUID() }).state;
+  }
+
+  it("deletes the record, records who removed whom, and lets the person ask again", () => {
+    const s = withManager();
+    const id = idOf(s, other.subject);
+    const result = applyCommand(s, person.subject, remove(id), { ...meta, id: "removal" });
+    expect(result.state.members.some((m) => m.id === id)).toBe(false);
+    expect(result.state.revision).toBe(s.revision + 1);
+    expect(result.audit).toMatchObject({
+      action: "member.remove",
+      actorId: idOf(s, person.subject),
+      targetId: id,
+      before: { email: other.email },
+      after: null,
+    });
+    expect(
+      s.members.some((m) => m.id === id),
+      "the original state is untouched",
+    ).toBe(true);
+    const again = enroll(result.state, other, { ...meta, id: "again" }).state;
+    expect(again.members.find((m) => m.subject === other.subject)).toMatchObject({
+      status: "pending",
+      levelId: null,
+      owner: false,
+    });
+  });
+
+  it("refuses people who cannot manage members, removing yourself, and unknown members", () => {
+    const s = withManager();
+    expect(() => run(s, remove(idOf(s, person.subject)), other.subject)).toThrow(
+      /do not have permission/,
+    );
+    expect(() => run(s, remove(idOf(s, person.subject)), person.subject)).toThrow(
+      /cannot remove yourself/,
+    );
+    expect(() => run(s, remove(idOf(s, ownerIdentity.subject)))).toThrow(/cannot remove yourself/);
+    expect(() => run(s, remove("nobody"))).toThrow(/Member not found/);
+    expect(() => run(s, { ...remove(idOf(s, other.subject)), extra: true })).toThrow();
+  });
+
+  it("lets only an owner remove an owner, and nobody remove access beyond their own", () => {
+    let s = withManager();
+    expect(() => run(s, remove(idOf(s, ownerIdentity.subject)), person.subject)).toThrow(
+      /Only an owner/,
+    );
+    // The other person now holds activity access, which the manager does not.
+    s = run(s, {
+      type: "member.update",
+      id: idOf(s, other.subject),
+      status: "active",
+      levelId: "member",
+      allow: ["audit.read"],
+      deny: [],
+      owner: false,
+    });
+    expect(() => run(s, remove(idOf(s, other.subject)), person.subject)).toThrow(
+      /beyond your own access/,
+    );
+    // An owner can remove a second owner; one active owner always remains.
+    s = run(s, {
+      type: "member.update",
+      id: idOf(s, other.subject),
+      status: "active",
+      levelId: "member",
+      allow: [],
+      deny: [],
+      owner: true,
+    });
+    s = run(s, remove(idOf(s, other.subject)));
+    expect(s.members.filter((m) => m.owner && m.status === "active")).toHaveLength(1);
+  });
+});

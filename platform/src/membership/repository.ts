@@ -53,6 +53,15 @@ export class Repository {
           .bind(member.id, member.email, member.subject, JSON.stringify(member)),
       );
     }
+    for (const member of before.members) {
+      if (state.members.some((m) => m.id === member.id)) continue;
+      statements.push(this.db.prepare("DELETE FROM members WHERE id = ?").bind(member.id));
+      // A removed person is signed out. They can ask to join again like anyone else.
+      if (member.subject)
+        statements.push(
+          this.db.prepare("DELETE FROM sessions WHERE subject = ?").bind(member.subject),
+        );
+    }
     statements.push(
       this.db
         .prepare("UPDATE organization SET revision = ?, owner_claimed = ? WHERE id = 'slice'")

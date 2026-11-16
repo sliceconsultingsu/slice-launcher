@@ -1,11 +1,40 @@
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { once } from "node:events";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import console from "node:console";
 import { checkLauncher, checkMcpDenied } from "./check-launcher.mjs";
+import { checkSignedIn, signedInFixture } from "./signed-in-smoke.mjs";
+
+const platformDirectory = fileURLToPath(new URL("../platform/", import.meta.url));
+const wranglerConfig = ["--config", "dist/server/wrangler.json"];
+
+// A disposable local database for this run: every migration, then synthetic people and sessions.
+// It never touches a developer's local state or any remote database.
+const state = await mkdtemp(join(tmpdir(), "slice-smoke-"));
+const fixture = signedInFixture();
+async function wrangler(...args) {
+  await promisify(execFile)("./node_modules/.bin/wrangler", [...args, ...wranglerConfig], {
+    cwd: platformDirectory,
+    env: { ...process.env, CI: "1" },
+  });
+}
+try {
+  const local = ["MEMBERSHIP_DB", "--local", "--persist-to", state];
+  await wrangler("d1", "migrations", "apply", ...local);
+  const seed = join(state, "seed.sql");
+  await writeFile(seed, fixture.sql);
+  await wrangler("d1", "execute", ...local, "--file", seed);
+} catch (error) {
+  await rm(state, { recursive: true, force: true });
+  throw error;
+}
 
 // Use a free loopback port so the probe does not reuse a developer server.
 const reservation = createServer();
@@ -20,9 +49,10 @@ const worker = spawn(
   "./node_modules/.bin/wrangler",
   [
     "dev",
-    "--config",
-    "dist/server/wrangler.json",
+    ...wranglerConfig,
     "--local",
+    "--persist-to",
+    state,
     "--ip",
     "127.0.0.1",
     "--port",
@@ -31,7 +61,7 @@ const worker = spawn(
     "0",
   ],
   {
-    cwd: fileURLToPath(new URL("../platform/", import.meta.url)),
+    cwd: platformDirectory,
     detached: true,
     stdio: ["ignore", "pipe", "pipe"],
   },
@@ -66,12 +96,14 @@ try {
   await checkLauncher(`http://127.0.0.1:${port}`, {
     signal: controller.signal,
     expectedRelease: process.env.SLICE_RELEASE_SHA,
+    requireSecurityHeaders: true,
   });
   // A compiled route probe: missing routes and forged/service headers must not pass.
   await checkMcpDenied(`http://127.0.0.1:${port}`, {
     access: { id: "synthetic-service", secret: "synthetic-secret" },
     timeoutMs: 0,
   });
+  await checkSignedIn(`http://127.0.0.1:${port}`, fixture);
 } catch (error) {
   console.error(logs);
   throw error;
@@ -82,4 +114,5 @@ try {
   if (signalWorkerGroup(0)) signalWorkerGroup("SIGKILL");
   process.removeListener("SIGINT", interrupted);
   process.removeListener("SIGTERM", interrupted);
+  await rm(state, { recursive: true, force: true });
 }

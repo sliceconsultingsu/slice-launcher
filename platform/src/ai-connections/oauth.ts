@@ -8,6 +8,7 @@ import {
   type OAuthProviderOptions,
 } from "@cloudflare/workers-oauth-provider";
 import type { Identity } from "../membership/contracts";
+import { withSecurityHeaders } from "../platform/security-headers";
 import { ActivityStore } from "./activity";
 
 /** Access passes last a week; every request still reloads the member's current access. */
@@ -142,7 +143,10 @@ export function createSliceWorker<Env extends SliceWorkerEnv>(deps: {
       if (request.method === "POST" && rateLimited.includes(url.pathname)) {
         const address = request.headers.get("CF-Connecting-IP") ?? "unknown";
         const { success } = await env.OAUTH_LIMITER.limit({ key: `${url.pathname}:${address}` });
-        if (!success) return secure(Response.json({ error: "rate_limited" }, { status: 429 }));
+        if (!success)
+          return withSecurityHeaders(
+            secure(Response.json({ error: "rate_limited" }, { status: 429 })),
+          );
       }
       let provider = providers.get(url.origin);
       if (!provider) {
@@ -156,7 +160,7 @@ export function createSliceWorker<Env extends SliceWorkerEnv>(deps: {
         !response.headers.get("content-type")
       )
         response = signInRequired(response);
-      return privatePath(url.pathname) ? secure(response) : response;
+      return withSecurityHeaders(privatePath(url.pathname) ? secure(response) : response);
     },
   };
 }

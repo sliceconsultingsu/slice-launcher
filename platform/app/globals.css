@@ -359,6 +359,20 @@ summary:focus-visible {
   background: #fffefb;
   color: var(--ink);
 }
+.danger-button {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.remove-member {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e3e2da;
+}
+.remove-member-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
 .text-button {
   color: var(--accent);
   font-size: 13px;
