@@ -106,8 +106,9 @@ export function AlumniApp({ path }: { path: string[] }) {
             </nav>
             <div className="al-bar-end">
               {name && (
-                <a className="al-me" href={`${APP}/profile`} aria-label="My answers">
+                <a className="al-me" href={`${APP}/profile`}>
                   <Tile id={name} name={name} />
+                  <span className="sr-only">My answers</span>
                 </a>
               )}
             </div>
