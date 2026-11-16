@@ -167,6 +167,23 @@ it("ending a member's active status ends their sessions once, and nobody else's"
   await createSession(db, person, "test");
   await update("pending", "unapprove-again");
   expect(await subjects()).toEqual(["owner", "person"]);
+
+  // Suspending someone who was never active signs them out as well.
+  await update("suspended", "suspend-pending");
+  expect(await subjects()).toEqual(["owner"]);
+});
+
+it("joining does not end the session a new person joined with", async () => {
+  const { repo, db } = await setup();
+  const person = { subject: "person", email: "person@example.test", emailManaged: true };
+  await db.prepare("DELETE FROM sessions").run();
+  await createSession(db, person, "test");
+  const joining = await repo.load();
+  const joined = enroll(joining, person, { id: "person-member", now: new Date().toISOString() });
+  if (!joined.audit) throw new Error("Expected enrollment");
+  await repo.commit(joining, { ...joined, audit: joined.audit });
+  expect((await repo.load()).members.find((m) => m.subject === "person")?.status).toBe("pending");
+  expect(await db.prepare("SELECT COUNT(*) AS count FROM sessions").first("count")).toBe(1);
 });
 
 it("removes an invited person who never signed in", async () => {

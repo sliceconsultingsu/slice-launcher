@@ -132,7 +132,7 @@ export async function membershipRequest(
       );
   }
   const loser = deps.onAccessLoss ? accessLost(state, result) : null;
-  const cleanUp = async (failure: string) => {
+  const cleanUp = async (failure: string | null) => {
     if (!loser || !deps.onAccessLoss) return;
     try {
       await deps.onAccessLoss(loser);
@@ -145,7 +145,7 @@ export async function membershipRequest(
         }),
       );
       // Never reported as success: the administrator is told, and saving again retries it.
-      throw new MembershipError(502, failure);
+      if (failure) throw new MembershipError(502, failure);
     }
   };
   // A removed person leaves nothing to save again, so their apps are disconnected first and a
@@ -157,9 +157,12 @@ export async function membershipRequest(
       "This person's AI apps could not be disconnected, so they were not removed. Try again.",
     );
   await repository.commit(state, result);
-  if (!removing)
-    await cleanUp(
-      "The change was saved, but this person's AI apps could not be disconnected. Reload, then save the member again to retry.",
-    );
+  // After a removal this second pass catches an app approved in the moment between the first
+  // pass and the removal. The first pass just succeeded, so a failure here is only logged.
+  await cleanUp(
+    removing
+      ? null
+      : "The change was saved, but this person's AI apps could not be disconnected. Reload, then save the member again to retry.",
+  );
   return json(memberView(result.state, identity.subject));
 }

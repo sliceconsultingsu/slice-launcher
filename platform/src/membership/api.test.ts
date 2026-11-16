@@ -327,7 +327,8 @@ it("reports the person an administrator's change leaves without active membershi
   expect((await set("active")).status).toBe(200);
   expect((await set("pending")).status).toBe(200);
   expect(lost.at(-1)).toBe("person:pending");
-  // Removal disconnects first, while the record still exists.
+  // Removal disconnects first, while the record still exists, and again once it is gone, to
+  // catch an app approved in between.
   const view = (await (await call(owner)).json()) as View;
   const removed = await call(
     owner,
@@ -336,8 +337,8 @@ it("reports the person an administrator's change leaves without active membershi
     deps,
   );
   expect(removed.status).toBe(200);
-  expect(lost.at(-1)).toBe("person:pending");
-  expect(lost).toHaveLength(4);
+  expect(lost.slice(-2)).toEqual(["person:pending", "person:removed"]);
+  expect(lost).toHaveLength(5);
   expect((await repo.load()).members.some((m) => m.id === personId)).toBe(false);
 });
 
@@ -415,8 +416,20 @@ it("never reports success when disconnecting fails: suspension stays saved, remo
       ).status,
     ).toBe(200);
     view = (await (await call(owner)).json()) as View;
-    expect((await call(owner, { ...removal, revision: view.revision }, "", deps)).status).toBe(200);
+    // If only the second pass after a removal fails, the removal still stands.
+    let passes = 0;
+    const secondPassFails = {
+      onAccessLoss: async () => {
+        passes += 1;
+        if (passes === 2) throw new Error("storage unavailable");
+      },
+    };
+    expect(
+      (await call(owner, { ...removal, revision: view.revision }, "", secondPassFails)).status,
+    ).toBe(200);
+    expect(passes).toBe(2);
     expect((await repo.load()).members.some((m) => m.id === personId)).toBe(false);
+    expect(errors).toHaveBeenCalledTimes(3);
   } finally {
     errors.mockRestore();
   }

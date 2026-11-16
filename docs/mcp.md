@@ -34,7 +34,7 @@ Screenshots of the approval page, the top-bar states and the connected-apps list
 When an administrator suspends a member, returns them to pending or removes them, the membership API disconnects every AI app they approved (`disconnectAll` in `src/ai-connections/connections.ts`). Memberships and connections live in different stores, so the two steps cannot be one transaction:
 
 - **Suspension** is saved first, because it is what stops access: `/mcp` reloads membership on every request. If the disconnect then fails, the API answers 502, logs `access_loss_cleanup_failed`, and saving the member again retries it.
-- **Removal** disconnects first. If that fails, the API answers 502 and the person is not removed.
+- **Removal** disconnects first. If that fails, the API answers 502 and the person is not removed. Once the removal is saved it disconnects again, to catch an app approved in the moment between.
 
 Whatever happens here, the renewal check above also revokes a connection the next time its app tries to renew.
 

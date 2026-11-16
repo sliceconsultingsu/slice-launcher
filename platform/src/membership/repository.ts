@@ -58,11 +58,13 @@ export class Repository {
       );
     }
     for (const member of state.members) {
-      // Someone who stops being an active member (suspended, or returned to pending) is signed
-      // out everywhere. Access was already checked on every request; this also stops an old
-      // session from coming back to life if they are reinstated.
+      // Someone whose status changes to anything but active (suspended, or returned to pending)
+      // is signed out everywhere. Access was already checked on every request; this also stops
+      // an old session from coming back to life if they are reinstated. A person who has just
+      // joined has no earlier status and keeps the session they joined with.
       if (!member.subject || member.status === "active") continue;
-      if (before.members.find((m) => m.id === member.id)?.status !== "active") continue;
+      const was = before.members.find((m) => m.id === member.id);
+      if (!was || was.status === member.status) continue;
       statements.push(
         this.db.prepare("DELETE FROM sessions WHERE subject = ?").bind(member.subject),
       );
