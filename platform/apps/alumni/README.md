@@ -108,7 +108,7 @@ These are the maintainer's steps and are not done by merging code:
 
 1. Apply migrations `0004`, `0005` and `0006`, in order, through the approved process in [migrations](../../../docs/migrations.md). The app's pages fail until they are applied.
 2. Grant `admin` and `refresh.run` to the members who should hold them.
-3. Load the alumni contact book on the **Add alumni** screen. Check the columns against that screen's list first.
+3. Load the alumni contact book on the **Add alumni** screen by pasting its rows, headings included. The screen reads the book's own columns: Name, Company, Role, Industry, Email, LinkedIn, Grad Year and Date updated. An industry must be on the app's list; common shorter labels such as Finance, Marketing and Government are understood, and a label with no counterpart, such as Other, is refused by row number so an admin can choose the right one.
 4. Remove `"workInProgress": true` from `app.json` when the app is ready.
 
 ## Open items
@@ -119,6 +119,7 @@ These are the maintainer's steps and are not done by merging code:
 - **A rejected proposal can leave an unused employer or city** in the reference lists. It is never offered to members.
 - **Editing the fixed lists** (majors, industries, skills, kinds of help) is done by a developer for now.
 - **Settling possible duplicates** has operations in `store.ts` but no screen yet.
+- **Matching is only as rich as the alumni records.** The contact book holds a job and an industry but no major, city or help offered, so until those are added a match can only be explained by industry.
 
 ## Icon
 

@@ -24,6 +24,12 @@ export const importRowSchema = z.strictObject({
   /** Names or IDs of the kinds of help offered. */
   helpOffered: z.array(z.string().trim().min(1).max(80)).max(6).default([]),
   note: text(2000),
+  /** The day the row was last confirmed in the contact book, as YYYY-MM-DD. */
+  verifiedOn: z
+    .string()
+    .regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/)
+    .nullable()
+    .default(null),
 });
 export const IMPORT_BATCH_MAX = 25;
 export const importSchema = z.strictObject({
@@ -41,6 +47,48 @@ export interface ImportReport {
   errors: { row: number; name: string; message: string }[];
 }
 
+/**
+ * Shorter labels a contact book may use for an industry on the fixed list. A label with no
+ * counterpart, such as "Other", is refused so an admin can choose the right industry.
+ */
+const INDUSTRY_LABELS: Record<string, string> = {
+  finance: "financial-services",
+  banking: "financial-services",
+  marketing: "marketing-advertising",
+  advertising: "marketing-advertising",
+  government: "government-public-policy",
+  "public policy": "government-public-policy",
+  tech: "technology",
+  media: "media-entertainment",
+  entertainment: "media-entertainment",
+  healthcare: "healthcare-life-sciences",
+  retail: "consumer-retail",
+  nonprofit: "nonprofit-education",
+  education: "nonprofit-education",
+  energy: "energy-utilities",
+  manufacturing: "manufacturing-industrials",
+  law: "legal",
+};
+
+/** What each field is called on the sheet, for messages an admin reads. */
+const COLUMN_WORDS: Record<string, string> = {
+  fullName: "the name",
+  graduationYear: "the graduation year",
+  majors: "the majors",
+  employer: "the company",
+  title: "the role",
+  industry: "the industry",
+  city: "the city",
+  region: "the state",
+  country: "the country",
+  linkedin: "the LinkedIn link",
+  email: "the email",
+  phone: "the phone number",
+  helpOffered: "the help offered",
+  note: "the note",
+  verifiedOn: "the date updated",
+};
+
 type Named = { id: string; name: string };
 const resolve = (value: string, list: Named[]) =>
   list.find((item) => item.id === value || nameKey(item.name) === nameKey(value))?.id ?? null;
@@ -54,7 +102,7 @@ export async function importAlumni(
   if (!parsed.success) throw new AlumniDataError("invalid", "The rows could not be read.");
   const [majors, industries, helpKinds] = await data.db.batch<Named>([
     data.db.prepare("SELECT id, name FROM alumni_majors"),
-    data.db.prepare("SELECT id, name FROM alumni_industries WHERE active = 1"),
+    data.db.prepare("SELECT id, name FROM alumni_industries WHERE active = 1 ORDER BY name"),
     data.db.prepare("SELECT id, name FROM alumni_help_kinds WHERE active = 1"),
   ]);
   const report: ImportReport = { added: 0, alreadyThere: 0, needsReview: 0, errors: [] };
@@ -66,7 +114,8 @@ export async function importAlumni(
     const result = importRowSchema.safeParse(raw);
     if (!result.success) {
       const issue = result.error.issues[0];
-      fail("", `This row could not be read: ${issue?.path.join(".") ?? "row"} is not valid.`);
+      const field = String(issue?.path[0] ?? "");
+      fail("", `This row could not be read. Check ${COLUMN_WORDS[field] ?? "its values"}.`);
       continue;
     }
     const record = result.data;
@@ -89,7 +138,11 @@ export async function importAlumni(
     }
     let industryId: string | null = null;
     if (record.employer) {
-      if (record.industry) industryId = resolve(record.industry, industries?.results ?? []);
+      const listed = industries?.results ?? [];
+      if (record.industry)
+        industryId =
+          resolve(record.industry, listed) ??
+          resolve(INDUSTRY_LABELS[nameKey(record.industry)] ?? "", listed);
       // An employer already on someone's job keeps the industry recorded for it.
       industryId ??=
         (
@@ -106,11 +159,16 @@ export async function importAlumni(
         fail(
           record.fullName,
           record.industry
-            ? `“${record.industry}” is not an industry on the list.`
+            ? `“${record.industry}” is not an industry on the list. Use one of: ${listed.map((item) => item.name).join(", ")}.`
             : "Add an industry for this job. This employer is new to the app.",
         );
         continue;
       }
+    }
+
+    if (record.verifiedOn && record.verifiedOn > data.now().slice(0, 10)) {
+      fail(record.fullName, "The date updated is in the future.");
+      continue;
     }
 
     const contacts: { kind: ContactKind; value: string }[] = [];
@@ -182,6 +240,19 @@ export async function importAlumni(
           record.note,
           admin,
         );
+      // The contact book says when the row was last confirmed. Use that date, not today's, so
+      // the profile does not look more recently checked than it was.
+      if (record.verifiedOn) {
+        const confirmed = `${record.verifiedOn}T00:00:00.000Z`;
+        await data.db
+          .prepare(
+            `UPDATE alumni_profiles SET last_verified_at = ?,
+               job_last_verified_at = CASE WHEN job_employer_id IS NULL THEN NULL ELSE ? END
+             WHERE person_id = ?`,
+          )
+          .bind(confirmed, confirmed, personId)
+          .run();
+      }
       report.added++;
     } catch (error) {
       if (!(error instanceof AlumniDataError)) throw error;

@@ -138,7 +138,7 @@ export function ExplorerView({ admin }: { admin: boolean }) {
           {select("industry", "Industry", choices?.industries ?? [])}
           {select("school", "School", choices?.schools ?? [])}
           {select("major", "Major", choices?.majors ?? [])}
-          {select("city", "City", choices?.cities ?? [])}
+          {(choices?.cities.length ?? 0) > 0 && select("city", "City", choices?.cities ?? [])}
           {select("help", "Help offered", choices?.helpKinds ?? [])}
           <label>
             Graduated from

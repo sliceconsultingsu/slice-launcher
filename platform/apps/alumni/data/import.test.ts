@@ -63,6 +63,75 @@ describe("loading the alumni contact book", () => {
     expect(eli.results[0]?.majors).toEqual(["Applied Data Analytics"]);
   });
 
+  it("accepts the contact book's shorter industry labels and its date updated", async () => {
+    const report = await importAlumni(
+      t.data,
+      {
+        rows: [
+          {
+            fullName: "Gil Banker",
+            graduationYear: 2024,
+            employer: "Cedar Quay Bank",
+            title: "Analyst",
+            industry: "Finance",
+            verifiedOn: "2025-04-01",
+          },
+          {
+            fullName: "Hana Civic",
+            graduationYear: 2023,
+            employer: "Office of Example Audits",
+            title: "Auditor",
+            industry: "Government ",
+            verifiedOn: "2025-04-01",
+          },
+          { fullName: "Ira Between", graduationYear: 2023, verifiedOn: "2025-04-01" },
+        ],
+      },
+      ADMIN,
+    );
+    expect(report).toEqual({ added: 3, alreadyThere: 0, needsReview: 0, errors: [] });
+    const found = async (q: string) => (await t.data.reads.searchAlumni(member, { q })).results[0];
+    expect(await found("Gil Banker")).toMatchObject({
+      industry: "Financial Services",
+      // The sheet's date, not the day it was loaded.
+      lastCheckedAt: "2025-04-01T00:00:00.000Z",
+    });
+    expect(await found("Hana Civic")).toMatchObject({ industry: "Government and Public Policy" });
+    expect(await found("Ira Between")).toMatchObject({
+      employer: null,
+      lastCheckedAt: "2025-04-01T00:00:00.000Z",
+    });
+  });
+
+  it("refuses a label with no counterpart, such as Other, and lists the industries to use", async () => {
+    const report = await importAlumni(
+      t.data,
+      {
+        rows: [
+          {
+            fullName: "Jules Elsewhere",
+            graduationYear: 2024,
+            employer: "Example Learning Trust",
+            title: "Teacher",
+            industry: "Other",
+          },
+          { fullName: "Kit Tomorrow", graduationYear: 2024, verifiedOn: "2031-01-01" },
+          { fullName: "Lee Garbled", graduationYear: 2024, verifiedOn: "last spring" },
+        ],
+      },
+      ADMIN,
+    );
+    expect(report.added).toBe(0);
+    expect(report.errors.map((error) => error.message)).toEqual([
+      expect.stringMatching(
+        /^“Other” is not an industry on the list\. Use one of: Accounting, Consulting, /,
+      ),
+      "The date updated is in the future.",
+      "This row could not be read. Check the date updated.",
+    ]);
+    expect(await count(t.db, "alumni_people WHERE full_name = 'Jules Elsewhere'")).toBe(0);
+  });
+
   it("adds nobody the second time the same rows are loaded", async () => {
     await importAlumni(t.data, { rows }, ADMIN);
     const before = [
@@ -133,7 +202,7 @@ describe("loading the alumni contact book", () => {
         message: "Add an industry for this job. This employer is new to the app.",
       },
       { row: 12, name: "Ida Half", message: "A job needs both an employer and a title." },
-      { row: 13, name: "", message: "This row could not be read: fullName is not valid." },
+      { row: 13, name: "", message: "This row could not be read. Check the name." },
     ]);
     expect(await count(t.db, "alumni_people")).toBe(people + 1);
     expect(await count(t.db, "alumni_employers WHERE name = 'Brand New Co'")).toBe(0);

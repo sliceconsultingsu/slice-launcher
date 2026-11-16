@@ -45,6 +45,8 @@ function ChoiceGroup({
   max: number;
   onChange(next: string[]): void;
 }) {
+  // A list with nothing on it yet, such as cities before any alum has one, is left out.
+  if (!choices.length) return null;
   return (
     <fieldset>
       <legend>{legend}</legend>

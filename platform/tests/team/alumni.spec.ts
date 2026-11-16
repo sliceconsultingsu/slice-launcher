@@ -166,8 +166,8 @@ test("an admin adds alumni by pasting rows, and loading them twice adds nobody",
   await expect(page.getByRole("alert")).toContainText("The first row must be the column headings");
   await rows.fill(
     [
-      "Name\tGraduation year\tMajor\tEmployer\tTitle\tIndustry\tCity\tState\tShoe size",
-      "Dana Whitcombe\t2019\tFinance\tJuniper Row Partners\tAssociate\tFinancial Services\tAustin\tTX\t9",
+      "Name\tGrad Year\tMajor\tCompany\tRole\tIndustry\tCity\tState\tShoe size",
+      "Dana Whitcombe\t2019\tFinance\tJuniper Row Partners\tAssociate\tFinance\tAustin\tTX\t9",
       "Gus Unknown\t2018\tUnderwater Basket Weaving",
     ].join("\n"),
   );

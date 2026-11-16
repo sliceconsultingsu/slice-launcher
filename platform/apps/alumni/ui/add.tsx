@@ -2,102 +2,16 @@
 import { useState } from "react";
 import type { ImportReport } from "../data/import";
 import { request } from "./client";
+import { parseRows } from "./contact-book";
 
 const BATCH = 20;
-/** Column headings the screen understands, and the field each one fills. */
-const COLUMNS: Record<string, string> = {
-  name: "fullName",
-  "full name": "fullName",
-  "graduation year": "graduationYear",
-  "grad year": "graduationYear",
-  "class year": "graduationYear",
-  class: "graduationYear",
-  year: "graduationYear",
-  major: "majors",
-  majors: "majors",
-  employer: "employer",
-  company: "employer",
-  "current employer": "employer",
-  "current company": "employer",
-  title: "title",
-  "job title": "title",
-  role: "title",
-  position: "title",
-  industry: "industry",
-  city: "city",
-  state: "region",
-  region: "region",
-  country: "country",
-  linkedin: "linkedin",
-  "linkedin url": "linkedin",
-  email: "email",
-  phone: "phone",
-  "help offered": "helpOffered",
-  "can help with": "helpOffered",
-  note: "note",
-  notes: "note",
-};
-
-/** Splits pasted rows into cells. Rows copied from a spreadsheet are separated by tabs. */
-function cells(line: string): string[] {
-  if (line.includes("\t")) return line.split("\t").map((cell) => cell.trim());
-  const out: string[] = [];
-  let cell = "";
-  let quoted = false;
-  for (const char of line) {
-    if (char === '"') quoted = !quoted;
-    else if (char === "," && !quoted) {
-      out.push(cell.trim());
-      cell = "";
-    } else cell += char;
-  }
-  return [...out, cell.trim()];
-}
-
-interface Parsed {
-  rows: Record<string, unknown>[];
-  ignored: string[];
-  problem: string | null;
-}
-function parse(pasted: string): Parsed {
-  const lines = pasted.split(/\r?\n/).filter((line) => line.trim());
-  const headings = cells(lines[0] ?? "").map((heading) =>
-    heading.toLowerCase().replace(/\s+/g, " "),
-  );
-  const fields = headings.map((heading) => COLUMNS[heading]);
-  if (!fields.includes("fullName") || !fields.includes("graduationYear"))
-    return {
-      rows: [],
-      ignored: [],
-      problem: "The first row must be the column headings, including Name and Graduation year.",
-    };
-  const list = (value: string) =>
-    value
-      .split(/[;/]/)
-      .map((item) => item.trim())
-      .filter(Boolean);
-  const rows = lines.slice(1).map((line) => {
-    const row: Record<string, unknown> = {};
-    cells(line).forEach((value, index) => {
-      const field = fields[index];
-      if (!field || !value) return;
-      if (field === "graduationYear") row[field] = /^\d{4}$/.test(value) ? Number(value) : value;
-      else if (field === "majors" || field === "helpOffered") row[field] = list(value);
-      else row[field] = value;
-    });
-    // A city with no country is assumed to be in the United States, as in the contact book.
-    if (row.city && !row.country) row.country = "United States";
-    return row;
-  });
-  return { rows, ignored: headings.filter((_, index) => !fields[index]), problem: null };
-}
 
 export function AddAlumniView() {
   const [pasted, setPasted] = useState("");
   const [report, setReport] = useState<ImportReport | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
-  const parsed = pasted.trim() ? parse(pasted) : null;
+  const parsed = pasted.trim() ? parseRows(pasted) : null;
   const load = async () => {
     if (!parsed || parsed.problem || !parsed.rows.length) return;
     setMessage(null);
@@ -139,9 +53,9 @@ export function AddAlumniView() {
           spellCheck={false}
         />
         <span className="field-note">
-          Columns: Name, Graduation year, Major, Employer, Title, Industry, City, State, Country,
-          LinkedIn, Email, Phone, Help offered, Note. Only Name and Graduation year are required.
-          Separate several majors or kinds of help with a semicolon.
+          The contact book's columns load as they are: Name, Company, Role, Industry, Email,
+          LinkedIn, Grad Year and Date updated. Only Name and Grad Year are required. Major, City,
+          State, Country, Phone, Help offered and Note are also read if the sheet has them.
         </span>
       </label>
       {parsed?.problem && (
