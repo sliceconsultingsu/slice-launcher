@@ -27,9 +27,19 @@ Slice runs its own OAuth server for AI apps with `@cloudflare/workers-oauth-prov
 - dynamic client registration at `/oauth/register` (HTTPS callbacks, or loopback for apps on the person's computer; rate-limited per address);
 - passes at `/oauth/token`: authorization code with PKCE, 7-day access passes, renewal passes that rotate and lapse after 30 days without renewal.
 
-The approval page (`src/ai-connections/consent.ts`) uses the person's Slice session (sending them through Google sign-in first if needed), checks active membership, shows the app's self-declared name and its return address, and records a grant whose props hold the member's subject and email. The grant's user ID is a digest of the subject, so no email or subject appears in codes or passes. Grants, passes and per-grant activity (last use, last renewal) are stored in the `OAUTH_KV` namespace.
+The approval page (`src/ai-connections/consent.ts`) uses the person's Slice session (sending them through Google sign-in first if needed), checks active membership, shows the app's self-declared name and its return address, says whether Slice recognizes that address, and records a grant whose props hold the member's subject and email. The grant's user ID is a digest of the subject, so no email or subject appears in codes or passes. Grants, passes and per-grant activity (last use, last renewal) are stored in the `OAUTH_KV` namespace.
 
-Screenshots of the approval page, the top-bar states and the connected-apps list are in [docs/images/ai-connections](images/ai-connections/).
+Any MCP app may register, so the name on the approval page is only what the app calls itself. The return address is the part Slice can check (`src/ai-connections/supported-apps.ts`):
+
+- **A checked hosted app** (Claude at `claude.ai` or `claude.com`, ChatGPT at `chatgpt.com`): the page names the app the address belongs to.
+- **An app on the person's own computer** (a loopback address): the page says so.
+- **Any other HTTPS address:** the page warns that Slice does not recognize it, and Cancel rather than Allow is the emphasized button.
+
+Control characters and invisible formatting characters, including the ones that reverse text direction, are removed from app names before they are shown. To add a hosted app to the checked list, add the origin its sign-in returns to, taken from that vendor's own documentation.
+
+A recognized address does not prove who started the connection. Someone can register their own app that returns to a checked address and send a member the approval link, so the page also tells the person to allow only a connection they started themselves.
+
+Screenshots of the approval page (for a checked app and for an unrecognized address), the top-bar states and the connected-apps list are in [docs/images/ai-connections](images/ai-connections/).
 
 Members list and disconnect their connected apps on the account page (`/api/membership/connections`); the launcher's top bar shows connection status. Both stay hidden until `AI_CONNECTIONS_ENABLED` is `"true"`. A client-supplied email, role or plain bearer token is not an application identity, and CI service credentials never become one.
 
