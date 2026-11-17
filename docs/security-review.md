@@ -35,6 +35,15 @@ Limits to keep in mind:
 - zod tests whether it may compile code at runtime. The policy refuses, zod falls back, and the browser console shows one policy report on pages that validate data in the browser (the alumni page). Nothing is broken.
 - `pnpm smoke:launcher` requires these headers on the compiled Worker. The post-deploy check does not, so that it still accepts older releases as rollback targets.
 
+## Requests the Worker answers itself
+
+Before sign-in or any page runs, the Worker entry (`createSliceWorker` in `platform/src/ai-connections/oauth.ts`) answers two kinds of request:
+
+- **Plain HTTP** is redirected to the same address over HTTPS (308). Loopback addresses are exempt so local development works.
+- **The page framework's image endpoint** (`/_next/image`, `/_vinext/image`) returns 404. Slice serves its images as static files and has no image optimizer or Cloudflare Images binding. Left open, the framework's own answer on that path redirects to the address it is given. `pnpm smoke:launcher` checks that the compiled Worker keeps it closed; review that check when upgrading the framework, which may add or rename such paths.
+
+The membership API never sends a person's sign-in account ID (`subject`) to a browser. Member lists and history entries carry `signedIn: true` or `false` instead (`memberRecord` and `auditView` in `platform/src/membership/domain.ts`). The stored records are unchanged.
+
 ## Existing dependency risk observed 2026-10-04
 
 Dependabot alert #1, [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), flags stack-exhaustion denial of service in `braces <=3.0.3`; GitHub currently reports no patched version. The locked path is vinext → vite-plugin-commonjs → vite-plugin-dynamic-import → fast-glob → micromatch → braces 3.0.3. It is build tooling, but the package is transitively classified as a runtime dependency by GitHub. This task does not claim the vulnerability fixed or conclusively unreachable. Time-limited isolated CI limits a build denial of service; it is not a vulnerability patch. Keep the alert open and monitor an upstream fix or replacement. Dependency review gates newly introduced vulnerable dependencies; existing alerts remain visible and require triage.

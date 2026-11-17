@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
 import { database, migrate, reset } from "../../tests/database";
 import { Repository } from "./repository";
 import { membershipRequest, errorResponse, PROFILE_EDITS_PER_DAY } from "./api";
-import type { View, Member } from "./contracts";
+import type { View, MemberRecord } from "./contracts";
 let fixture: Awaited<ReturnType<typeof database>>;
 beforeAll(async () => {
   fixture = await database();
@@ -71,10 +71,20 @@ it("runs onboarding, approval, privacy checks and revocation against D1", async 
   pending = (await (await call(person)).json()) as View;
   expect(pending.me.status).toBe("active");
   expect(pending.members[0]).not.toHaveProperty("email");
+  // Neither the member list nor history sends anyone's sign-in account ID to the browser.
+  const managed = await (await call(owner)).text();
+  expect(managed).toContain("person@example.test");
+  expect(managed).not.toContain('"subject"');
+  const shown = await (await call(owner, undefined, "?view=history")).text();
+  expect(shown).toContain("member.signin");
+  expect(shown).not.toContain('"subject"');
+  expect((await repo.history())[0].after).toHaveProperty("subject");
   current = (await (
     await call(owner, { revision: current.revision, command: { ...approve, status: "suspended" } })
   ).json()) as View;
-  expect((current.members.find((m) => m.id === pending.me.id) as Member).status).toBe("suspended");
+  expect((current.members.find((m) => m.id === pending.me.id) as MemberRecord).status).toBe(
+    "suspended",
+  );
   expect(((await (await call(person)).json()) as View).permissions).toEqual([]);
   expect(
     (

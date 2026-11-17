@@ -316,6 +316,52 @@ describe("Slice OAuth for AI apps", () => {
   });
 });
 
+describe("requests the Worker answers itself", () => {
+  const raw = async (url: string, init?: RequestInit) =>
+    (await runtime.dispatchFetch(url, {
+      redirect: "manual",
+      ...init,
+    } as never)) as unknown as Response;
+
+  it("plain HTTP is sent to HTTPS with the same path and query", async () => {
+    const page = await raw("http://slice.example/account?tab=members");
+    expect(page.status).toBe(308);
+    expect(page.headers.get("location")).toBe("https://slice.example/account?tab=members");
+    const api = await raw("http://slice.example/mcp", { method: "POST", body: "{}" });
+    expect(api.status).toBe(308);
+    expect(api.headers.get("location")).toBe("https://slice.example/mcp");
+    const token = await raw("http://slice.example/oauth/token", { method: "POST", body: "" });
+    expect(token.status).toBe(308);
+  });
+
+  it("a local address keeps working over plain HTTP", async () => {
+    expect((await raw("http://127.0.0.1/mcp", { method: "POST", body: "{}" })).status).toBe(401);
+    expect((await raw("http://localhost/nothing-here")).status).toBe(404);
+  });
+
+  it("the image endpoint is refused however it is spelled", async () => {
+    const query = "?url=%2Fslice-logo.png&w=64&q=75";
+    for (const path of [
+      "/_next/image",
+      "/_next/image/",
+      "/_next//image",
+      "//_next/image",
+      "/_next/image//",
+      "/_vinext/image",
+      "/_vinext//image/",
+      "/_next/%69mage",
+      "/%5Fnext/image",
+      "/_next%2Fimage",
+      "/_NEXT/Image",
+    ]) {
+      const response = await raw(`${origin}${path}${query}`);
+      expect(response.status, path).toBe(404);
+      expect(await response.text(), path).toBe("Not found");
+      expect(response.headers.get("location"), path).toBeNull();
+    }
+  });
+});
+
 describe("Slice OAuth rate limits", () => {
   // Limits count per clock minute, so a run that crosses a minute boundary starts a new count.
   // The first 20 must pass, and a refusal must come within the next window's 20 (41 in all).

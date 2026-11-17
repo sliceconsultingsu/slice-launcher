@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { SignInCard } from "./sign-in-card";
 import { ConnectedApps } from "../ai-connections/connected-apps";
-import type { Audit, Command, Member, View } from "./contracts";
+import type { Audit, Command, View } from "./contracts";
 import { AddMember, LevelEditor, MemberEditor, ProfileEditor } from "./editors";
 import { organizationRole } from "./access-summary";
 
@@ -298,7 +298,7 @@ export function MembershipWorkspace() {
                     <MemberEditor
                       key={`${person.id}-${view.revision}`}
                       view={view}
-                      member={person as Member}
+                      member={person}
                       save={save}
                       busy={busy}
                     />
