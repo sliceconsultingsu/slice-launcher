@@ -62,7 +62,7 @@ async function pkce() {
   return { verifier, challenge: base64url(new Uint8Array(digest)) };
 }
 
-async function register(redirectUri = "https://client.example/cb", name = "Claude") {
+async function register(redirectUri = "https://claude.ai/api/mcp/auth_callback", name = "Claude") {
   return call("/oauth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -82,7 +82,7 @@ async function connect(clientId?: string) {
   const query = new URLSearchParams({
     response_type: "code",
     client_id: id,
-    redirect_uri: "https://client.example/cb",
+    redirect_uri: "https://claude.ai/api/mcp/auth_callback",
     code_challenge: challenge,
     code_challenge_method: "S256",
     state: "state-1",
@@ -98,7 +98,7 @@ async function connect(clientId?: string) {
     body: new URLSearchParams({
       grant_type: "authorization_code",
       code,
-      redirect_uri: "https://client.example/cb",
+      redirect_uri: "https://claude.ai/api/mcp/auth_callback",
       client_id: id,
       code_verifier: verifier,
       resource: `${origin}/mcp`,
@@ -293,9 +293,12 @@ describe("Slice OAuth for AI apps", () => {
 
   it("register refuses a plain http redirect outside this computer", async () => {
     expect((await register("http://evil.example/cb")).status).toBe(400);
+    expect((await register("http://claude.ai/cb")).status).toBe(400);
+    expect((await register("https://user:pass@claude.ai/cb")).status).toBe(400);
     expect((await register("http://127.0.0.1:5555/cb")).status).toBe(201);
     expect((await register("http://localhost:5555/cb")).status).toBe(201);
-    expect((await register("https://claude.ai/cb")).status).toBe(201);
+    expect((await register("https://claude.ai/api/mcp/auth_callback")).status).toBe(201);
+    expect((await register("https://another-app.example/cb")).status).toBe(201);
   });
 
   it("OAuth responses are private", async () => {
@@ -325,7 +328,7 @@ describe("Slice OAuth rate limits", () => {
           method: "POST",
           headers: { "Content-Type": "application/json", "CF-Connecting-IP": "203.0.113.9" },
           body: JSON.stringify({
-            redirect_uris: ["https://client.example/cb"],
+            redirect_uris: ["https://claude.ai/api/mcp/auth_callback"],
             token_endpoint_auth_method: "none",
           }),
         })) as unknown as Response;

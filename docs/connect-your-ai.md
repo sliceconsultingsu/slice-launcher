@@ -39,11 +39,11 @@ Verified client menus, checked November 5, 2026 against Anthropic and OpenAI hel
 - **ChatGPT**: Plugins → + → Add custom MCP server, with OAuth. Full MCP support is on Business, Enterprise and Edu plans; other plans may be limited to read-only tools.
 - **Claude Code**: `claude mcp add --transport http slice https://slice-launcher.ivan27chen.workers.dev/mcp`, then sign in when prompted.
 
-Any MCP-capable app may connect. Slice does not keep a list of approved apps, so help the person choose one they trust with Slice information.
+Any MCP-capable app may connect. Slice does not keep a list of approved apps, so help the person choose one they trust with Slice information. The approval page names Claude and ChatGPT when the connection returns to them, and warns when it returns to an address Slice does not recognize; that warning is expected for other AI apps and is a reason to stop if the person did not start the connection themselves.
 
 Explain before authorization that tool results go to their AI app and its model provider. Existing Slice permissions do not approve every provider for private data.
 
-The client should open a browser window. If asked, the person signs in with their Slice account. Slice then shows its own approval page naming the app and the address it returns to; have the person check both and choose **Allow**, then return to the AI app. Follow the official flow; a browser session does not automatically sign in a separate agent. Do not supply the CI token or ask for Access policy changes to get past a failure.
+The client should open a browser window. If asked, the person signs in with their Slice account. Slice then shows its own approval page naming the app and the address it returns to; have the person check both and choose **Allow** (**Allow anyway** for an address Slice does not recognize), then return to the AI app. They should approve only a connection they started themselves; a link to this page sent by someone else is a reason to choose **Cancel**. Follow the official flow; a browser session does not automatically sign in a separate agent. Do not supply the CI token or ask for Access policy changes to get past a failure.
 
 **Done when:** the client reports the connection is authorized. This alone is not the final verification.
 
