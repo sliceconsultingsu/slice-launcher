@@ -16,7 +16,7 @@ Authentication changes: trace issuer/audience/signature validation, expiry, serv
 
 Sign-in changes (`src/membership/google.ts`, `session.ts`, `current.ts`): check state, PKCE and nonce handling; ID token signature, issuer, audience and expiry; `email_verified`; that email-based claims (invitations, the owner seat, legacy re-linking) are refused unless Google manages the address (Gmail, or `hd` equal to the address's domain), enforced in `enroll` from the session's stored `email_managed` flag, not only at sign-in; that legacy Access identities are re-linked only once and only from the legacy issuer prefix; HttpOnly/Secure/SameSite=Lax `__Host-` cookies with only hashes stored; a fixed 30-day session that use does not extend; sessions deleted when a member is suspended or removed; same-origin sign-out; and the `next` return path limited to `/authorize?…`.
 
-AI sign-in changes (`platform/worker/index.ts`, `src/ai-connections/`): confirm that `/mcp` accepts only Slice passes, never a session cookie or Access header. Check that grants carry only the member's subject and email and that membership is reloaded on every call. Check that a pass is issued or renewed only for an active member, and that suspending or removing a member disconnects their apps. Check registration rules (HTTPS or loopback callbacks), rate limits, that the approval page always shows the app's return address, and that codes and passes contain no email or subject. Registration is open to any MCP app, so the approval page and Disconnect are the safeguards. Grants, passes and activity live in the `OAUTH_KV` namespace.
+AI sign-in changes (`platform/worker/index.ts`, `src/ai-connections/`): confirm that `/mcp` accepts only Slice passes, never a session cookie or Access header. Check that grants carry only the member's subject and email and that membership is reloaded on every call. Check that a pass is issued or renewed only for an active member, and that suspending or removing a member disconnects their apps. Check registration rules (HTTPS or loopback callbacks), rate limits, that the approval page always shows the app's return address, and that codes and passes contain no email or subject. Registration is open to any MCP app, so the approval page and Disconnect are the safeguards: check that an address outside `supported-apps.ts` always gets the warning, that the checked list holds only exact sign-in addresses taken from the vendor's own documentation, never a whole site, and that app names are cleaned of control and text-direction characters wherever they are shown. Grants, passes and activity live in the `OAUTH_KV` namespace.
 
 Ivan is the sole maintainer and the only code owner. A `main` ruleset requires a code-owner approval on PRs. Every repository admin can bypass it when merging a PR, so admins merge their own PRs without independent approval; required checks still apply. Revisit this before adding admins. Only admins can run rollback. No AI check can approve, merge, deploy, mutate the database, or waive deterministic checks.
 
@@ -34,6 +34,15 @@ Limits to keep in mind:
 - The page framework writes page data into inline scripts, so the policy allows inline scripts. It limits where a page can load from, send data to and be framed by. It does not stop script that has been injected into a page; that would need per-request nonces from the framework.
 - zod tests whether it may compile code at runtime. The policy refuses, zod falls back, and the browser console shows one policy report on pages that validate data in the browser (the alumni page). Nothing is broken.
 - `pnpm smoke:launcher` requires these headers on the compiled Worker. The post-deploy check does not, so that it still accepts older releases as rollback targets.
+
+## Requests the Worker answers itself
+
+Before sign-in or any page runs, the Worker entry (`createSliceWorker` in `platform/src/ai-connections/oauth.ts`) answers two kinds of request:
+
+- **Plain HTTP** is redirected to the same address over HTTPS (308). Loopback addresses are exempt so local development works.
+- **The page framework's image endpoint** (`/_next/image`, `/_vinext/image`) returns 404. Slice serves its images as static files and has no image optimizer or Cloudflare Images binding. Left open, the framework's own answer on that path redirects to the address it is given. `pnpm smoke:launcher` checks that the compiled Worker keeps it closed; review that check when upgrading the framework, which may add or rename such paths.
+
+The membership API never sends a person's sign-in account ID (`subject`) to a browser. Member lists and history entries carry `signedIn: true` or `false` instead (`memberRecord` and `auditView` in `platform/src/membership/domain.ts`). The stored records are unchanged.
 
 ## Existing dependency risk observed 2026-10-04
 

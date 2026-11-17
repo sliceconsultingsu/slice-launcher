@@ -61,9 +61,6 @@
       "simple": { "limit": 30, "period": 60 },
     },
   ],
-  "images": {
-    "binding": "IMAGES",
-  },
   "observability": {
     "enabled": true,
   },

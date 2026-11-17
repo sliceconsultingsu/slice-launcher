@@ -171,7 +171,12 @@ export async function checkSignedIn(baseUrl, { sessions, emails }) {
   const joinedView = await joined.json();
   assert.equal(joinedView.me.email, emails.newcomer);
   assert.equal(joinedView.me.status, "pending", "A new person waits for approval");
-  const directory = await (await call("/api/membership", sessions.owner)).json();
+  const listing = await (await call("/api/membership", sessions.owner)).text();
+  assert.ok(
+    !listing.includes('"subject"') && !listing.includes("google|smoke"),
+    "The member list must not send sign-in account IDs to the browser",
+  );
+  const directory = JSON.parse(listing);
   assert.ok(
     directory.members.some((m) => m.email === emails.newcomer && m.status === "pending"),
     "The stored membership must include the new pending person",

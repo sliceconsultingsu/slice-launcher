@@ -9,7 +9,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import console from "node:console";
-import { checkLauncher, checkMcpDenied } from "./check-launcher.mjs";
+import { checkImageEndpointClosed, checkLauncher, checkMcpDenied } from "./check-launcher.mjs";
 import { checkSignedIn, signedInFixture } from "./signed-in-smoke.mjs";
 
 const platformDirectory = fileURLToPath(new URL("../platform/", import.meta.url));
@@ -98,6 +98,7 @@ try {
     expectedRelease: process.env.SLICE_RELEASE_SHA,
     requireSecurityHeaders: true,
   });
+  await checkImageEndpointClosed(`http://127.0.0.1:${port}`, { signal: controller.signal });
   // A compiled route probe: missing routes and forged/service headers must not pass.
   await checkMcpDenied(`http://127.0.0.1:${port}`, {
     access: { id: "synthetic-service", secret: "synthetic-secret" },

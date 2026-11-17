@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { test } from "node:test";
-import { checkLauncher, checkMembershipDenied } from "./check-launcher.mjs";
+import {
+  checkImageEndpointClosed,
+  checkLauncher,
+  checkMembershipDenied,
+} from "./check-launcher.mjs";
 
 async function serve(
   t,
@@ -284,4 +288,26 @@ test("the sign-in boundary refuses public data, foreign OAuth metadata and redir
     mode = value;
     await assert.rejects(checkSignInBoundary(url), undefined, value);
   }
+});
+
+test("accepts a closed image endpoint and fails one that redirects", async (t) => {
+  const serveImages = async (open) => {
+    const server = createServer((request, response) => {
+      if (open && request.url.startsWith("/_next/image?")) {
+        response.writeHead(302, { location: "/slice-logo.png" });
+        return response.end();
+      }
+      response.writeHead(404);
+      response.end("Not found");
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    t.after(() => new Promise((resolve) => server.close(resolve)));
+    return `http://127.0.0.1:${server.address().port}`;
+  };
+  await checkImageEndpointClosed(await serveImages(false));
+  await assert.rejects(
+    checkImageEndpointClosed(await serveImages(true)),
+    /image endpoint must be closed/,
+  );
 });

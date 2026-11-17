@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { readCommand } from "./auth";
-import { applyCommand, effectivePermissions, enroll, memberView } from "./domain";
+import { applyCommand, auditView, effectivePermissions, enroll, memberView } from "./domain";
 import { MembershipError } from "./contracts";
 import type { Mutation, SignedInIdentity, State } from "./contracts";
 import type { HistoryCursor, Repository } from "./repository";
@@ -90,7 +90,7 @@ export async function membershipRequest(
         includeProfileEdits: query.get("profileEdits") === "1",
         before: readCursor(query.get("before")),
       });
-      return json({ history: page.items, next: writeCursor(page.next) });
+      return json({ history: page.items.map(auditView), next: writeCursor(page.next) });
     }
     return json(memberView(state, identity.subject));
   }

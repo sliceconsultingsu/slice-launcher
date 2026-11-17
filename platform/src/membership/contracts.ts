@@ -68,6 +68,11 @@ export interface Meta {
   id: string;
   now: string;
 }
+/**
+ * A member as the app shows them. The sign-in provider's account ID stays on the server; the
+ * app only needs to know whether the person has signed in yet.
+ */
+export type MemberRecord = Omit<Member, "subject"> & { signedIn: boolean };
 export interface DirectoryMember {
   id: string;
   name: string;
@@ -77,9 +82,9 @@ export interface DirectoryMember {
 export interface View {
   revision: number;
   organization: string;
-  me: Member;
+  me: MemberRecord;
   permissions: string[];
-  members: (DirectoryMember | Member)[];
+  members: (DirectoryMember | MemberRecord)[];
   levels: Level[];
   catalog: typeof permissionCatalog;
 }
