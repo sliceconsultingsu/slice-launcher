@@ -2,7 +2,7 @@
 
 Helps Slice consultants find alumni whose experience fits their career interests. A consultant (called a "student" in this app) saves a short profile, browses and filters alumni, and is given three alumni every 30 days with the reasons for each. An approved AI assistant can do the same through the Slice MCP connection, and an admin keeps alumni jobs current by reviewing changes the refresh proposes.
 
-**Status: work in progress.** The code is complete for the first version described in the product requirements, with tests. It is not live: the alumni database changes (migrations 0004 to 0008) have not been applied to production, and no real alumni have been loaded. The repository contains invented people only.
+**Status: work in progress.** The first version described in the product requirements is complete, with tests, and live. Migrations 0004 to 0008 were applied to production on 16 November 2026, and Slice's alumni contact book was loaded on 17 November. Migration 0009 must be applied before an admin can correct a job (see [Correcting a job](#correcting-a-job)). The repository contains invented people only.
 
 Screenshots with fictional data: [home](../../../docs/images/alumni/home-desktop.png) · [matches](../../../docs/images/alumni/matches-desktop.png) · [reach out](../../../docs/images/alumni/reach-out-desktop.png) · [network](../../../docs/images/alumni/network-desktop.png) · [profile](../../../docs/images/alumni/alum-profile-desktop.png) · [first use](../../../docs/images/alumni/first-use-desktop.png) · [manage](../../../docs/images/alumni/manage-desktop.png) · [confirm details](../../../docs/images/alumni/confirm-desktop.png) · [add alumni](../../../docs/images/alumni/add-alumni-desktop.png) · [record a reply](../../../docs/images/alumni/record-reply-desktop.png). Phone-width versions of home, matches, network, profile and manage sit beside them.
 
@@ -69,6 +69,7 @@ Pages: `/apps/alumni` (home, or the three first-use steps), `/matches`, `/explor
 | `confirmations`            | GET       | `admin`        | Where each alum stands, whether email is set up, and the email's wording  |
 | `confirmations/send`       | POST      | `admin`        | Send up to 10 confirmation emails to alumni who are due                   |
 | `alumni/<id>/reply`        | GET, POST | `admin`        | Read what is on file for an alum, and record their reply                  |
+| `alumni/<id>/job`          | POST      | `admin`        | Correct a mistake in the current job's company, role or industry          |
 | `records`                  | GET       | `records.read` | The original starter's three sample records, kept for the starter tasks   |
 
 ## Assistant tools
@@ -117,6 +118,15 @@ Email is off until the maintainer does all of this. Until then the screen says s
 
 3. Apply migration `0008`.
 
+## Correcting a job
+
+A record can be wrong without the alum having moved: a company and role entered in each other's columns, or the wrong industry. On a profile, an admin chooses **Correct job details** and fixes the company, the role or the industry.
+
+- **It is a correction, not a new job.** Nothing moves to past jobs. The city, start month and the date the details were last checked stay as they were, and "Lately in the network" does not report it.
+- **When the alum did change jobs,** record their reply or approve the proposed change instead. Those keep the old job as a past job.
+- **History** gets one `job_corrected` entry with the job before and after, made by the admin. It needs migration `0009`, which adds that kind of entry.
+- A company typed with the same name as one already in the app, ignoring case and punctuation, uses that company. Only an alum with a current job can be corrected; for one without, record their reply.
+
 ## How it looks
 
 This app has its own look, which the maintainer approved as a departure from the [design profile](../../../docs/design-profile.md). Other apps should keep following the profile.
@@ -151,7 +161,7 @@ Before a PR run all [contributor checks](../../../CONTRIBUTING.md#4-implement-an
 
 These are the maintainer's steps and are not done by merging code:
 
-1. Apply migrations `0004` to `0008`, in order, through the approved process in [migrations](../../../docs/migrations.md). The app's pages fail until they are applied.
+1. Apply migrations `0004` to `0009`, in order, through the approved process in [migrations](../../../docs/migrations.md). The app's pages fail until they are applied.
 2. Grant `admin` and `refresh.run` to the members who should hold them.
 3. Load the alumni contact book on the **Add alumni** screen by pasting its rows, headings included. The screen reads the book's own columns: Name, Company, Role, Industry, Email, LinkedIn, Grad Year and Date updated. Every industry label the book uses is on the app's list, including Sales, Communications, Recruiting/HR and Other; its shorter labels Finance, Marketing and Government are understood. An unknown label is refused by row number with the industries to choose from.
 4. Remove `"workInProgress": true` from `app.json` when the app is ready.

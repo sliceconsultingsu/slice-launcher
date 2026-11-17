@@ -227,6 +227,33 @@ test("an admin hides a contact detail and an alum, and lists the alum again", as
   await page.getByRole("button", { name: "List this alum again" }).click();
   await expect(page.getByRole("button", { name: "Hide this alum from members" })).toBeVisible();
 });
+test("an admin corrects a job without it counting as a new job", async ({ page }) => {
+  await page.goto("/apps/alumni/alumni/p-a05");
+  await expect(page.getByText("Manager at Bluestone Advisory Group")).toBeVisible();
+  const checked = await page.getByText(/^Details last checked/).textContent();
+  await page.getByRole("button", { name: "Correct job details" }).click();
+  await expect(page.getByLabel("Company")).toHaveValue("Bluestone Advisory Group");
+  await expect(page.getByLabel("Industry")).toHaveValue("consulting");
+  await accessible(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await noSidewaysScroll(page)).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  // A blank field is refused in the browser before anything is sent.
+  await page.getByLabel("Role").fill("");
+  await page.getByRole("button", { name: "Save the correction" }).click();
+  await expect(page.getByRole("alert")).toContainText("Fill in the company, the role");
+  await page.getByLabel("Role").fill("Senior Manager");
+  await page.getByLabel("Industry").selectOption({ label: "Financial Services" });
+  await page.getByRole("button", { name: "Save the correction" }).click();
+  await expect(page.getByText("Senior Manager at Bluestone Advisory Group")).toBeVisible();
+  await expect(page.getByText(/Financial Services\.$/)).toBeVisible();
+  // The old title is not kept as a past job, and the checked date is unchanged.
+  await expect(page.getByText("Manager", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/^Details last checked/)).toHaveText(checked ?? "");
+  // Home does not report the correction as a job change.
+  await page.goto("/apps/alumni");
+  await expect(page.getByText(/Senior Manager/)).toHaveCount(0);
+});
 test("an admin adds alumni by pasting rows, and loading them twice adds nobody", async ({
   page,
 }) => {

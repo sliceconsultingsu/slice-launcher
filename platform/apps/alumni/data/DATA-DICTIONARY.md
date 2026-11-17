@@ -304,6 +304,7 @@ Reasons are stored when the match is made, so changing a profile later never rew
 | `person`          | `merged_into`    | Merge or reversal                                                                                                  |
 | `alumni_profile`  | `current_job`    | A whole new job, as JSON `{employerId, title, industryId, locationId, startMonth}`; the old one moves to past jobs |
 | `alumni_profile`  | `job_title`      | Correction to the current title (not a new job)                                                                    |
+| `alumni_profile`  | `job_corrected`  | An admin's correction to the current job's company, title or industry, as JSON before and after; added by `0009`   |
 | `alumni_profile`  | `listing_status` | Listed or hidden                                                                                                   |
 | `alumni_profile`  | `note`           | The free-text note                                                                                                 |
 | `alumni_profile`  | `contact_added`  | A contact detail added when a matching record was attached                                                         |
