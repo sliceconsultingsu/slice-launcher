@@ -21,4 +21,6 @@ export default createSliceWorker<CloudflareEnv>({
       verify: async () => identity,
       loadState: () => new Repository(env.MEMBERSHIP_DB).load(),
     })(request),
+  // Passes are issued and renewed only for people who are active members at that moment.
+  loadState: (env) => new Repository(env.MEMBERSHIP_DB).load(),
 });

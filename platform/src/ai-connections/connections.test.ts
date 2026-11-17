@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GrantSummary, OAuthHelpers } from "@cloudflare/workers-oauth-provider";
-import { disconnect, listConnections, type ConnectionDeps } from "./connections";
+import { disconnect, disconnectAll, listConnections, type ConnectionDeps } from "./connections";
 import { ActivityStore } from "./activity";
 import { grantUserId } from "./oauth";
 import { emptyState, enroll } from "../membership/domain";
@@ -65,6 +65,10 @@ async function setup(grants: Record<string, Partial<GrantSummary>[]>) {
     },
     async revokeGrant(grantId: string, userId: string) {
       revoked.push([grantId, userId]);
+      byUser.set(
+        userId,
+        (byUser.get(userId) ?? []).filter((grant) => grant.id !== grantId),
+      );
     },
   } as unknown as OAuthHelpers;
   const activity = new ActivityStore(memoryKv(), () => new Date("2026-11-05T12:00:00Z"));
@@ -143,5 +147,23 @@ describe("connected apps", () => {
     expect(error).toBeInstanceOf(MembershipError);
     expect((error as MembershipError).status).toBe(404);
     expect(revoked).toEqual([]);
+  });
+
+  it("disconnecting everything revokes all of one person's apps and nobody else's", async () => {
+    const { deps, revoked, activity } = await setup({ me: [{}, {}, {}], other: [{}] });
+    const userId = await grantUserId(identity.subject);
+    await activity.touch(userId, "grant-me-2");
+    expect(await disconnectAll(identity.subject, deps())).toBe(3);
+    expect(revoked.map(([grantId]) => grantId).sort()).toEqual([
+      "grant-me-0",
+      "grant-me-1",
+      "grant-me-2",
+    ]);
+    expect(revoked.every(([, user]) => user === userId)).toBe(true);
+    expect(await activity.get(userId, "grant-me-2")).toEqual({ lastUsedAt: null, renewedAt: null });
+    // Nothing left: a second call does nothing, as does one for someone with no apps.
+    expect(await disconnectAll(identity.subject, deps())).toBe(0);
+    expect(await disconnectAll("nobody", deps())).toBe(0);
+    expect(revoked).toHaveLength(3);
   });
 });

@@ -1,5 +1,15 @@
 import { commandSchema, emailSchema, MembershipError, permissionCatalog } from "./contracts";
-import type { Identity, Member, Meta, Mutation, SignedInIdentity, State, View } from "./contracts";
+import type {
+  Audit,
+  Identity,
+  Member,
+  MemberRecord,
+  Meta,
+  Mutation,
+  SignedInIdentity,
+  State,
+  View,
+} from "./contracts";
 export { MembershipError } from "./contracts";
 
 function fail(status: number, message: string): never {
@@ -245,6 +255,22 @@ export function applyCommand(
     fail(400, "Keep at least one active owner.");
   return finish(state, meta, actor.id, command.type, target.id, before, target);
 }
+/** A member without their sign-in account ID, for anything sent to a browser. */
+export function memberRecord({ subject, ...member }: Member): MemberRecord {
+  return { ...member, signedIn: subject !== null };
+}
+/**
+ * A history entry for display. Entries store whole member records, so the account IDs inside
+ * them are replaced the same way before they leave the server.
+ */
+export function auditView(audit: Audit): Audit {
+  const hide = (value: unknown) => {
+    if (!value || typeof value !== "object" || !("subject" in value)) return value;
+    const { subject, ...rest } = value as { subject: unknown };
+    return { ...rest, signedIn: subject !== null };
+  };
+  return { ...audit, before: hide(audit.before), after: hide(audit.after) };
+}
 export function memberView(state: State, subject: string): View {
   const me = subjectMember(state, subject);
   const permissions = effectivePermissions(state, me);
@@ -253,12 +279,12 @@ export function memberView(state: State, subject: string): View {
   return {
     revision: state.revision,
     organization: "Slice Consulting",
-    me,
+    me: memberRecord(me),
     permissions,
     members: !directory
       ? []
       : manage
-        ? state.members
+        ? state.members.map(memberRecord)
         : state.members
             .filter((m) => m.status === "active")
             .map((m) => ({

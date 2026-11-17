@@ -25,11 +25,30 @@ Slice runs its own OAuth server for AI apps with `@cloudflare/workers-oauth-prov
 - `/mcp`, which requires a Slice-issued pass and never accepts a `Cf-Access-Jwt-Assertion`;
 - discovery metadata at `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`;
 - dynamic client registration at `/oauth/register` (HTTPS callbacks, or loopback for apps on the person's computer; rate-limited per address);
-- passes at `/oauth/token`: authorization code with PKCE, 7-day access passes, renewal passes that rotate and lapse after 30 days without renewal.
+- passes at `/oauth/token`: authorization code with PKCE, 7-day access passes, renewal passes that rotate and lapse after 30 days without renewal. A pass is issued or renewed only for someone who is an active member at that moment; otherwise the request is refused and the connection is revoked.
 
-The approval page (`src/ai-connections/consent.ts`) uses the person's Slice session (sending them through Google sign-in first if needed), checks active membership, shows the app's self-declared name and its return address, and records a grant whose props hold the member's subject and email. The grant's user ID is a digest of the subject, so no email or subject appears in codes or passes. Grants, passes and per-grant activity (last use, last renewal) are stored in the `OAUTH_KV` namespace.
+The approval page (`src/ai-connections/consent.ts`) uses the person's Slice session (sending them through Google sign-in first if needed), checks active membership, shows the app's self-declared name and its return address, says whether Slice recognizes that address, and records a grant whose props hold the member's subject and email. The grant's user ID is a digest of the subject, so no email or subject appears in codes or passes. Grants, passes and per-grant activity (last use, last renewal) are stored in the `OAUTH_KV` namespace.
 
-Screenshots of the approval page, the top-bar states and the connected-apps list are in [docs/images/ai-connections](images/ai-connections/).
+Any MCP app may register, so the name on the approval page is only what the app calls itself. The return address is the part Slice can check (`src/ai-connections/supported-apps.ts`):
+
+- **A checked hosted app** (Claude's and ChatGPT's sign-in addresses on `claude.ai`, `claude.com` and `chatgpt.com`): the page names the app the address belongs to. The whole address must match, not just the site.
+- **An app on the person's own computer** (a loopback address): the page says so.
+- **Any other HTTPS address:** the page warns that Slice does not recognize it, and Cancel rather than Allow is the emphasized button.
+
+Control characters and invisible formatting characters, including the ones that reverse text direction, are removed from app names before they are shown. To add a hosted app to the checked list, add the exact address its sign-in returns to, taken from that vendor's own documentation.
+
+A recognized address does not prove who started the connection. Someone can register their own app that returns to a checked address and send a member the approval link, so the page also tells the person to allow only a connection they started themselves.
+
+Screenshots of the approval page (for a checked app and for an unrecognized address), the top-bar states and the connected-apps list are in [docs/images/ai-connections](images/ai-connections/).
+
+When an administrator suspends a member, returns them to pending or removes them, the membership API disconnects every AI app they approved (`disconnectAll` in `src/ai-connections/connections.ts`). Memberships and connections live in different stores, so the two steps cannot be one transaction:
+
+- **Suspension** is saved first, because it is what stops access: `/mcp` reloads membership on every request. If the disconnect then fails, the API answers 502, logs `access_loss_cleanup_failed`, and saving the member again retries it.
+- **Removal** disconnects first. If that fails, the API answers 502 and the person is not removed. Once the removal is saved it disconnects again, to catch an app approved in the moment between.
+
+Whatever happens here, the renewal check above also revokes a connection the next time its app tries to renew.
+
+One library behaviour to know: after a renewal pass is rotated, the previous one stays valid until the new one is first used, so that an app whose renewal response was lost can retry. A copied renewal pass is therefore not detected by reuse. It stops working when the connection is disconnected or the person loses active membership.
 
 Members list and disconnect their connected apps on the account page (`/api/membership/connections`); the launcher's top bar shows connection status. Both stay hidden until `AI_CONNECTIONS_ENABLED` is `"true"`. A client-supplied email, role or plain bearer token is not an application identity, and CI service credentials never become one.
 

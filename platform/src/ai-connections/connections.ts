@@ -5,6 +5,7 @@ import { authorizeMember } from "../platform/access";
 import type { ActivityStore } from "./activity";
 import type { Connection, ConnectionsResponse } from "./contracts";
 import { grantUserId, REFRESH_TOKEN_TTL } from "./oauth";
+import { cleanName } from "./supported-apps";
 
 export type ConnectionDeps = {
   helpers: OAuthHelpers;
@@ -14,14 +15,10 @@ export type ConnectionDeps = {
 };
 
 const MAX_CONNECTIONS = 50;
-const NAME_LIMIT = 80;
 
-function connectionName(metadata: unknown) {
-  const raw = (metadata as { clientName?: unknown } | null)?.clientName;
-  const name = typeof raw === "string" ? raw.trim() : "";
-  if (!name) return "Unnamed app";
-  return name.length > NAME_LIMIT ? `${name.slice(0, NAME_LIMIT - 1)}…` : name;
-}
+/** Cleaned again here: connections approved before names were cleaned keep their stored name. */
+const connectionName = (metadata: unknown) =>
+  cleanName((metadata as { clientName?: unknown } | null)?.clientName) || "Unnamed app";
 
 async function grantsOf(helpers: OAuthHelpers, userId: string) {
   const grants: GrantSummary[] = [];
@@ -77,4 +74,27 @@ export async function disconnect(
     throw new MembershipError(404, "That connection was not found.");
   await deps.helpers.revokeGrant(grantId, userId);
   await deps.activity.remove(userId, grantId);
+}
+
+/**
+ * Disconnects every AI app a person approved. Used when they lose access (suspended or removed),
+ * so their connections do not come back if they are reinstated. Safe to repeat.
+ */
+export async function disconnectAll(
+  subject: string,
+  deps: Pick<ConnectionDeps, "helpers" | "activity">,
+): Promise<number> {
+  const userId = await grantUserId(subject);
+  let revoked = 0;
+  // Revoking changes the list, so read it again until nothing is left (bounded in case one sticks).
+  for (let pass = 0; pass < 10; pass++) {
+    const grants = await grantsOf(deps.helpers, userId);
+    if (grants.length === 0) break;
+    for (const grant of grants) {
+      await deps.helpers.revokeGrant(grant.id, userId);
+      await deps.activity.remove(userId, grant.id);
+      revoked += 1;
+    }
+  }
+  return revoked;
 }

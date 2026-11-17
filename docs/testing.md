@@ -20,6 +20,7 @@ There are no retries. Browser workers run serially against a new database each i
 - A pending member is signed in but gets an empty permission list, a 403 from the app API and a redirect to their account from the app page.
 - Expired, unknown and missing sessions get 401.
 - A new person joins as pending. A write without the app's own origin is refused.
+- A burst of changes from one person is refused with 429, and other people are unaffected. This is the only check of the per-person limit as the compiled Worker wires it.
 - Signing out ends the session on the server. Another site cannot sign a member out.
 
 This is the only automated check that runs the production sign-in path (session cookie, compiled routes, D1) end to end. It does not cover the Google sign-in exchange itself, which needs Google; `google.test.ts` covers that logic with synthetic tokens. It runs locally and in pull request validation, never against production, so it does not show that the deployed Worker's database or secrets are healthy.

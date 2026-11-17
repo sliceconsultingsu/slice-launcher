@@ -62,7 +62,7 @@ async function pkce() {
   return { verifier, challenge: base64url(new Uint8Array(digest)) };
 }
 
-async function register(redirectUri = "https://client.example/cb", name = "Claude") {
+async function register(redirectUri = "https://claude.ai/api/mcp/auth_callback", name = "Claude") {
   return call("/oauth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -82,7 +82,7 @@ async function connect(clientId?: string) {
   const query = new URLSearchParams({
     response_type: "code",
     client_id: id,
-    redirect_uri: "https://client.example/cb",
+    redirect_uri: "https://claude.ai/api/mcp/auth_callback",
     code_challenge: challenge,
     code_challenge_method: "S256",
     state: "state-1",
@@ -98,7 +98,7 @@ async function connect(clientId?: string) {
     body: new URLSearchParams({
       grant_type: "authorization_code",
       code,
-      redirect_uri: "https://client.example/cb",
+      redirect_uri: "https://claude.ai/api/mcp/auth_callback",
       client_id: id,
       code_verifier: verifier,
       resource: `${origin}/mcp`,
@@ -234,6 +234,63 @@ describe("Slice OAuth for AI apps", () => {
     expect((await listTools(access_token)).status).toBe(403);
   });
 
+  it("a suspended member cannot renew, and the connection does not return when reinstated", async () => {
+    const { clientId, access_token, refresh_token } = await connect();
+    const renew = () =>
+      call("/oauth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token,
+          client_id: clientId,
+        }),
+      });
+    await call("/__test/member", { method: "POST", body: JSON.stringify({ status: "suspended" }) });
+    const refused = await renew();
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toMatchObject({ error: "invalid_grant" });
+    expect(await activity()).toEqual([]);
+    // Reinstated: the old pass and its renewal stay dead; the person has to connect again.
+    await call("/__test/member", { method: "POST", body: JSON.stringify({ status: "active" }) });
+    expect((await listTools(access_token)).status).toBe(401);
+    expect((await renew()).status).toBe(400);
+    expect((await listTools((await connect()).access_token)).status).toBe(200);
+  });
+
+  it("no pass is issued when membership ends between approval and exchange", async () => {
+    const id = ((await (await register()).json()) as { client_id: string }).client_id;
+    const { verifier, challenge } = await pkce();
+    const query = new URLSearchParams({
+      response_type: "code",
+      client_id: id,
+      redirect_uri: "https://claude.ai/api/mcp/auth_callback",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      state: "state-1",
+      scope: "slice",
+      resource: `${origin}/mcp`,
+    });
+    const approval = await call(`/authorize?${query}`);
+    const code = new URL(approval.headers.get("location") ?? "").searchParams.get("code") ?? "";
+    await call("/__test/member", { method: "POST", body: JSON.stringify({ status: "pending" }) });
+    const token = await call("/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: "https://claude.ai/api/mcp/auth_callback",
+        client_id: id,
+        code_verifier: verifier,
+        resource: `${origin}/mcp`,
+      }),
+    });
+    expect(token.status).toBe(400);
+    expect(await token.json()).toMatchObject({ error: "invalid_grant" });
+    expect(await activity()).toEqual([]);
+  });
+
   it("identity rebinding is refused", async () => {
     const { access_token } = await connect();
     await call("/__test/member", {
@@ -293,9 +350,12 @@ describe("Slice OAuth for AI apps", () => {
 
   it("register refuses a plain http redirect outside this computer", async () => {
     expect((await register("http://evil.example/cb")).status).toBe(400);
+    expect((await register("http://claude.ai/cb")).status).toBe(400);
+    expect((await register("https://user:pass@claude.ai/cb")).status).toBe(400);
     expect((await register("http://127.0.0.1:5555/cb")).status).toBe(201);
     expect((await register("http://localhost:5555/cb")).status).toBe(201);
-    expect((await register("https://claude.ai/cb")).status).toBe(201);
+    expect((await register("https://claude.ai/api/mcp/auth_callback")).status).toBe(201);
+    expect((await register("https://another-app.example/cb")).status).toBe(201);
   });
 
   it("OAuth responses are private", async () => {
@@ -313,6 +373,52 @@ describe("Slice OAuth for AI apps", () => {
   });
 });
 
+describe("requests the Worker answers itself", () => {
+  const raw = async (url: string, init?: RequestInit) =>
+    (await runtime.dispatchFetch(url, {
+      redirect: "manual",
+      ...init,
+    } as never)) as unknown as Response;
+
+  it("plain HTTP is sent to HTTPS with the same path and query", async () => {
+    const page = await raw("http://slice.example/account?tab=members");
+    expect(page.status).toBe(308);
+    expect(page.headers.get("location")).toBe("https://slice.example/account?tab=members");
+    const api = await raw("http://slice.example/mcp", { method: "POST", body: "{}" });
+    expect(api.status).toBe(308);
+    expect(api.headers.get("location")).toBe("https://slice.example/mcp");
+    const token = await raw("http://slice.example/oauth/token", { method: "POST", body: "" });
+    expect(token.status).toBe(308);
+  });
+
+  it("a local address keeps working over plain HTTP", async () => {
+    expect((await raw("http://127.0.0.1/mcp", { method: "POST", body: "{}" })).status).toBe(401);
+    expect((await raw("http://localhost/nothing-here")).status).toBe(404);
+  });
+
+  it("the image endpoint is refused however it is spelled", async () => {
+    const query = "?url=%2Fslice-logo.png&w=64&q=75";
+    for (const path of [
+      "/_next/image",
+      "/_next/image/",
+      "/_next//image",
+      "//_next/image",
+      "/_next/image//",
+      "/_vinext/image",
+      "/_vinext//image/",
+      "/_next/%69mage",
+      "/%5Fnext/image",
+      "/_next%2Fimage",
+      "/_NEXT/Image",
+    ]) {
+      const response = await raw(`${origin}${path}${query}`);
+      expect(response.status, path).toBe(404);
+      expect(await response.text(), path).toBe("Not found");
+      expect(response.headers.get("location"), path).toBeNull();
+    }
+  });
+});
+
 describe("Slice OAuth rate limits", () => {
   // Limits count per clock minute, so a run that crosses a minute boundary starts a new count.
   // The first 20 must pass, and a refusal must come within the next window's 20 (41 in all).
@@ -325,7 +431,7 @@ describe("Slice OAuth rate limits", () => {
           method: "POST",
           headers: { "Content-Type": "application/json", "CF-Connecting-IP": "203.0.113.9" },
           body: JSON.stringify({
-            redirect_uris: ["https://client.example/cb"],
+            redirect_uris: ["https://claude.ai/api/mcp/auth_callback"],
             token_endpoint_auth_method: "none",
           }),
         })) as unknown as Response;

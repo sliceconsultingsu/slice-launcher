@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWTVerifyGetKey } from "jose";
 import { database, migrate } from "../../tests/database";
 import { googleCallback, googleStart, safeNext, type GoogleEnv } from "./google";
@@ -187,10 +187,62 @@ describe("Google sign-in", () => {
     expect(response.headers.get("location")).toBe("/account?sign_in_error=unavailable");
   });
 
-  it("is rate limited per address", async () => {
-    allowed = false;
-    const response = await googleStart(new Request(`${origin}/api/auth/google/start`), env());
-    expect(response.headers.get("location")).toBe("/account?sign_in_error=rate");
+  it("limits completed sign-ins per address, and never counts or refuses starting one", async () => {
+    const counted: string[] = [];
+    const limiter = {
+      limit: async ({ key }: { key: string }) => {
+        counted.push(key);
+        return { success: false };
+      },
+    } as unknown as RateLimit;
+    const start = await googleStart(
+      new Request(`${origin}/api/auth/google/start`, {
+        headers: { "CF-Connecting-IP": "203.0.113.7" },
+      }),
+      env({ AUTH_LIMITER: limiter }),
+    );
+    expect(new URL(start.headers.get("location") ?? "").origin).toBe("https://accounts.google.com");
+    expect(counted).toEqual([]);
+    const callback = await googleCallback(
+      new Request(`${origin}/api/auth/google/callback?code=abc&state=x`, {
+        headers: { "CF-Connecting-IP": "203.0.113.7" },
+      }),
+      env({ AUTH_LIMITER: limiter }),
+      { fetch: async () => Promise.reject(new Error("must not reach Google")) },
+    );
+    expect(callback.headers.get("location")).toBe("/account?sign_in_error=rate");
+    expect(counted).toEqual(["google:203.0.113.7"]);
+  });
+
+  it("logs each attempt with its outcome and the account ID, never the email address", async () => {
+    const lines: string[] = [];
+    const log = vi
+      .spyOn(console, "log")
+      .mockImplementation((line: string) => void lines.push(line));
+    try {
+      await signIn({ sub: "google-sub-9" });
+      await signIn({ email_verified: false });
+      const mismatch = await googleCallback(
+        new Request(`${origin}/api/auth/google/callback?code=abc&state=wrong`, {
+          headers: { Cookie: "__Host-slice_oauth=right.verifier.nonce" },
+        }),
+        env(),
+      );
+      expect(mismatch.headers.get("location")).toBe("/account?sign_in_error=state");
+    } finally {
+      log.mockRestore();
+    }
+    expect(lines.map((line) => JSON.parse(line))).toEqual([
+      {
+        event: "sign_in_succeeded",
+        subject: "https://accounts.google.com|google-sub-9",
+        emailManaged: true,
+        known: false,
+      },
+      { event: "sign_in_failed", reason: "unverified" },
+      { event: "sign_in_failed", reason: "state" },
+    ]);
+    expect(lines.join("")).not.toContain("ana@");
   });
 
   it("re-links a member from their old Access identity on first Google sign-in", async () => {

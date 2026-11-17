@@ -24,14 +24,35 @@ export type GoogleEnv = {
 type Deps = { fetch?: typeof fetch; keys?: JWTVerifyGetKey };
 type Failure = "state" | "google" | "unverified" | "email" | "rate" | "unavailable";
 
+/**
+ * One line per sign-in attempt in the Worker's logs: what happened, and for a completed sign-in
+ * whose it was. The account ID is logged, never the email address or anything from Google's reply.
+ */
+function record(outcome: "succeeded" | Failure, detail: Record<string, unknown> = {}) {
+  console.log(
+    JSON.stringify({
+      event: outcome === "succeeded" ? "sign_in_succeeded" : "sign_in_failed",
+      ...(outcome === "succeeded" ? {} : { reason: outcome }),
+      ...detail,
+    }),
+  );
+}
+
 function redirect(location: string, cookies: string[]) {
   const headers = new Headers({ Location: location, "Cache-Control": "private, no-store" });
   for (const value of cookies) headers.append("Set-Cookie", value);
   return new Response(null, { status: 302, headers });
 }
-const fail = (code: Failure) =>
-  redirect(`/account?sign_in_error=${code}`, [cookie(STATE_COOKIE, "", 0)]);
+function fail(code: Failure) {
+  record(code);
+  return redirect(`/account?sign_in_error=${code}`, [cookie(STATE_COOKIE, "", 0)]);
+}
 
+/**
+ * Counts one completed trip back from Google against the address it came from. Only the return
+ * is counted: starting sign-in does no work on Slice's side, and counting both steps halved how
+ * many people behind one shared address (a campus network) could sign in at once.
+ */
 async function limited(request: Request, env: GoogleEnv) {
   const key = `google:${request.headers.get("CF-Connecting-IP") ?? "unknown"}`;
   return !(await env.AUTH_LIMITER.limit({ key })).success;
@@ -84,7 +105,6 @@ function googleManages(email: string, hd: unknown) {
 /** Sends the browser to Google with PKCE, state and nonce held in a ten-minute cookie. */
 export async function googleStart(request: Request, env: GoogleEnv): Promise<Response> {
   if (!configured(env)) return fail("unavailable");
-  if (await limited(request, env)) return fail("rate");
   const next = safeNext(new URL(request.url).searchParams.get("next"));
   const state = secret();
   const verifier = secret();
@@ -177,6 +197,12 @@ export async function googleCallback(
     now: new Date().toISOString(),
   });
   if (migration) await repository.commit(state0, migration);
+  record("succeeded", {
+    subject: identity.subject,
+    emailManaged: identity.emailManaged,
+    // False for someone Slice has not seen before: they still have to ask to join.
+    known: migration !== null || state0.members.some((m) => m.subject === identity.subject),
+  });
   return redirect(decodeNext(nextSegment) ?? "/account", [
     await createSession(env.MEMBERSHIP_DB, identity, request.headers.get("User-Agent") ?? ""),
     cookie(STATE_COOKIE, "", 0),
