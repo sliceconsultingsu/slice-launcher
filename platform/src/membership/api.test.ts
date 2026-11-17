@@ -181,6 +181,33 @@ it("keeps duplicate enrollment idempotent and protects invitations from another 
   expect(await repo.load()).toEqual(before);
 });
 
+it("logs a database failure's message, no other message, and tells the person nothing specific", async () => {
+  const lines: string[] = [];
+  const log = vi
+    .spyOn(console, "error")
+    .mockImplementation((line: string) => void lines.push(line));
+  let response: Response;
+  try {
+    response = errorResponse(new Error(`D1_ERROR: no such table${"!".repeat(400)}`));
+    // An app or tool failure may quote the record it was handling.
+    errorResponse(new TypeError("Cannot read alumna Ana Diaz <ana@example.test>"));
+    errorResponse("not an error");
+  } finally {
+    log.mockRestore();
+  }
+  expect(response.status).toBe(500);
+  expect(await response.json()).toEqual({
+    error: "Membership could not be loaded. Please try again.",
+  });
+  const [database, app, other] = lines.map((line) => JSON.parse(line));
+  expect(database).toMatchObject({ event: "membership_request_failed", error: "Error" });
+  expect(database.message).toMatch(/^D1_ERROR: no such table!/);
+  expect(database.message).toHaveLength(300);
+  expect(app).toEqual({ event: "membership_request_failed", error: "TypeError" });
+  expect(other).toEqual({ event: "membership_request_failed", error: "UnknownError" });
+  expect(lines.join("")).not.toContain("ana@example.test");
+});
+
 async function ownerAndPending() {
   const repo = new Repository(fixture.db);
   const owner = { subject: "owner", email: "owner@example.test", emailManaged: true };

@@ -41,8 +41,9 @@
       "id": "8a8e78a4b2184dca965ed1fea05e680d",
     },
   ],
-  // Per-address limits: AI app registration and passes (OAUTH_LIMITER), and Google sign-in
-  // (AUTH_LIMITER), each 20 a minute. Per-person limit: membership changes (WRITE_LIMITER),
+  // Per-address limits: AI app registration and passes (OAUTH_LIMITER), 20 a minute, and
+  // completed Google sign-ins (AUTH_LIMITER), 60 a minute so a room of people on one shared
+  // network can sign in together. Per-person limit: membership changes (WRITE_LIMITER),
   // 30 a minute.
   "ratelimits": [
     {
@@ -53,7 +54,7 @@
     {
       "name": "AUTH_LIMITER",
       "namespace_id": "1002",
-      "simple": { "limit": 20, "period": 60 },
+      "simple": { "limit": 60, "period": 60 },
     },
     {
       "name": "WRITE_LIMITER",

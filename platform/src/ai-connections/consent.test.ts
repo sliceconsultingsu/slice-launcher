@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   AuthorizationError,
   type AuthRequest,
@@ -261,6 +261,35 @@ describe("approval page", () => {
     expect(completed[0].scope).toEqual(["slice"]);
     expect(completed[0].props).toEqual({ ...identity, clientId: "client-1" });
     expect(completed[0].metadata).toEqual({ clientName: "Claude" });
+  });
+
+  it("an approval is logged with who approved, which app and where it returns to", async () => {
+    const lines: string[] = [];
+    const log = vi
+      .spyOn(console, "log")
+      .mockImplementation((line: string) => void lines.push(line));
+    try {
+      const { helpers } = fakeHelpers();
+      await authorize(
+        post({ action: "allow", handle: "handle-1", account: identity.email }),
+        deps(helpers),
+      );
+      await authorize(
+        post({ action: "cancel", handle: "handle-1", account: identity.email }),
+        deps(fakeHelpers().helpers),
+      );
+    } finally {
+      log.mockRestore();
+    }
+    expect(lines.map((line) => JSON.parse(line))).toEqual([
+      {
+        event: "ai_connection_approved",
+        subject: identity.subject,
+        clientId: "client-1",
+        returnsTo: "https://claude.ai",
+      },
+    ]);
+    expect(lines.join("")).not.toContain(identity.email);
   });
 
   it("Cancel denies", async () => {

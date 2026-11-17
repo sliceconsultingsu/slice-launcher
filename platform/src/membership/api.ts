@@ -60,12 +60,23 @@ export function json(data: unknown, status = 200): Response {
     },
   });
 }
+/**
+ * A failure's message, but only when the database raised it. Those name the failed statement or
+ * constraint, not stored data. Apps and AI tools report errors through the same path, and their
+ * messages may quote the records they were handling, so every other message stays out of the logs.
+ */
+function databaseMessage(error: unknown) {
+  return error instanceof Error && error.message.startsWith("D1_")
+    ? error.message.slice(0, 300)
+    : undefined;
+}
 export function errorResponse(error: unknown): Response {
   if (error instanceof MembershipError) return json({ error: error.message }, error.status);
   console.error(
     JSON.stringify({
       event: "membership_request_failed",
       error: error instanceof Error ? error.name : "UnknownError",
+      message: databaseMessage(error),
     }),
   );
   return json({ error: "Membership could not be loaded. Please try again." }, 500);
