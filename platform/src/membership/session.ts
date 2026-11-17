@@ -2,11 +2,15 @@ import { MembershipError, type SignedInIdentity } from "./contracts";
 
 /** Host-only cookie: no Domain attribute, Secure, Path=/ (the __Host- prefix enforces this). */
 export const SESSION_COOKIE = "__Host-slice_session";
+/**
+ * A session lasts 30 days from sign-in and is never extended, on the server or in the cookie, so
+ * a copied session token stops working on the same day the browser's own cookie does.
+ */
 const SESSION_MS = 30 * 86400_000;
-/** Sliding renewal is written at most this often per session. */
-const SLIDE_MS = 3600_000;
+/** "Last seen" is written at most this often per session. */
+const SEEN_MS = 3600_000;
 
-type Database = Pick<D1Database, "prepare">;
+type Database = Pick<D1Database, "prepare" | "batch">;
 
 /** A random secret, base64url without padding (43 characters for 32 bytes). */
 export function secret(bytes = 32): string {
@@ -44,21 +48,24 @@ export async function createSession(
 ): Promise<string> {
   const token = secret();
   const now = new Date();
-  await db
-    .prepare(
-      "INSERT INTO sessions (hash, subject, email, email_managed, created_at, expires_at, last_seen_at, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-    )
-    .bind(
-      await digest(token),
-      identity.subject,
-      identity.email,
-      identity.emailManaged ? 1 : 0,
-      now.toISOString(),
-      new Date(now.getTime() + SESSION_MS).toISOString(),
-      now.toISOString(),
-      userAgent.slice(0, 200),
-    )
-    .run();
+  await db.batch([
+    // Each sign-in also clears out sessions that have expired, so the table does not grow forever.
+    db.prepare("DELETE FROM sessions WHERE expires_at <= ?").bind(now.toISOString()),
+    db
+      .prepare(
+        "INSERT INTO sessions (hash, subject, email, email_managed, created_at, expires_at, last_seen_at, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .bind(
+        await digest(token),
+        identity.subject,
+        identity.email,
+        identity.emailManaged ? 1 : 0,
+        now.toISOString(),
+        new Date(now.getTime() + SESSION_MS).toISOString(),
+        now.toISOString(),
+        userAgent.slice(0, 200),
+      ),
+  ]);
   return cookie(SESSION_COOKIE, token, SESSION_MS / 1000);
 }
 
@@ -78,21 +85,34 @@ export async function sessionIdentity(request: Request, db: Database): Promise<S
     .bind(key, now.toISOString())
     .first<{ subject: string; email: string; email_managed: number; last_seen_at: string }>();
   if (!row) throw new MembershipError(401, "Sign in to Slice.");
-  if (now.getTime() - Date.parse(row.last_seen_at) > SLIDE_MS)
+  if (now.getTime() - Date.parse(row.last_seen_at) > SEEN_MS)
     await db
-      .prepare("UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE hash = ?")
-      .bind(now.toISOString(), new Date(now.getTime() + SESSION_MS).toISOString(), key)
+      .prepare("UPDATE sessions SET last_seen_at = ? WHERE hash = ?")
+      .bind(now.toISOString(), key)
       .run();
   return { subject: row.subject, email: row.email, emailManaged: row.email_managed === 1 };
 }
 
-/** Ends this browser's session and returns a Set-Cookie header that clears it. */
-export async function endSession(request: Request, db: Database): Promise<string> {
+/**
+ * Ends this browser's session and returns a Set-Cookie header that clears it. With `everywhere`,
+ * ends every session of the same person, on all their browsers and devices.
+ */
+export async function endSession(
+  request: Request,
+  db: Database,
+  options: { everywhere?: boolean } = {},
+): Promise<string> {
   const token = readCookie(request, SESSION_COOKIE);
-  if (token)
+  if (token) {
+    const key = await digest(token);
     await db
-      .prepare("DELETE FROM sessions WHERE hash = ?")
-      .bind(await digest(token))
+      .prepare(
+        options.everywhere
+          ? "DELETE FROM sessions WHERE subject = (SELECT subject FROM sessions WHERE hash = ?)"
+          : "DELETE FROM sessions WHERE hash = ?",
+      )
+      .bind(key)
       .run();
+  }
   return cookie(SESSION_COOKIE, "", 0);
 }

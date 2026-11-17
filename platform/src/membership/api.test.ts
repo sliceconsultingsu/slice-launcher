@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { database, migrate, reset } from "../../tests/database";
 import { Repository } from "./repository";
 import { membershipRequest, errorResponse, PROFILE_EDITS_PER_DAY } from "./api";
@@ -286,4 +286,161 @@ it("keeps profile edits out of access history unless asked, and pages through th
   );
   for (const bad of ["&before=", "&before=yesterday", "&before=2026-11-16T00:00:00.000Z~x"])
     expect((await call(owner, undefined, `?view=history${bad}`)).status).toBe(400);
+});
+
+it("reports the person an administrator's change leaves without active membership", async () => {
+  const { repo, owner, person, call } = await ownerAndPending();
+  const lost: string[] = [];
+  const deps = {
+    onAccessLoss: async (subject: string) => {
+      const stored = (await repo.load()).members.find((m) => m.subject === subject);
+      lost.push(`${subject}:${stored?.status ?? "removed"}`);
+    },
+  };
+  const personId = (await repo.load()).members.find((m) => m.subject === "person")!.id;
+  const set = async (status: string) => {
+    const view = (await (await call(owner)).json()) as View;
+    return call(
+      owner,
+      {
+        revision: view.revision,
+        command: {
+          type: "member.update",
+          id: personId,
+          status,
+          levelId: "member",
+          allow: [],
+          deny: [],
+          owner: false,
+        },
+      },
+      "",
+      deps,
+    );
+  };
+  // Approving takes nothing away, and neither does anything a person does to their own profile.
+  expect((await set("active")).status).toBe(200);
+  const mine = (await (await call(person)).json()) as View;
+  await call(
+    person,
+    { revision: mine.revision, command: { type: "profile.update", name: "Pat", title: "" } },
+    "",
+    deps,
+  );
+  expect(lost).toEqual([]);
+  // Suspension is stored before the person's apps are disconnected.
+  expect((await set("suspended")).status).toBe(200);
+  expect(lost).toEqual(["person:suspended"]);
+  // Saving a suspended person again disconnects again, which is how a failed attempt is retried.
+  expect((await set("suspended")).status).toBe(200);
+  expect(lost).toEqual(["person:suspended", "person:suspended"]);
+  expect((await set("active")).status).toBe(200);
+  expect((await set("pending")).status).toBe(200);
+  expect(lost.at(-1)).toBe("person:pending");
+  // Removal disconnects first, while the record still exists, and again once it is gone, to
+  // catch an app approved in between.
+  const view = (await (await call(owner)).json()) as View;
+  const removed = await call(
+    owner,
+    { revision: view.revision, command: { type: "member.remove", id: personId } },
+    "",
+    deps,
+  );
+  expect(removed.status).toBe(200);
+  expect(lost.slice(-2)).toEqual(["person:pending", "person:removed"]);
+  expect(lost).toHaveLength(5);
+  expect((await repo.load()).members.some((m) => m.id === personId)).toBe(false);
+});
+
+it("never reports success when disconnecting fails: suspension stays saved, removal does not happen", async () => {
+  const { repo, owner, person, call } = await ownerAndPending();
+  const personId = (await repo.load()).members.find((m) => m.subject === "person")!.id;
+  const update = {
+    type: "member.update",
+    id: personId,
+    levelId: "member",
+    allow: [],
+    deny: [],
+    owner: false,
+  };
+  let view = (await (await call(owner)).json()) as View;
+  await call(owner, { revision: view.revision, command: { ...update, status: "active" } });
+  let calls = 0;
+  let broken = true;
+  const deps = {
+    onAccessLoss: async () => {
+      calls += 1;
+      if (broken) throw new Error("storage unavailable");
+    },
+  };
+  // A stale revision and a person without permission are refused before anything runs.
+  expect(
+    (await call(owner, { revision: 0, command: { ...update, status: "suspended" } }, "", deps))
+      .status,
+  ).toBe(409);
+  view = (await (await call(person)).json()) as View;
+  expect(
+    (
+      await call(
+        person,
+        { revision: view.revision, command: { ...update, status: "suspended" } },
+        "",
+        deps,
+      )
+    ).status,
+  ).toBe(403);
+  expect(calls).toBe(0);
+
+  const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    // Suspension is what keeps someone out, so it is saved even though the disconnect failed.
+    view = (await (await call(owner)).json()) as View;
+    const suspended = await call(
+      owner,
+      { revision: view.revision, command: { ...update, status: "suspended" } },
+      "",
+      deps,
+    );
+    expect(suspended.status).toBe(502);
+    expect(((await suspended.json()) as { error: string }).error).toMatch(/^The change was saved/);
+    expect((await repo.load()).members.find((m) => m.id === personId)?.status).toBe("suspended");
+
+    // Removal waits for the disconnect, so a failure leaves the person in place to try again.
+    view = (await (await call(owner)).json()) as View;
+    const removal = { revision: view.revision, command: { type: "member.remove", id: personId } };
+    const refused = await call(owner, removal, "", deps);
+    expect(refused.status).toBe(502);
+    expect((await repo.load()).members.some((m) => m.id === personId)).toBe(true);
+    expect(errors).toHaveBeenCalledTimes(2);
+
+    // Once the store is back, the same two requests succeed.
+    broken = false;
+    expect(
+      (
+        await call(
+          owner,
+          { revision: view.revision, command: { ...update, status: "suspended" } },
+          "",
+          deps,
+        )
+      ).status,
+    ).toBe(200);
+    view = (await (await call(owner)).json()) as View;
+    // If only the second pass after a removal fails, the removal still stands.
+    let passes = 0;
+    const secondPassFails = {
+      onAccessLoss: async () => {
+        passes += 1;
+        if (passes === 2) throw new Error("storage unavailable");
+      },
+    };
+    expect(
+      (await call(owner, { ...removal, revision: view.revision }, "", secondPassFails)).status,
+    ).toBe(200);
+    expect(passes).toBe(2);
+    expect((await repo.load()).members.some((m) => m.id === personId)).toBe(false);
+    expect(errors).toHaveBeenCalledTimes(3);
+  } finally {
+    errors.mockRestore();
+  }
 });

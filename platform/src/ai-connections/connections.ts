@@ -75,3 +75,26 @@ export async function disconnect(
   await deps.helpers.revokeGrant(grantId, userId);
   await deps.activity.remove(userId, grantId);
 }
+
+/**
+ * Disconnects every AI app a person approved. Used when they lose access (suspended or removed),
+ * so their connections do not come back if they are reinstated. Safe to repeat.
+ */
+export async function disconnectAll(
+  subject: string,
+  deps: Pick<ConnectionDeps, "helpers" | "activity">,
+): Promise<number> {
+  const userId = await grantUserId(subject);
+  let revoked = 0;
+  // Revoking changes the list, so read it again until nothing is left (bounded in case one sticks).
+  for (let pass = 0; pass < 10; pass++) {
+    const grants = await grantsOf(deps.helpers, userId);
+    if (grants.length === 0) break;
+    for (const grant of grants) {
+      await deps.helpers.revokeGrant(grant.id, userId);
+      await deps.activity.remove(userId, grant.id);
+      revoked += 1;
+    }
+  }
+  return revoked;
+}

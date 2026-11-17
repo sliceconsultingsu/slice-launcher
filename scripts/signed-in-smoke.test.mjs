@@ -10,14 +10,17 @@ async function serve(t, fixture, fault = {}) {
   const { sessions, emails } = fixture;
   const live = new Map([
     [sessions.owner, "owner"],
+    [sessions.ownerPhone, "owner"],
+    [sessions.ownerTablet, "owner"],
     [sessions.pending, "pending"],
     [sessions.newcomer, "newcomer"],
   ]);
   let joined = false;
   let writes = 0;
-  const server = createServer((request, response) => {
+  const server = createServer(async (request, response) => {
     const origin = `http://${request.headers.host}`;
-    const who = live.get(/__Host-slice_session=([^;]+)/.exec(request.headers.cookie ?? "")?.[1]);
+    const session = /__Host-slice_session=([^;]+)/.exec(request.headers.cookie ?? "")?.[1];
+    const who = live.get(session);
     const send = (status, body, headers = {}) => {
       response.writeHead(status, {
         "content-type": "application/json",
@@ -30,7 +33,11 @@ async function serve(t, fixture, fault = {}) {
     const path = new URL(request.url, origin).pathname;
     if (path === "/api/auth/logout") {
       if (!sameOrigin) return send(403, { error: "Sign out from Slice." });
-      if (!fault.signOutKeepsSession) live.delete(sessions.owner);
+      let body = "";
+      for await (const chunk of request) body += chunk;
+      if (body === "everywhere=1" && !fault.everywhereEndsOneSession) {
+        for (const [token, person] of live) if (person === who) live.delete(token);
+      } else if (!fault.signOutKeepsSession) live.delete(session);
       return send(303, undefined, {
         location: "/account",
         "set-cookie": "__Host-slice_session=; Max-Age=0; HttpOnly; Secure; SameSite=Lax; Path=/",
@@ -107,5 +114,13 @@ test("fails when one person can make changes without limit", async (t) => {
   await assert.rejects(
     checkSignedIn(await serve(t, fixture, { unlimitedWrites: true }), fixture),
     /burst of changes from one person must be refused/,
+  );
+});
+
+test("fails when signing out everywhere leaves another device signed in", async (t) => {
+  const fixture = signedInFixture();
+  await assert.rejects(
+    checkSignedIn(await serve(t, fixture, { everywhereEndsOneSession: true }), fixture),
+    /Signing out everywhere must end every session/,
   );
 });

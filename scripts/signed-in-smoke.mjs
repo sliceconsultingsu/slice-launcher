@@ -43,10 +43,20 @@ export function signedInFixture(now = new Date()) {
   });
   const pending = member("pending", "pending@smoke.example", {});
   const newcomer = { subject: "google|smoke-newcomer", email: "newcomer@smoke.example" };
-  const sessions = { owner: token(), pending: token(), newcomer: token(), expired: token() };
+  const sessions = {
+    owner: token(),
+    // The same person signed in on two more devices.
+    ownerPhone: token(),
+    ownerTablet: token(),
+    pending: token(),
+    newcomer: token(),
+    expired: token(),
+  };
   const rows = [
-    // Last seen two hours ago, so the first request also exercises sliding renewal.
+    // Last seen two hours ago, so the first request also records a new "last seen" time.
     [sessions.owner, owner, at(-2 * hour), at(24 * hour)],
+    [sessions.ownerPhone, owner, at(-60_000), at(24 * hour)],
+    [sessions.ownerTablet, owner, at(-60_000), at(24 * hour)],
     [sessions.pending, pending, at(-60_000), at(24 * hour)],
     [sessions.newcomer, newcomer, at(-60_000), at(24 * hour)],
     [sessions.expired, owner, at(-48 * hour), at(-hour)],
@@ -220,7 +230,31 @@ export async function checkSignedIn(baseUrl, { sessions, emails }) {
     401,
     "A signed-out session must stop working on the server",
   );
+  // That ended one browser's session only. "Sign out everywhere" ends the rest.
+  assert.equal(
+    await status("/api/membership", sessions.ownerPhone),
+    200,
+    "Signing out on one device must leave the person's other devices signed in",
+  );
+  const everywhere = await call("/api/auth/logout", sessions.ownerPhone, {
+    method: "POST",
+    headers: { Origin: origin, "Content-Type": "application/x-www-form-urlencoded" },
+    body: "everywhere=1",
+  });
+  await everywhere.body?.cancel();
+  assert.equal(everywhere.status, 303);
+  for (const session of [sessions.ownerPhone, sessions.ownerTablet])
+    assert.equal(
+      await status("/api/membership", session),
+      401,
+      "Signing out everywhere must end every session of that person",
+    );
+  assert.equal(
+    await status("/api/membership", sessions.pending),
+    200,
+    "Signing out everywhere must not end anyone else's session",
+  );
   console.log(
-    "Signed-in checks passed: member access, pending and expired refusal, joining, write limit, sign-out.",
+    "Signed-in checks passed: member access, pending and expired refusal, joining, write limit, sign-out, sign-out everywhere.",
   );
 }
