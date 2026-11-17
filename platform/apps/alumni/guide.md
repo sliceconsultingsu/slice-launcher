@@ -37,6 +37,7 @@ Admins see a fourth section, **Manage**. It counts the three jobs that keep the 
 - **Review changes** lists updates the alumni refresh has suggested. Nothing changes a profile until you choose **Approve**. **Reject** leaves the profile as it is.
 - **Confirm details** emails each listed alum once, asking them to confirm their job and say which contact details they are happy to share. Read the email on the screen first; sending cannot be undone. Their reply arrives in your own email. Choose **Record their reply** on their row and enter what they said. If they ask not to be listed, tick that box and they are hidden.
 - **Add alumni** loads rows pasted from the alumni contact book. Loading the same rows twice adds nobody twice.
+- On a profile, **Correct job details** fixes a mistake in the company, the role or the industry. Use it when the record was wrong, not when the alum changed jobs: it keeps no past job and leaves the date the details were last checked as it was. For a new job, record their reply instead.
 - On a profile you can hide one contact detail from members, or hide the alum from listings altogether, and undo either.
 
 ## Getting access

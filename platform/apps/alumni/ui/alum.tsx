@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { AlumProfile, ContactDetail, MatchOutcome, SearchPage } from "../data/reads";
 import type { MyMatches } from "../matching/mine";
 import { APP, formatDate, formatMonth, request } from "./client";
+import { CorrectJob } from "./correct-job";
 import { Icon } from "./icons";
 import { matchWith, saveOutcome } from "./mine";
 import { Face, PersonChip, firstNameOf, httpsAddress } from "./people";
@@ -62,6 +63,7 @@ export function AlumView({
   );
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [correcting, setCorrecting] = useState(false);
   const back = (
     <a className="al-text-btn" href={`${APP}/explore`}>
       <Icon name="back" />
@@ -274,7 +276,23 @@ export function AlumView({
                 <a className="al-btn" href={`${APP}/alumni/${encodeURIComponent(alum.id)}/reply`}>
                   Record a reply from them
                 </a>
+                {alum.employer && !correcting && (
+                  <button type="button" className="al-btn" onClick={() => setCorrecting(true)}>
+                    Correct job details
+                  </button>
+                )}
               </div>
+              {alum.employer && correcting && (
+                <CorrectJob
+                  alum={alum}
+                  first={first}
+                  onClose={() => setCorrecting(false)}
+                  onSaved={() => {
+                    setCorrecting(false);
+                    reload();
+                  }}
+                />
+              )}
             </section>
           )}
         </div>

@@ -5,7 +5,7 @@
 // check the person's permissions first. Each operation's writes go in one D1 batch, which D1 runs
 // as a single transaction.
 //
-// What reaches alumni_change_history: direct edits, job changes, approved proposals, contact
+// What reaches alumni_change_history: direct edits, job changes, job corrections, approved proposals, contact
 // details added when a record is attached, merges and reversals. What does NOT: creating a new
 // person, filing a proposal, rejecting a proposal (recorded only as its status), sending an incoming
 // record to alumni_merge_candidates, and any write that is refused or rolled back. The refresh
@@ -297,6 +297,50 @@ export class AlumniStore {
     await this.run(
       this.jobChangeStatements(personId, before, parsedJob.data, actor, null, endMonth),
     );
+  }
+
+  /**
+   * Fixes a mistake in the current job's employer, title or industry. Unlike changeJob, the alum
+   * did not move: nothing goes to past jobs, and the location, start month and the date the job
+   * was last checked stay as they were. History records it as `job_corrected`, not as a new job.
+   * Returns "unchanged" without writing anything when the job already has these details.
+   */
+  async correctJob(
+    personId: string,
+    correction: { employerId: string; title: string; industryId: string },
+    actor: Actor,
+  ): Promise<"corrected" | "unchanged"> {
+    const before = await this.readJob(personId);
+    if (before.job_employer_id === null)
+      throw new AlumniDataError("invalid", "This alum has no current job to correct.");
+    const parsed = jobSchema.safeParse({
+      ...correction,
+      locationId: before.job_location_id,
+      startMonth: before.job_start_month,
+    });
+    if (!parsed.success) throw new AlumniDataError("invalid", "The job is not valid.");
+    const after = parsed.data;
+    if (jobJson(after) === jobJson(before)) return "unchanged";
+    const now = this.now();
+    await this.run([
+      this.historyRow(
+        "alumni_profile",
+        personId,
+        "job_corrected",
+        jobJson(before),
+        jobJson(after),
+        actor,
+        null,
+        now,
+        this.jobUnchanged(personId, before),
+      ),
+      this.db
+        .prepare(
+          "UPDATE alumni_profiles SET job_employer_id = ?, job_title = ?, job_industry_id = ?, updated_at = ? WHERE person_id = ?",
+        )
+        .bind(after.employerId, after.title, after.industryId, now, personId),
+    ]);
+    return "corrected";
   }
 
   /** Applies a direct edit by the alumnus, student or an admin immediately, with history. */
@@ -845,6 +889,21 @@ export class AlumniStore {
     return row.value;
   }
 
+  /** True at write time only if the current job is still exactly what was read as `before`. */
+  private jobUnchanged(personId: string, before: ProfileJobRow) {
+    return {
+      sql: "EXISTS (SELECT 1 FROM alumni_profiles WHERE person_id = ? AND job_employer_id IS ? AND job_title IS ? AND job_industry_id IS ? AND job_location_id IS ? AND job_start_month IS ?)",
+      params: [
+        personId,
+        before.job_employer_id,
+        before.job_title,
+        before.job_industry_id,
+        before.job_location_id,
+        before.job_start_month,
+      ],
+    };
+  }
+
   private jobChangeStatements(
     personId: string,
     before: ProfileJobRow,
@@ -864,17 +923,7 @@ export class AlumniStore {
         actor,
         pendingId,
         now,
-        {
-          sql: "EXISTS (SELECT 1 FROM alumni_profiles WHERE person_id = ? AND job_employer_id IS ? AND job_title IS ? AND job_industry_id IS ? AND job_location_id IS ? AND job_start_month IS ?)",
-          params: [
-            personId,
-            before.job_employer_id,
-            before.job_title,
-            before.job_industry_id,
-            before.job_location_id,
-            before.job_start_month,
-          ],
-        },
+        this.jobUnchanged(personId, before),
       ),
     ];
     if (before.job_employer_id !== null)

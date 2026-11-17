@@ -11,6 +11,7 @@ import { confirmationPeople, sendConfirmations } from "./confirmation/send";
 import { createSampleRepository, readDirectory } from "./data";
 import { isAdmin, viewerOf } from "./access";
 import { importAlumni, importSchema } from "./data/import";
+import { correctJob, jobCorrectionSchema } from "./data/job-correction";
 import { networkSummary, recentActivity } from "./data/network";
 import { InvalidChoiceError, searchSchema } from "./data/reads";
 import type { AlumniData } from "./data/services";
@@ -143,6 +144,17 @@ export async function alumniApi(
       if (method !== "POST") return notAllowed("GET, HEAD, POST");
       await recordReply(open(), context.member.id, id, parse(replySchema, input));
       return json({ status: "saved" });
+    }
+    if (area === "alumni" && path.length === 3 && id && action === "job") {
+      context.requirePermission("admin");
+      if (method !== "POST") return notAllowed("POST");
+      const status = await correctJob(
+        open(),
+        context.member.id,
+        id,
+        parse(jobCorrectionSchema, input),
+      );
+      return json({ status });
     }
     if (area === "import" && path.length === 1) {
       context.requirePermission("admin");
