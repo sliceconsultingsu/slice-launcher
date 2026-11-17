@@ -3,13 +3,15 @@
 // this provider issued. See docs/superpowers/specs/2026-11-05-ai-connections-design.md.
 import {
   getOAuthApi,
+  OAuthError,
   OAuthProvider,
   type OAuthHelpers,
   type OAuthProviderOptions,
 } from "@cloudflare/workers-oauth-provider";
-import type { Identity } from "../membership/contracts";
+import type { Identity, State } from "../membership/contracts";
 import { withSecurityHeaders } from "../platform/security-headers";
 import { ActivityStore } from "./activity";
+import { returnTarget } from "./supported-apps";
 
 /** Access passes last a week; every request still reloads the member's current access. */
 export const ACCESS_TOKEN_TTL = 7 * 86400;
@@ -40,24 +42,14 @@ export async function grantUserId(subject: string): Promise<string> {
     .slice(0, 32);
 }
 
-/** Registration accepts HTTPS callbacks, or plain HTTP only for apps on the person's own computer. */
-function allowedRedirect(value: unknown) {
-  if (typeof value !== "string") return false;
-  try {
-    const url = new URL(value);
-    if (url.protocol === "https:") return true;
-    return url.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
-  } catch {
-    return false;
-  }
-}
-
 export function oauthOptions<Env extends OAuthEnv>(
   origin: string,
   deps: {
     mcp: McpHandler<Env>;
     defaultHandler: ExportedHandler<Env>;
     activity?: (env: Env) => ActivityStore;
+    /** Current membership, checked before any pass is issued or renewed. */
+    loadState?: (env: Env) => Promise<State>;
   },
 ): OAuthProviderOptions<Env> {
   const activity = deps.activity ?? ((env: Env) => new ActivityStore(env.OAUTH_KV));
@@ -96,13 +88,26 @@ export function oauthOptions<Env extends OAuthEnv>(
     },
     clientRegistrationCallback({ clientMetadata }) {
       const uris = clientMetadata.redirect_uris;
-      if (!Array.isArray(uris) || uris.length === 0 || !uris.every(allowedRedirect))
+      if (!Array.isArray(uris) || uris.length === 0 || !uris.every(returnTarget))
         return {
           code: "invalid_redirect_uri",
           description: "Use an HTTPS address, or a local address for apps on this computer.",
         };
     },
     async tokenExchangeCallback({ userId, grantId, props, env }) {
+      // A pass is issued or renewed only for someone who is an active member right now.
+      // Refusing with invalid_grant also makes the library revoke the connection, so it cannot
+      // come back to life if the person is reinstated later.
+      if (deps.loadState) {
+        const { subject, email } = props as GrantProps;
+        const member = (await deps.loadState(env)).members.find((m) => m.subject === subject);
+        if (!member || member.email !== email || member.status !== "active") {
+          await activity(env).remove(userId, grantId);
+          throw new OAuthError("invalid_grant", {
+            description: "This connection is no longer valid. Connect to Slice again.",
+          });
+        }
+      }
       await activity(env).renewed(userId, grantId);
       return { accessTokenProps: { ...(props as GrantProps), grantId } };
     },
@@ -125,21 +130,55 @@ export function oauthHelpers(env: OAuthEnv, origin: string): OAuthHelpers {
 }
 
 const rateLimited = ["/oauth/register", "/oauth/token"];
+const LOCAL_HOSTS = ["127.0.0.1", "localhost", "[::1]"];
+
+/**
+ * Whether this is the page framework's image endpoint. Slice serves its images as static files,
+ * and the framework's own answer on this path redirects to the address it is given, so the Worker
+ * refuses it. Deliberately looser than the framework's own matching (which decodes the path and
+ * ignores repeated and trailing slashes): refusing a near miss costs nothing.
+ */
+export function imageEndpoint(pathname: string) {
+  let path = pathname;
+  try {
+    path = decodeURIComponent(pathname);
+  } catch {
+    // Not valid encoding: match it as written.
+  }
+  return /^\/+_(?:vi)?next\/+image\/*$/i.test(path);
+}
 const privatePath = (path: string) =>
   path === "/mcp" || path.startsWith("/oauth/") || path.startsWith("/.well-known/oauth-");
 
 /**
- * The Slice Worker: rate limits sign-in endpoints, then hands every request to the OAuth
- * provider, which serves /mcp and the OAuth endpoints and passes everything else to the app.
+ * The Slice Worker: sends plain HTTP to HTTPS, refuses the unused image endpoint, rate limits
+ * sign-in endpoints, then hands every request to the OAuth provider, which serves /mcp and the
+ * OAuth endpoints and passes everything else to the app.
  */
 export function createSliceWorker<Env extends SliceWorkerEnv>(deps: {
   defaultHandler: ExportedHandler<Env>;
   mcp: McpHandler<Env>;
+  loadState: (env: Env) => Promise<State>;
 }): ExportedHandler<Env> {
   const providers = new Map<string, OAuthProvider<Env>>();
   return {
     async fetch(request, env, ctx) {
       const url = new URL(request.url);
+      // Plain HTTP is sent to HTTPS before anything else runs. Cookies and passes are HTTPS-only,
+      // and the sign-in code below refuses to build itself for a plain HTTP address.
+      if (url.protocol === "http:" && !LOCAL_HOSTS.includes(url.hostname)) {
+        url.protocol = "https:";
+        return withSecurityHeaders(
+          new Response(null, {
+            status: 308,
+            headers: { Location: url.toString(), "Cache-Control": "public, max-age=86400" },
+          }),
+        );
+      }
+      if (imageEndpoint(url.pathname))
+        return withSecurityHeaders(
+          new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } }),
+        );
       if (request.method === "POST" && rateLimited.includes(url.pathname)) {
         const address = request.headers.get("CF-Connecting-IP") ?? "unknown";
         const { success } = await env.OAUTH_LIMITER.limit({ key: `${url.pathname}:${address}` });

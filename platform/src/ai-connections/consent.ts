@@ -10,6 +10,7 @@ import {
 } from "@cloudflare/workers-oauth-provider";
 import type { Identity, State } from "../membership/contracts";
 import { grantUserId, SCOPE, type GrantProps } from "./oauth";
+import { cleanName, returnTarget } from "./supported-apps";
 
 export type ConsentDeps = {
   helpers: OAuthHelpers;
@@ -18,7 +19,6 @@ export type ConsentDeps = {
   loadState: () => Promise<State>;
 };
 
-const NAME_LIMIT = 80;
 const MAX_FORM_BYTES = 4096;
 
 const escape = (value: string) =>
@@ -27,11 +27,10 @@ const escape = (value: string) =>
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c,
   );
 
-/** The app's self-declared name, cut to a readable length. The library falls back to the client ID. */
+/** The app's self-declared name, cleaned for display. The library falls back to the client ID. */
 export function displayName(description: Pick<ConsentDescription, "clientName" | "clientId">) {
-  const name = description.clientName.trim();
-  if (!name || name === description.clientId) return "Unnamed app";
-  return name.length > NAME_LIMIT ? `${name.slice(0, NAME_LIMIT - 1)}…` : name;
+  const name = cleanName(description.clientName);
+  return !name || name === description.clientId ? "Unnamed app" : name;
 }
 
 /** A complete, script-free page in Slice's colors. Every argument is escaped by its caller. */
@@ -64,7 +63,8 @@ h1{font-size:22px;line-height:1.3;margin:0 0 16px;overflow-wrap:anywhere}p{margi
 .note{font-size:14px}.actions{display:flex;gap:12px;margin-top:24px}
 button,.button{flex:1;box-sizing:border-box;text-align:center;text-decoration:none;font:inherit;font-weight:600;padding:11px 14px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
 button:focus-visible,.button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-button[value=allow]{background:var(--accent);border-color:var(--accent);color:#fff}button[value=allow]:hover{background:var(--accent-hover)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}button.primary:hover{background:var(--accent-hover)}
+.warning{border:1px solid #c9772b;border-left-width:4px;border-radius:9px;background:#fdf3e7;color:var(--ink);padding:12px 14px}
 </style></head><body><main><span class="brand">Slice Consulting</span>${body}</main></body></html>`,
     { status, headers },
   );
@@ -119,18 +119,32 @@ function consentPage(
 ) {
   const name = displayName(description);
   const target = new URL(description.redirectUri).origin;
+  const owner = returnTarget(description.redirectUri) ?? { kind: "unrecognized" as const };
+  const where =
+    owner.kind === "hosted"
+      ? `, which belongs to ${escape(owner.app)}`
+      : owner.kind === "local"
+        ? " (an app on this computer)"
+        : "";
+  // Anyone can register an app under any name, so an address Slice has not checked gets a plain
+  // warning, and Cancel rather than Allow is the emphasized choice.
+  const unrecognized = owner.kind === "unrecognized";
+  const warning = unrecognized
+    ? `<p class="warning" role="alert"><strong>Slice does not recognize this address.</strong> It is not one of the AI apps Slice has checked and not an app on this computer. Anyone can give an app any name. If someone sent you this link, choose Cancel.</p>`
+    : "";
   return page(
     200,
     `Connect ${name} to Slice`,
     `<h1>Connect <strong>${escape(name)}</strong> to Slice</h1>
 <p class="note">“${escape(name)}” is the name this app gave itself. Check where it will return to.</p>
-<p>It will return to <strong>${escape(description.redirectHost)}</strong>${description.redirectIsLoopback ? " (an app on this computer)" : ""}.</p>
-<p>Signed in as <strong>${escape(account)}</strong>.</p>
+<p>It will return to <strong>${escape(description.redirectHost)}</strong>${where}.</p>
+${warning}<p>Signed in as <strong>${escape(account)}</strong>.</p>
 <p>This app will be able to use Slice as you, with your current access.</p>
+<p class="note">Choose Allow only if you started this connection yourself, just now, from your AI app.</p>
 <form method="post" action="/authorize">
 <input type="hidden" name="handle" value="${escape(handle)}">
 <input type="hidden" name="account" value="${escape(account)}">
-<div class="actions"><button type="submit" name="action" value="cancel">Cancel</button><button type="submit" name="action" value="allow">Allow</button></div>
+<div class="actions"><button type="submit" name="action" value="cancel"${unrecognized ? ' class="primary"' : ""}>Cancel</button><button type="submit" name="action" value="allow"${unrecognized ? "" : ' class="primary"'}>${unrecognized ? "Allow anyway" : "Allow"}</button></div>
 </form>`,
     { headers, returnOrigin: target === "null" ? undefined : target },
   );

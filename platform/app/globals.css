@@ -415,6 +415,11 @@ summary:focus-visible {
 .profile-summary .field-note {
   margin-top: 18px;
 }
+.profile-summary form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
 .form-stack fieldset {
   display: flex;
   flex-direction: column;

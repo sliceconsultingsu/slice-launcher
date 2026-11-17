@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import type { FormEvent } from "react";
-import type { Command, Level, Member, View } from "./contracts";
+import type { Command, Level, MemberRecord, View } from "./contracts";
 import { organizationRole } from "./access-summary";
 export type Save = (command: Command) => Promise<void>;
 function data(event: FormEvent<HTMLFormElement>) {
@@ -140,7 +140,7 @@ export function MemberEditor({
   busy,
 }: {
   view: View;
-  member: Member;
+  member: MemberRecord;
   save: Save;
   busy: boolean;
 }) {
@@ -162,7 +162,7 @@ export function MemberEditor({
         void save({
           type: "member.update",
           id: member.id,
-          status: text(form, "status") as Member["status"],
+          status: text(form, "status") as MemberRecord["status"],
           levelId: text(form, "levelId") || null,
           allow: list(form, "allow"),
           deny: list(form, "deny"),
@@ -181,7 +181,7 @@ export function MemberEditor({
           Status
           <select name="status" defaultValue={member.status}>
             <option value="pending">Pending approval</option>
-            {member.subject ? (
+            {member.signedIn ? (
               <option value="active">Active</option>
             ) : (
               <option value="invited">Invited</option>
@@ -246,7 +246,7 @@ export function MemberEditor({
     </form>
   );
 }
-function RemoveMember({ member, save, busy }: { member: Member; save: Save; busy: boolean }) {
+function RemoveMember({ member, save, busy }: { member: MemberRecord; save: Save; busy: boolean }) {
   const [confirming, setConfirming] = useState(false);
   const who = member.name || member.email;
   return (

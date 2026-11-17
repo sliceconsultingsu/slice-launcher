@@ -116,6 +116,13 @@ test("onboarding, approval, persistent profile, permission changes, revocation a
     await member.getByRole("button", { name: "Refresh", exact: true }).click();
     await member.getByRole("button", { name: "Activity", exact: true }).click();
     await expect(member.getByRole("heading", { name: "Recent activity" })).toBeVisible();
+    // The member saved their own profile earlier. That edit stays out of view until asked for.
+    const activity = member.locator(".activity-list");
+    await expect(activity.getByText("member update").first()).toBeVisible();
+    await expect(activity.getByText("profile update")).toHaveCount(0);
+    await member.getByLabel("Include profile edits").check();
+    await expect(activity.getByText("profile update").first()).toBeVisible();
+    await expect(member.getByRole("button", { name: "Show older activity" })).toHaveCount(0);
 
     await owner.locator('input[name="deny"][value="audit.read"]').check();
     await saveAccess(owner);
