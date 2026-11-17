@@ -172,6 +172,32 @@ export async function checkSignedIn(baseUrl, { sessions, emails }) {
     "The stored membership must include the new pending person",
   );
 
+  // One person cannot make changes without limit. Saving the same profile again writes nothing,
+  // so this exercises only the per-person allowance (30 a minute; a new minute may start midway).
+  const profile = { type: "profile.update", name: "Smoke Newcomer", title: "" };
+  const burst = [];
+  for (let i = 0; i < 62 && !burst.includes(429); i++) {
+    const { revision } = await (await call("/api/membership", sessions.newcomer)).json();
+    burst.push(
+      await status(
+        "/api/membership",
+        sessions.newcomer,
+        post({ revision, command: profile }, { Origin: origin }),
+      ),
+    );
+  }
+  assert.equal(burst[0], 200, "A person must be able to save their profile");
+  assert.ok(burst.includes(429), "A burst of changes from one person must be refused");
+  assert.ok(
+    burst.slice(0, -1).every((code) => code === 200),
+    "Changes before the limit must succeed",
+  );
+  assert.equal(
+    await status("/api/membership", sessions.owner),
+    200,
+    "One person's limit must not affect anyone else",
+  );
+
   // Signing out ends the session on the server, and another site cannot do it for you.
   assert.equal(
     await status("/api/auth/logout", sessions.owner, {
@@ -195,6 +221,6 @@ export async function checkSignedIn(baseUrl, { sessions, emails }) {
     "A signed-out session must stop working on the server",
   );
   console.log(
-    "Signed-in checks passed: member access, pending and expired refusal, joining, sign-out.",
+    "Signed-in checks passed: member access, pending and expired refusal, joining, write limit, sign-out.",
   );
 }

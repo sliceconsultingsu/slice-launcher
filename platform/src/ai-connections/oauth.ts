@@ -10,6 +10,7 @@ import {
 import type { Identity } from "../membership/contracts";
 import { withSecurityHeaders } from "../platform/security-headers";
 import { ActivityStore } from "./activity";
+import { returnTarget } from "./supported-apps";
 
 /** Access passes last a week; every request still reloads the member's current access. */
 export const ACCESS_TOKEN_TTL = 7 * 86400;
@@ -38,18 +39,6 @@ export async function grantUserId(subject: string): Promise<string> {
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("")
     .slice(0, 32);
-}
-
-/** Registration accepts HTTPS callbacks, or plain HTTP only for apps on the person's own computer. */
-function allowedRedirect(value: unknown) {
-  if (typeof value !== "string") return false;
-  try {
-    const url = new URL(value);
-    if (url.protocol === "https:") return true;
-    return url.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
-  } catch {
-    return false;
-  }
 }
 
 export function oauthOptions<Env extends OAuthEnv>(
@@ -96,7 +85,7 @@ export function oauthOptions<Env extends OAuthEnv>(
     },
     clientRegistrationCallback({ clientMetadata }) {
       const uris = clientMetadata.redirect_uris;
-      if (!Array.isArray(uris) || uris.length === 0 || !uris.every(allowedRedirect))
+      if (!Array.isArray(uris) || uris.length === 0 || !uris.every(returnTarget))
         return {
           code: "invalid_redirect_uri",
           description: "Use an HTTPS address, or a local address for apps on this computer.",

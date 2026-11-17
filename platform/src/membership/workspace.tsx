@@ -23,6 +23,8 @@ export function MembershipWorkspace() {
   const [selected, setSelected] = useState("");
   const [search, setSearch] = useState("");
   const [history, setHistory] = useState<Audit[]>([]);
+  const [olderHistory, setOlderHistory] = useState<string | null>(null);
+  const [profileEdits, setProfileEdits] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -63,28 +65,39 @@ export function MembershipWorkspace() {
       setBusy(false);
     }
   };
+  /** Loads a page of activity: the newest entries, or the ones after `before`. */
+  const loadHistory = async (includeProfileEdits: boolean, before?: string) => {
+    setBusy(true);
+    setError("");
+    try {
+      const query = new URLSearchParams({ view: "history" });
+      if (includeProfileEdits) query.set("profileEdits", "1");
+      if (before) query.set("before", before);
+      const response = await fetch(`/api/membership?${query}`, {
+        cache: "no-store",
+        redirect: "error",
+      });
+      const result = (await readResponse(response)) as unknown as {
+        history: Audit[];
+        next: string | null;
+      };
+      setHistory((shown) => (before ? [...shown, ...result.history] : result.history));
+      setOlderHistory(result.next);
+    } catch (e) {
+      if (!before) setHistory([]);
+      setOlderHistory(null);
+      setError(e instanceof Error ? e.message : "Unable to load history.");
+    } finally {
+      setBusy(false);
+    }
+  };
   const showTab = async (next: Tab) => {
     setTab(next);
     setSelected("");
     setSearch("");
     setNotice("");
     setError("");
-    if (next === "history") {
-      setBusy(true);
-      try {
-        const response = await fetch("/api/membership?view=history", {
-          cache: "no-store",
-          redirect: "error",
-        });
-        const result = (await readResponse(response)) as unknown as { history: Audit[] };
-        setHistory(result.history);
-      } catch (e) {
-        setHistory([]);
-        setError(e instanceof Error ? e.message : "Unable to load history.");
-      } finally {
-        setBusy(false);
-      }
-    }
+    if (next === "history") await loadHistory(profileEdits);
   };
   const can = (permission: string) => view?.permissions.includes(permission) ?? false;
   const tabs: { id: Tab; label: string; visible: boolean }[] = [
@@ -345,8 +358,23 @@ export function MembershipWorkspace() {
           {activeTab === "history" && (
             <section className="account-card activity-list">
               <h2>Recent activity</h2>
-              <p className="field-note">The latest 50 membership changes.</p>
-              {busy ? (
+              <p className="field-note">
+                Membership changes, newest first, 50 at a time. People&apos;s edits to their own
+                profile are left out unless you include them.
+              </p>
+              <label className="check-label">
+                <input
+                  type="checkbox"
+                  checked={profileEdits}
+                  disabled={busy}
+                  onChange={(event) => {
+                    setProfileEdits(event.target.checked);
+                    void loadHistory(event.target.checked);
+                  }}
+                />
+                <span>Include profile edits</span>
+              </label>
+              {busy && history.length === 0 ? (
                 <p role="status">Loading activity…</p>
               ) : history.length === 0 ? (
                 <p>No activity to display.</p>
@@ -376,6 +404,16 @@ export function MembershipWorkspace() {
                     </li>
                   ))}
                 </ol>
+              )}
+              {olderHistory && (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={busy}
+                  onClick={() => void loadHistory(profileEdits, olderHistory)}
+                >
+                  {busy ? "Loading…" : "Show older activity"}
+                </button>
               )}
             </section>
           )}

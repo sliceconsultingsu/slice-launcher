@@ -20,7 +20,7 @@ const identity: Identity = {
 const authRequest = {
   responseType: "code",
   clientId: "client-1",
-  redirectUri: "https://client.example/cb",
+  redirectUri: "https://claude.ai/api/mcp/auth_callback",
   scope: ["slice"],
   state: "state-1",
 } as AuthRequest;
@@ -48,8 +48,8 @@ function fakeHelpers(description: Partial<ConsentDescription> = {}) {
       return {
         clientId: "client-1",
         clientName: "Claude",
-        redirectUri: "https://client.example/cb",
-        redirectHost: "client.example",
+        redirectUri: "https://claude.ai/api/mcp/auth_callback",
+        redirectHost: "claude.ai",
         redirectIsLoopback: false,
         ...description,
       } as ConsentDescription;
@@ -71,13 +71,13 @@ function fakeHelpers(description: Partial<ConsentDescription> = {}) {
         throw new AuthorizationError("access_denied", { description: "Expired." });
       return {
         request: authRequest,
-        redirectTo: "https://client.example/cb?error=access_denied&state=state-1",
+        redirectTo: "https://claude.ai/api/mcp/auth_callback?error=access_denied&state=state-1",
         headers: new Headers(),
       };
     },
     async completeAuthorization(options: CompleteAuthorizationOptions) {
       completed.push(options);
-      return { redirectTo: "https://client.example/cb?code=abc&state=state-1" };
+      return { redirectTo: "https://claude.ai/api/mcp/auth_callback?code=abc&state=state-1" };
     },
   } as unknown as OAuthHelpers;
   return { helpers, completed };
@@ -123,7 +123,9 @@ describe("approval page", () => {
       expect(response.status).toBe(403);
       const body = await response.text();
       expect(body).toContain("Membership required");
-      expect(body).toMatch(/href="https:\/\/client\.example\/cb\?[^"]*error=access_denied/);
+      expect(body).toMatch(
+        /href="https:\/\/claude\.ai\/api\/mcp\/auth_callback\?[^"]*error=access_denied/,
+      );
       expect(completed).toHaveLength(0);
     },
   );
@@ -163,7 +165,7 @@ describe("approval page", () => {
     const body = await response.text();
     expect(body).toContain("Claude");
     expect(body).toContain("the name this app gave itself");
-    expect(body).toContain("client.example");
+    expect(body).toContain("claude.ai");
     expect(body).toContain("consent@example.test");
     expect(body).toContain("This app will be able to use Slice as you, with your current access.");
     expect(body).toContain('value="allow"');
@@ -182,11 +184,48 @@ describe("approval page", () => {
     );
   });
 
+  it("says which supported app a hosted return address belongs to", async () => {
+    const { helpers } = fakeHelpers({ clientName: "Research helper" });
+    const body = await (await authorize(page(), deps(helpers))).text();
+    expect(body).toContain("<strong>claude.ai</strong>, which belongs to Claude");
+    expect(body).toContain("only if you started this connection yourself");
+  });
+
+  it("an address Slice does not recognize gets a warning, and Cancel is the emphasized choice", async () => {
+    const { helpers } = fakeHelpers({
+      clientName: "Claude",
+      redirectUri: "https://attacker.example/cb",
+      redirectHost: "attacker.example",
+    });
+    const body = await (await authorize(page(), deps(helpers))).text();
+    expect(body).toContain("<strong>attacker.example</strong>.");
+    expect(body).not.toContain("which belongs to");
+    expect(body).toContain("Slice does not recognize this address.");
+    expect(body).toContain('value="cancel" class="primary">Cancel<');
+    expect(body).toContain('value="allow">Allow anyway<');
+  });
+
+  it("a recognized app gets no warning, and Allow is the emphasized choice", async () => {
+    const { helpers } = fakeHelpers();
+    const body = await (await authorize(page(), deps(helpers))).text();
+    expect(body).not.toContain("does not recognize");
+    expect(body).toContain('value="allow" class="primary">Allow<');
+    expect(body).toContain('value="cancel">Cancel<');
+  });
+
+  it("characters that reverse or hide text are removed from the app's name", async () => {
+    const { helpers } = fakeHelpers({ clientName: "Claude\u202E\u200B\u0007 by\u2066 Anthropic" });
+    const body = await (await authorize(page(), deps(helpers))).text();
+    expect(body).toContain("<strong>Claude by Anthropic</strong>");
+    for (const hidden of ["\u202E", "\u200B", "\u0007", "\u2066"])
+      expect(body).not.toContain(hidden);
+  });
+
   it("page headers lock the page down", async () => {
     const { helpers } = fakeHelpers();
     const response = await authorize(page(), deps(helpers));
     expect(response.headers.get("content-security-policy")).toContain(
-      "form-action 'self' https://client.example",
+      "form-action 'self' https://claude.ai",
     );
     expect(response.headers.get("x-frame-options")).toBe("DENY");
     expect(response.headers.get("cache-control")).toBe("private, no-store");
@@ -215,7 +254,7 @@ describe("approval page", () => {
     );
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(
-      "https://client.example/cb?code=abc&state=state-1",
+      "https://claude.ai/api/mcp/auth_callback?code=abc&state=state-1",
     );
     expect(completed).toHaveLength(1);
     expect(completed[0].userId).toBe(await grantUserId(identity.subject));

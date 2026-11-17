@@ -3,7 +3,29 @@ import { readCommand } from "./auth";
 import { applyCommand, auditView, effectivePermissions, enroll, memberView } from "./domain";
 import { MembershipError } from "./contracts";
 import type { SignedInIdentity } from "./contracts";
-import type { Repository } from "./repository";
+import type { HistoryCursor, Repository } from "./repository";
+
+/** Profile edits one person may save in a day. Each one adds an entry to access history. */
+export const PROFILE_EDITS_PER_DAY = 20;
+const DAY_MS = 86400_000;
+
+export type MembershipDeps = {
+  /**
+   * Counts one change against this person's short-term allowance; false once it is used up.
+   * Production passes a per-person rate limiter. Without one, changes are not limited.
+   */
+  allowWrite?: (subject: string) => Promise<boolean>;
+};
+
+/** History pages are addressed by an opaque token the previous page returned. */
+function readCursor(value: string | null): HistoryCursor | undefined {
+  if (value === null) return undefined;
+  const match = /^(\d{4}-\d{2}-\d{2}T[\d:.]{8,12}Z)~(\d{1,15})$/.exec(value);
+  if (!match) throw new MembershipError(400, "Invalid history request.");
+  return { at: match[1], position: Number(match[2]) };
+}
+const writeCursor = (cursor: HistoryCursor | null) =>
+  cursor ? `${cursor.at}~${cursor.position}` : null;
 const envelope = z.strictObject({
   revision: z.number().int().nonnegative().optional(),
   command: z.unknown(),
@@ -33,6 +55,7 @@ export async function membershipRequest(
   request: Request,
   identity: SignedInIdentity,
   repository: Repository,
+  deps: MembershipDeps = {},
 ): Promise<Response> {
   const state = await repository.load();
   if (request.method === "GET") {
@@ -40,16 +63,23 @@ export async function membershipRequest(
     if (!member) return json({ needsEnrollment: true });
     if (member.email !== identity.email)
       throw new MembershipError(403, "Your identity changed. Contact an administrator.");
-    if (new URL(request.url).searchParams.get("view") === "history") {
+    const query = new URL(request.url).searchParams;
+    if (query.get("view") === "history") {
       if (!effectivePermissions(state, member).includes("audit.read"))
         throw new MembershipError(403, "You do not have permission to view access history.");
-      return json({ history: (await repository.history()).map(auditView) });
+      const page = await repository.historyPage({
+        includeProfileEdits: query.get("profileEdits") === "1",
+        before: readCursor(query.get("before")),
+      });
+      return json({ history: page.items.map(auditView), next: writeCursor(page.next) });
     }
     return json(memberView(state, identity.subject));
   }
   if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
   const body = envelope.safeParse(await readCommand(request));
   if (!body.success) throw new MembershipError(400, "Invalid membership request.");
+  if (deps.allowWrite && !(await deps.allowWrite(identity.subject)))
+    throw new MembershipError(429, "Too many changes at once. Wait a minute, then try again.");
   if (join.safeParse(body.data.command).success) {
     const result = enroll(state, identity, {
       id: crypto.randomUUID(),
@@ -67,6 +97,21 @@ export async function membershipRequest(
     id: crypto.randomUUID(),
     now: new Date().toISOString(),
   });
+  if (result.audit.action === "profile.update") {
+    // Saving an unchanged profile is not a change: no new revision and no history entry.
+    if (JSON.stringify(result.audit.before) === JSON.stringify(result.audit.after))
+      return json(memberView(state, identity.subject));
+    // Anyone signed in can edit their own profile, so a daily cap keeps one person from
+    // filling access history.
+    const since = new Date(Date.now() - DAY_MS).toISOString();
+    if (
+      (await repository.actionsSince(member.id, "profile.update", since)) >= PROFILE_EDITS_PER_DAY
+    )
+      throw new MembershipError(
+        429,
+        "You have changed your profile many times today. Try again tomorrow.",
+      );
+  }
   await repository.commit(state, result);
   return json(memberView(result.state, identity.subject));
 }

@@ -5,6 +5,7 @@ import { authorizeMember } from "../platform/access";
 import type { ActivityStore } from "./activity";
 import type { Connection, ConnectionsResponse } from "./contracts";
 import { grantUserId, REFRESH_TOKEN_TTL } from "./oauth";
+import { cleanName } from "./supported-apps";
 
 export type ConnectionDeps = {
   helpers: OAuthHelpers;
@@ -14,14 +15,10 @@ export type ConnectionDeps = {
 };
 
 const MAX_CONNECTIONS = 50;
-const NAME_LIMIT = 80;
 
-function connectionName(metadata: unknown) {
-  const raw = (metadata as { clientName?: unknown } | null)?.clientName;
-  const name = typeof raw === "string" ? raw.trim() : "";
-  if (!name) return "Unnamed app";
-  return name.length > NAME_LIMIT ? `${name.slice(0, NAME_LIMIT - 1)}…` : name;
-}
+/** Cleaned again here: connections approved before names were cleaned keep their stored name. */
+const connectionName = (metadata: unknown) =>
+  cleanName((metadata as { clientName?: unknown } | null)?.clientName) || "Unnamed app";
 
 async function grantsOf(helpers: OAuthHelpers, userId: string) {
   const grants: GrantSummary[] = [];
