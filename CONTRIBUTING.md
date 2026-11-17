@@ -77,4 +77,4 @@ After an authorized merge, all apps build and release together. Follow [deployme
 
 ## Reporting a problem
 
-For an ordinary bug, open a GitHub issue with what you expected, what happened and steps to reproduce; use synthetic examples. For a vulnerability, use GitHub private vulnerability reporting when available, or contact the maintainer privately before publishing details. Never put credentials, private exports or real client records in an issue or PR.
+For an ordinary bug, open a GitHub issue with what you expected, what happened and steps to reproduce; use synthetic examples. For a vulnerability, follow the [security policy](SECURITY.md): report it privately through GitHub, never in a public issue or PR. Never put credentials, private exports or real client records in an issue or PR.

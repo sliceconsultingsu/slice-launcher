@@ -82,4 +82,6 @@ Use a branch and a pull request. The [contribution guide](CONTRIBUTING.md) walks
 
 This repository is public. Keep member records, client data and credentials out of code, screenshots, issues and AI prompts. Read [data boundaries](docs/data-boundary.md).
 
+Found a security problem? Report it privately as described in the [security policy](SECURITY.md), not in a public issue.
+
 Code is licensed under [MIT](LICENSE). See [brand assets](docs/brand-assets.md) for asset provenance.
