@@ -7,7 +7,7 @@ import {
   memberView,
 } from "../membership/domain";
 import type { State } from "../membership/contracts";
-import { catalogFor } from "./registry";
+import { catalogFor, shownVersion } from "./registry";
 
 // An owner plus active members Ana, Max and Sam; Pia is still pending.
 const meta = () => ({ id: crypto.randomUUID(), now: "2026-11-19T12:00:00Z" });
@@ -94,6 +94,7 @@ describe("creating an app", () => {
       publicRequestedBy: null,
       deletedAt: null,
       database: null,
+      preview: null,
     });
     expect(result.state.apps.find((item) => item.id === "notes")).toEqual({
       id: "notes",
@@ -240,6 +241,98 @@ describe("publishing", () => {
     s = act(s, publish(), "ana");
     expect(permissionsOf(s, ids.max)).toContain("app.notes.open");
     expect(permissionsOf(s, ids.max)).not.toContain("app.notes.edit");
+  });
+});
+
+describe("publishing a preview", () => {
+  const preview = (extra: Record<string, unknown> = {}) =>
+    publish("notes", { preview: true, ...extra });
+
+  it("stores the version without changing what is live", () => {
+    const { state } = organization();
+    let s = act(state, create(), "ana");
+    s = act(s, publish(), "ana");
+    const result = applyCommand(s, "ana-sub", preview({ name: "Notes, next" }), meta());
+    expect(app(result.state)).toMatchObject({ latest: 2, live: 1, preview: 2 });
+    expect(result.audit).toMatchObject({ action: "memberapp.publish", targetId: "notes" });
+    // What everyone sees is described by the live version until the preview is made live.
+    expect(app(result.state).name).toBe("Team notes");
+  });
+
+  it("can be the first thing published: a draft nobody else can open", () => {
+    const { state } = organization();
+    let s = act(state, create(), "ana");
+    s = act(s, preview(), "ana");
+    expect(app(s)).toMatchObject({ latest: 1, live: null, preview: 1 });
+  });
+
+  it("is replaced by the next preview and cleared by a live publish", () => {
+    const { state } = organization();
+    let s = act(state, create(), "ana");
+    s = act(s, preview(), "ana");
+    s = act(s, preview(), "ana");
+    expect(app(s)).toMatchObject({ latest: 2, live: null, preview: 2 });
+    s = act(s, publish(), "ana");
+    expect(app(s)).toMatchObject({ latest: 3, live: 3, preview: null });
+  });
+
+  it("becomes what everyone sees when it is made live", () => {
+    const { state } = organization();
+    let s = act(state, create(), "ana");
+    s = act(s, publish(), "ana");
+    s = act(s, preview({ name: "Notes, next", powers: [{ id: "edit", label: "Edit" }] }), "ana");
+    s = act(s, { type: "memberapp.live", id: "notes", version: 2 }, "ana");
+    expect(app(s)).toMatchObject({ live: 2, preview: null });
+  });
+
+  it("can be discarded, or pointed at an earlier version, by the people who run the app", () => {
+    const { state } = organization();
+    let s = act(state, create(), "ana");
+    s = act(s, publish(), "ana");
+    s = act(s, preview(), "ana");
+    const discarded = applyCommand(
+      s,
+      "ana-sub",
+      { type: "memberapp.preview", id: "notes", version: null },
+      meta(),
+    );
+    expect(app(discarded.state)).toMatchObject({ live: 1, preview: null, latest: 2 });
+    expect(discarded.audit).toMatchObject({ action: "memberapp.preview", targetId: "notes" });
+    expect(app(act(s, { type: "memberapp.preview", id: "notes", version: 1 }, "ana")).preview).toBe(
+      1,
+    );
+    expect(
+      status(() => act(s, { type: "memberapp.preview", id: "notes", version: 3 }, "ana")),
+    ).toBe(400);
+    expect(
+      status(() => act(s, { type: "memberapp.preview", id: "notes", version: null }, "max")),
+    ).toBe(403);
+  });
+
+  it("is kept when the app is taken offline and gone when it is deleted", () => {
+    const { state } = organization();
+    let s = act(state, create(), "ana");
+    s = act(s, publish(), "ana");
+    s = act(s, preview(), "ana");
+    expect(
+      app(act(s, { type: "memberapp.live", id: "notes", version: null }, "ana")),
+    ).toMatchObject({
+      live: null,
+      preview: 2,
+    });
+    expect(app(act(s, { type: "memberapp.delete", id: "notes" }, "ana")).preview).toBeNull();
+  });
+
+  it("is what the people who run the app are shown, and nobody else", () => {
+    const { state } = organization();
+    let s = act(state, create(), "ana");
+    s = act(s, publish(), "ana");
+    s = act(s, preview(), "ana");
+    expect(shownVersion(app(s), true)).toBe(2);
+    expect(shownVersion(app(s), false)).toBe(1);
+    const draft = act(act(state, create("draft"), "ana"), preview({ id: "draft" }), "ana");
+    expect(shownVersion(app(draft, "draft"), true)).toBe(1);
+    expect(shownVersion(app(draft, "draft"), false)).toBeNull();
   });
 });
 
@@ -422,6 +515,7 @@ describe("what each person is told about member apps", () => {
         manage: {
           powers: [{ id: "edit", label: "Edit notes" }],
           liveVersion: 1,
+          preview: null,
           latest: 1,
           publicApproved: false,
           publicRequestedBy: null,

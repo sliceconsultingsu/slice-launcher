@@ -550,6 +550,56 @@ it("takes a member app offline and deletes it through the membership API, but do
   const view = (await offline.json()) as View;
   expect(view.appHost).toBe("slice.example");
   expect(view.apps.find((item) => item.id === "notes")?.member).toMatchObject({ live: false });
+  // Making a version live describes the app as that version did, from its saved record. Whatever
+  // the browser says the version was called is ignored.
+  await repo.commit(
+    await repo.load(),
+    {
+      state: { ...(await repo.load()), revision: (await repo.load()).revision + 1 },
+      audit: {
+        id: "v",
+        at: "now",
+        actorId: "x",
+        action: "test",
+        targetId: "notes",
+        before: null,
+        after: null,
+      },
+    },
+    {
+      version: {
+        appId: "notes",
+        version: 1,
+        at: "now",
+        publishedBy: "x",
+        store: "s",
+        server: null,
+        name: "As published",
+        description: "What version 1 said.",
+        guide: "",
+        powers: [{ id: "edit", label: "Edit" }],
+        files: [],
+      },
+    },
+  );
+  const live = await call(
+    owner,
+    {
+      revision: await revision(),
+      command: {
+        type: "memberapp.live",
+        id: "notes",
+        version: 1,
+        as: { name: "Whatever the browser says", description: "x", powers: [] },
+      },
+    },
+    "",
+    { appHost: "slice.example" },
+  );
+  expect(live.status).toBe(200);
+  expect((await repo.load()).memberApps).toMatchObject([
+    { live: 1, name: "As published", powers: [{ id: "edit", label: "Edit" }] },
+  ]);
   const deleted = await call(owner, {
     revision: await revision(),
     command: { type: "memberapp.delete", id: "notes" },

@@ -10,6 +10,7 @@ import { authorizeMember } from "../platform/access";
 import { appAddress } from "../platform/address";
 import type { AppCloud } from "./cloud";
 import type { AppFiles } from "./files";
+import { liveCommand } from "./live";
 import { readBundle } from "./publish";
 import { memberApps } from "./registry";
 import { APP_LIMIT } from "./rules";
@@ -95,7 +96,13 @@ export class MemberApps {
    * version is never live without its files. They are stored under a key unique to this publish:
    * if the save is refused (someone else published first), these files are simply never served.
    */
-  async publish(identity: Identity, id: string, value: unknown) {
+  async publish(
+    identity: Identity,
+    id: string,
+    value: unknown,
+    options: { preview?: boolean } = {},
+  ) {
+    const preview = options.preview === true;
     const bundle = readBundle(value, { server: this.serverEnabled });
     const state = await this.load(identity);
     await this.pace(state, identity, "memberapp.publish", PUBLISHES_PER_HOUR, 3600_000);
@@ -111,6 +118,7 @@ export class MemberApps {
           description: bundle.description,
           powers: bundle.powers,
           database,
+          preview,
         },
         stamp,
       );
@@ -135,10 +143,11 @@ export class MemberApps {
       publishedBy: mutation.audit.actorId,
       store: stamp.id,
       server,
-      name: app.name,
-      description: app.description,
+      // What this version calls itself. For a preview the app keeps its live description.
+      name: bundle.name,
+      description: bundle.description,
       guide: bundle.guide,
-      powers: app.powers,
+      powers: bundle.powers,
       files: bundle.files.map((file) => ({
         path: file.path,
         type: file.type,
@@ -163,10 +172,24 @@ export class MemberApps {
       id,
       version: app.latest,
       address: appAddress(this.deps.origin, id),
-      live: true,
+      live: !preview,
+      preview,
       files: bundle.files.length,
       server: server !== null,
     };
+  }
+
+  /** Puts a published version live, or with null takes the app offline. */
+  async setLive(identity: Identity, id: string, version: number | null) {
+    const state = await this.load(identity);
+    const mutation = applyCommand(
+      state,
+      identity.subject,
+      await liveCommand(this.deps.repository, id, version),
+      meta(),
+    );
+    await this.deps.repository.commit(state, mutation);
+    return this.summary(this.find(mutation.state, id));
   }
 
   /** Where one app stands, for the people who run it. */
@@ -180,6 +203,7 @@ export class MemberApps {
     return {
       ...this.summary(app),
       liveVersion: app.live,
+      previewVersion: app.preview ?? null,
       latestVersion: app.latest,
       visibility: settings.visibility,
       waitingForOwner: app.publicRequestedBy !== null,

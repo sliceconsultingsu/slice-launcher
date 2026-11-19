@@ -9,7 +9,8 @@ import { effectivePermissions } from "../membership/domain";
 import { sessionIdentity } from "../membership/session";
 import { appAddress } from "../platform/address";
 import { issuePass } from "./app-sessions";
-import { memberAppDescriptor, memberApps } from "./registry";
+import { managesApp } from "../membership/app-access";
+import { memberAppDescriptor, memberApps, shownVersion } from "./registry";
 import { validAppId } from "./rules";
 
 export type PassDeps = {
@@ -70,7 +71,8 @@ export async function passRequest(request: Request, deps: PassDeps): Promise<Res
     return redirect("/account");
   // The app's page in the launcher says why: not shared with them, or not published.
   if (
-    app.live === null ||
+    // Nothing for this person to open: nothing live, and no preview they run.
+    shownVersion(app, managesApp(state, member, appId)) === null ||
     !effectivePermissions(state, member, [memberAppDescriptor(app)]).includes(`app.${appId}.open`)
   )
     return redirect(`/about/${appId}`);

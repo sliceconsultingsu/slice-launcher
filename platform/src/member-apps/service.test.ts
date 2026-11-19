@@ -105,6 +105,7 @@ describe("creating and publishing through the launcher", () => {
       version: 1,
       address: "https://notes.slice.example",
       live: true,
+      preview: false,
       files: 2,
       server: false,
     });
@@ -222,6 +223,54 @@ describe("creating and publishing through the launcher", () => {
     expect(await status(() => apps.list({ subject: "ana-sub", email: "other@example.test" }))).toBe(
       403,
     );
+  });
+});
+
+describe("publishing a preview", () => {
+  it("stores the version for the people who run the app and leaves what is live alone", async () => {
+    const { apps, repository } = await setup();
+    await apps.create(who("ana"), notes);
+    await apps.publish(who("ana"), "notes", bundle());
+    expect(
+      await apps.publish(who("ana"), "notes", bundle({ name: "Notes, next" }), { preview: true }),
+    ).toMatchObject({ version: 2, live: false, preview: true });
+    expect((await repository.load()).memberApps).toMatchObject([
+      { live: 1, preview: 2, latest: 2, name: "Team notes" },
+    ]);
+    expect(await repository.version("notes", 2)).toMatchObject({ name: "Notes, next" });
+    expect(await apps.status(who("ana"), "notes")).toMatchObject({
+      liveVersion: 1,
+      previewVersion: 2,
+      latestVersion: 2,
+    });
+  });
+
+  it("describes the app by a preview once that preview is made live", async () => {
+    const { apps, repository } = await setup();
+    await apps.create(who("ana"), notes);
+    await apps.publish(who("ana"), "notes", bundle());
+    await apps.publish(
+      who("ana"),
+      "notes",
+      bundle({ name: "Notes, next", powers: [{ id: "edit", label: "Edit notes" }] }),
+      { preview: true },
+    );
+    await apps.setLive(who("ana"), "notes", 2);
+    expect((await repository.load()).memberApps).toMatchObject([
+      {
+        live: 2,
+        preview: null,
+        name: "Notes, next",
+        powers: [{ id: "edit", label: "Edit notes" }],
+      },
+    ]);
+    // Putting the first version back describes the app as that version did.
+    await apps.setLive(who("ana"), "notes", 1);
+    expect((await repository.load()).memberApps).toMatchObject([
+      { live: 1, name: "Team notes", powers: [] },
+    ]);
+    expect(await status(() => apps.setLive(who("max"), "notes", 2))).toBe(403);
+    expect(await status(() => apps.setLive(who("ana"), "notes", 9))).toBe(400);
   });
 });
 
@@ -411,6 +460,7 @@ describe("asking about apps", () => {
       page: "https://slice.example/about/notes",
       live: false,
       liveVersion: null,
+      previewVersion: null,
       latestVersion: 0,
       visibility: "private",
       waitingForOwner: false,

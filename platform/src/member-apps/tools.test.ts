@@ -184,6 +184,17 @@ describe("the tools a builder's AI gets", () => {
     expect(list.structuredContent).toMatchObject({ apps: [{ id: "notes" }], canCreate: 4 });
   });
 
+  it("publishes a preview when asked, leaving what is live alone", async () => {
+    const { call, repository } = await setup();
+    await call("ana", "slice_app_create", notes);
+    await call("ana", "slice_app_publish", version());
+    const preview = await call("ana", "slice_app_publish", { ...version(), preview: true });
+    expect(preview.structuredContent).toMatchObject({ version: 2, live: false, preview: true });
+    expect((await repository.load()).memberApps).toMatchObject([{ live: 1, preview: 2 }]);
+    const status = await call("ana", "slice_app_status", { id: "notes" });
+    expect(status.structuredContent).toMatchObject({ liveVersion: 1, previewVersion: 2 });
+  });
+
   it("carries a publish far larger than an ordinary tool call", async () => {
     const { call } = await setup();
     await call("ana", "slice_app_create", notes);

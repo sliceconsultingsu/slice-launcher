@@ -28,6 +28,8 @@ const publish = (
   server: boolean,
 ) => `Publish a version of an app the member runs. It goes live at once, at the app's own address, for the people the member has shared it with. Every version is kept, and publishing again replaces what is live.
 
+Prefer "preview": true while the member is still deciding. A preview is shown only to the people who run the app, at the same address; everyone else keeps what is live (or sees nothing, if nothing is live yet). Ask the member to open the address and try it, then publish again without "preview", or have them choose "Make it live" on the app's page.
+
 What an app is, in this release:
 ${server ? WITH_SERVER : SCREENS_ONLY}
 - index.html is required and is the first screen. Folders are fine ("css/site.css"); "folder/" serves "folder/index.html".
@@ -105,11 +107,17 @@ export function registerMemberAppTools(server: McpServer, service: MemberApps, i
           guide: z.string().describe(`Markdown, up to ${MAX_GUIDE} characters.`),
           powers: z.array(z.object({ id: z.string(), label: z.string() }).strict()).optional(),
           files: z.array(file),
+          preview: z
+            .boolean()
+            .optional()
+            .describe(
+              "true: store this version as a preview. Only the people who run the app see it; everyone else keeps what is live.",
+            ),
         })
         .strict(),
       annotations: writes,
     },
-    ({ id, ...bundle }) => run(() => service.publish(identity, id, bundle)),
+    ({ id, preview, ...bundle }) => run(() => service.publish(identity, id, bundle, { preview })),
   );
   server.registerTool(
     "slice_app_status",

@@ -90,6 +90,11 @@ export interface MemberApp {
    * code and kept from then on. Null for an app that has only ever had screens.
    */
   database: string | null;
+  /**
+   * A version only the people who run the app are shown, in place of the live one, so they can
+   * try it first. Null when there is none.
+   */
+  preview: number | null;
 }
 /** One published version of a member app. Its files are in the launcher's file store. */
 export interface VersionRecord {
@@ -170,6 +175,8 @@ export interface AppView {
     manage?: {
       powers: MemberApp["powers"];
       liveVersion: number | null;
+      /** The version only the people who run the app are shown, if there is one. */
+      preview: number | null;
       latest: number;
       publicApproved: boolean;
       /** The name of the manager waiting for an owner's OK to make it Public, if any. */
@@ -217,6 +224,22 @@ const permissions = z
 const id = z.string().min(1).max(80);
 const name = z.string().trim().min(1).max(80);
 const appDescription = z.string().trim().min(1).max(200);
+const appPowers = z
+  .array(
+    z.strictObject({
+      id: z
+        .string()
+        .max(40)
+        .regex(/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/, "A power's ID is lower-case, like notes.edit.")
+        .refine((value) => value !== "open", "A power cannot be called open."),
+      label: name,
+    }),
+  )
+  .max(20)
+  .refine(
+    (values) => new Set(values.map((power) => power.id)).size === values.length,
+    "A power is listed twice.",
+  );
 export const emailSchema = z
   .email()
   .max(254)
@@ -270,31 +293,26 @@ export const commandSchema = z.discriminatedUnion("type", [
     id,
     name,
     description: appDescription,
-    powers: z
-      .array(
-        z.strictObject({
-          id: z
-            .string()
-            .max(40)
-            .regex(
-              /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/,
-              "A power's ID is lower-case, like notes.edit.",
-            )
-            .refine((value) => value !== "open", "A power cannot be called open."),
-          label: name,
-        }),
-      )
-      .max(20)
-      .refine(
-        (values) => new Set(values.map((power) => power.id)).size === values.length,
-        "A power is listed twice.",
-      ),
+    powers: appPowers,
     /** The app's own database, when this version has server code. */
     database: z.string().min(1).max(80).nullable().default(null),
+    /** Store the version for the people who run the app only; what is live does not change. */
+    preview: z.boolean().default(false),
   }),
   // Which version people get. null takes the app offline and keeps everything else.
   z.strictObject({
     type: z.literal("memberapp.live"),
+    id,
+    version: z.number().int().positive().nullable(),
+    /**
+     * What that version called itself, so the app is described by what is live. Filled in by the
+     * server from the version's saved record; anything a browser sends here is replaced.
+     */
+    as: z.strictObject({ name, description: appDescription, powers: appPowers }).optional(),
+  }),
+  // Which version the people who run the app are shown instead of the live one. null: none.
+  z.strictObject({
+    type: z.literal("memberapp.preview"),
     id,
     version: z.number().int().positive().nullable(),
   }),

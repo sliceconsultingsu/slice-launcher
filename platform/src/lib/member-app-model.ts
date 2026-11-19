@@ -31,11 +31,13 @@ export function memberTiles(told: readonly AppView[], appHost: string | null): V
   for (const view of told) {
     const app = memberLauncherApp(view);
     if (!app || !view.member || !(view.canOpen || view.canManage)) continue;
+    // The people who run an app can open its preview even while nothing is live.
+    const openable = view.member.live || (view.member.manage?.preview ?? null) !== null;
     tiles.push({
       app,
       isPrivate: view.visibility === "private",
-      href: view.member.live ? memberAppUrl(view.id, appHost) : null,
-      ...(view.member.live ? {} : { unavailable: "Offline" }),
+      href: openable ? memberAppUrl(view.id, appHost) : null,
+      ...(openable ? {} : { unavailable: "Offline" }),
     });
   }
   return tiles.sort((a, b) => a.app.name.localeCompare(b.app.name, "en", { sensitivity: "base" }));
