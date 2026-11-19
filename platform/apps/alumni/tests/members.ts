@@ -3,27 +3,41 @@
 // authorizeApp accepts the member; each tool then also requires its own declared action.
 import type { State } from "../../../src/membership/contracts";
 import { authorizeApp } from "../../../src/platform/access";
-import type { AppApiProps, AppContext, AppTool } from "../../../src/platform/contracts";
+import type {
+  AppApiProps,
+  AppContext,
+  AppDescriptor,
+  AppTool,
+} from "../../../src/platform/contracts";
 import { createPlatform } from "../../../src/platform/dispatch";
-import descriptor from "../app.json";
+import real from "../app.json";
 
-const OPEN = "app.alumni.open";
-const READ = "app.alumni.records.read";
-const ADMIN = "app.alumni.admin";
-const REFRESH = "app.alumni.refresh.run";
+/**
+ * The app's descriptor with nothing coming with access, so every action here is a power given
+ * to a named person. In production "records.read" comes with access; taking that away in tests
+ * lets each action's own check be exercised on its own.
+ */
+export const descriptor: AppDescriptor = {
+  ...real,
+  permissions: real.permissions.map(({ id, label }) => ({ id, label })),
+};
+
+const READ = "records.read";
+const ADMIN = "admin";
+const REFRESH = "refresh.run";
 const people = {
   /** An ordinary student: may browse, keep a profile and receive matches. */
-  "member-example-01": { name: "Riley Chen", status: "active", allow: [OPEN, READ] },
-  "member-example-02": { name: "Amara Okonkwo", status: "active", allow: [OPEN, READ] },
-  "member-example-new": { name: "Morgan Example", status: "active", allow: [OPEN, READ] },
-  "member-example-admin": { name: "Avery Admin", status: "active", allow: [OPEN, READ, ADMIN] },
-  "member-example-runner": { name: "Robin Runner", status: "active", allow: [OPEN, REFRESH] },
+  "member-example-01": { name: "Riley Chen", status: "active", powers: [READ] },
+  "member-example-02": { name: "Amara Okonkwo", status: "active", powers: [READ] },
+  "member-example-new": { name: "Morgan Example", status: "active", powers: [READ] },
+  "member-example-admin": { name: "Avery Admin", status: "active", powers: [READ, ADMIN] },
+  "member-example-runner": { name: "Robin Runner", status: "active", powers: [REFRESH] },
   /** May open the app but holds none of its actions. */
-  "member-example-opener": { name: "Olive Opener", status: "active", allow: [OPEN] },
+  "member-example-opener": { name: "Olive Opener", status: "active", powers: [] },
   "member-example-suspended": {
     name: "Sam Suspended",
     status: "suspended",
-    allow: [OPEN, READ, ADMIN, REFRESH],
+    powers: [READ, ADMIN, REFRESH],
   },
 } as const;
 export type TestMember = keyof typeof people;
@@ -41,11 +55,23 @@ export const membership: State = {
     title: "",
     status: person.status,
     levelId: null,
-    allow: [...person.allow],
+    allow: [],
     deny: [],
     owner: false,
     joinedAt: "2026-10-26",
   })),
+  // Everyone here is on the app; what differs is the powers each was given.
+  apps: [
+    {
+      id: "alumni",
+      visibility: "private",
+      managers: [],
+      people: Object.entries(people).map(([memberId, person]) => ({
+        memberId,
+        powers: [...person.powers],
+      })),
+    },
+  ],
 };
 
 export function identityOf(member: TestMember) {

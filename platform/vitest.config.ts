@@ -17,7 +17,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: [
-        "src/membership/{auth,api,domain,repository,contracts,session,google}.ts",
+        "src/membership/{auth,api,app-access,domain,repository,contracts,session,google}.ts",
         "src/platform/{access,dispatch,mcp,mcp-tool}.ts",
         // oauth.ts is left out: its tests run it inside Miniflare, which V8 here cannot measure.
         "src/ai-connections/{activity,connections,consent,status}.ts",
@@ -28,6 +28,13 @@ export default defineConfig({
         "src/membership/auth.ts": { statements: 88, branches: 90, functions: 100, lines: 87 },
         "src/membership/api.ts": { statements: 94, branches: 86, functions: 100, lines: 93 },
         "src/membership/domain.ts": { statements: 99, branches: 94, functions: 100, lines: 99 },
+        // Who can open and who runs each app.
+        "src/membership/app-access.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
         "src/membership/repository.ts": {
           statements: 96,
           branches: 91,

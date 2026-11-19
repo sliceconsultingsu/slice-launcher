@@ -32,7 +32,7 @@ Your agent should explain work in clear business language and help you learn as 
 
 ## What is ready?
 
-The launcher, member approval, access levels, activity history, shared app routes, shared MCP adapter and CI/deployment pipeline are implemented. **The alumni app is a read-only learning starter with fictional records.** Persistent alumni data, matching, alumni MCP tools and refresh jobs remain to be built.
+The launcher, member approval, access levels, per-app settings (each app Public or Private, run by its own managers), activity history, shared app routes, shared MCP adapter and CI/deployment pipeline are implemented. **The alumni app is a read-only learning starter with fictional records.** Persistent alumni data, matching, alumni MCP tools and refresh jobs remain to be built.
 
 An ordinary Member can view the member directory by default. Admin permissions come from ownership or explicitly assigned permissions. Owners have full admin access even if their **base access level** is called Member. The account screen distinguishes the effective organization role from that base level. See [how access works](docs/membership.md).
 
@@ -74,7 +74,7 @@ To create an app:
 pnpm app:create my-tool "My tool"
 ```
 
-This creates `platform/apps/my-tool/` and registers `/apps/my-tool`. It creates a starter, not a finished directory. Follow [the app guide](docs/adding-an-app.md) to add features and grant access.
+This creates `platform/apps/my-tool/` and registers `/apps/my-tool`. It creates a starter, not a finished directory. Follow [the app guide](docs/adding-an-app.md) to add features. A new app is private until its managers open it to people on the app's page.
 
 ## Before submitting work
 

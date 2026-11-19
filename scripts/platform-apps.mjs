@@ -72,9 +72,17 @@ export async function readCatalog(root) {
       throw new Error(`${app.id}: invalid app metadata`);
     const permissions = new Set(["open"]);
     for (const permission of app.permissions) {
+      // Omit the field for an extra power; false would be a second way to say the same thing.
+      if (permission && "withAccess" in permission && permission.withAccess !== true)
+        throw new Error(
+          `${app.id}: withAccess must be true, or left out for a power given to named people`,
+        );
       if (
         !permission ||
-        Object.keys(permission).sort().join() !== "id,label" ||
+        Object.keys(permission)
+          .filter((key) => key !== "withAccess")
+          .sort()
+          .join() !== "id,label" ||
         typeof permission.id !== "string" ||
         !actionPattern.test(permission.id) ||
         permissions.has(permission.id) ||
@@ -315,7 +323,7 @@ export async function createApp(root, id, name = id) {
   );
   writeFileSync(
     join(directory, "README.md"),
-    `# ${name.replace(/[\r\n]/g, " ")}\n\nStarter module; replace this description with what the app does and who it is for.\n\n## Files\n\n- \`server.tsx\`: screens, optional API and MCP tool handlers.\n- \`app.json\`: public name, description and action permissions. Run \`pnpm apps:sync\` after editing it.\n- \`icon.svg\` or \`icon.png\`: the launcher icon. Replace the grey starter; see [app icons](../../../docs/design-profile.md#app-icons).\n- \`guide.md\`: the consultant guide behind the launcher's **Guide** button. Replace the starter text.\n- Add tests beside the code as \`*.test.ts\`.\n\n## Access and data\n\nActive members need \`app.${id}.open\`. Document action permissions, record-level rules and private storage before adding business data. Login, MCP and deployment come from the platform.\n\n## Icon\n\n${ICON_README_PLACEHOLDER}\n\n## Design\n\nUse the shared components, tokens and copy rules in the [design profile](../../../docs/design-profile.md). The platform provides the page header and footer.\n\n## Develop and verify\n\nFrom the repository root, run \`pnpm dev\`; this app is at \`/apps/${id}\`. Run the checks in [CONTRIBUTING.md](../../../CONTRIBUTING.md) before a PR.\n`,
+    `# ${name.replace(/[\r\n]/g, " ")}\n\nStarter module; replace this description with what the app does and who it is for.\n\n## Files\n\n- \`server.tsx\`: screens, optional API and MCP tool handlers.\n- \`app.json\`: public name, description and action permissions. Run \`pnpm apps:sync\` after editing it.\n- \`icon.svg\` or \`icon.png\`: the launcher icon. Replace the grey starter; see [app icons](../../../docs/design-profile.md#app-icons).\n- \`guide.md\`: the consultant guide on the app's page, behind the launcher's **Details** button. Replace the starter text.\n- Add tests beside the code as \`*.test.ts\`.\n\n## Access and data\n\nA new app is private: only owners can open it until an owner names its managers on the app's page. Managers make it Public (every active member) or add people by name. Mark a permission \`"withAccess": true\` in \`app.json\` if everyone who can open the app should hold it; managers give the rest to named people. Document action permissions, record-level rules and private storage before adding business data. Login, MCP and deployment come from the platform.\n\n## Icon\n\n${ICON_README_PLACEHOLDER}\n\n## Design\n\nUse the shared components, tokens and copy rules in the [design profile](../../../docs/design-profile.md). The platform provides the page header and footer.\n\n## Develop and verify\n\nFrom the repository root, run \`pnpm dev\`; this app is at \`/apps/${id}\`. Run the checks in [CONTRIBUTING.md](../../../CONTRIBUTING.md) before a PR.\n`,
   );
   await syncApps(root);
 }

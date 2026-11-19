@@ -288,6 +288,12 @@ h1 {
   padding: 28px;
   min-width: 0;
 }
+.account-card h1 {
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+}
 .account-card h2 {
   font-weight: 600;
   font-size: 19px;
@@ -983,4 +989,103 @@ button.member-row:hover,
   display: grid;
   gap: 10px;
   line-height: 1.6;
+}
+/* The app page: a summary line above the guide, and the settings for the people who run it. */
+.about-summary {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0 0 20px;
+}
+.about-manage {
+  margin-top: 40px;
+}
+.app-manage > fieldset,
+.manage-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.app-manage > fieldset {
+  gap: 28px;
+}
+.manage-group legend,
+.manage-group h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  padding: 0;
+}
+.manage-group legend {
+  margin-bottom: 14px;
+}
+.manage-group .check-label {
+  align-items: flex-start;
+  min-height: 24px;
+}
+.manage-group .check-label .field-note {
+  display: block;
+  font-size: 13px;
+}
+.manage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+.manage-list li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  min-height: 48px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.manage-name {
+  font-size: 14px;
+  font-weight: 500;
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.manage-list .text-button {
+  min-height: 44px;
+  padding: 0 4px;
+}
+.manage-add {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.manage-add label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 220px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.manage-add select {
+  width: 100%;
+  background: white;
+  border: 1px solid #cfcec6;
+  border-radius: 7px;
+  padding: 11px 12px;
+  min-height: 44px;
+  font-size: 14px;
+}
+.manage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.app-manage .primary-button {
+  align-self: flex-start;
+}
+.manage-confirm {
+  margin: 0;
 }

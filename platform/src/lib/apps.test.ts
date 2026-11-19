@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AppCard, AppIcon } from "@slice/ui";
-import { getAppUrl, getGuideUrl } from "./apps";
+import { getAppUrl, getAboutUrl } from "./apps";
 
 const entry = {
   id: "alumni",
@@ -11,15 +11,15 @@ const entry = {
 };
 
 describe("app links", () => {
-  it("use the platform origin, shared app route and guide route", () => {
+  it("use the platform origin, shared app route and app page route", () => {
     expect(getAppUrl(entry)).toBe("/apps/alumni");
-    expect(getGuideUrl(entry)).toBe("/guides/alumni");
+    expect(getAboutUrl(entry)).toBe("/about/alumni");
   });
   it.each(["../account", "https://external.test", "alumni/other", "", "constructor?"])(
     "rejects invalid ID %s",
     (id) => {
       expect(() => getAppUrl({ id })).toThrow("Invalid application ID");
-      expect(() => getGuideUrl({ id })).toThrow("Invalid application ID");
+      expect(() => getAboutUrl({ id })).toThrow("Invalid application ID");
     },
   );
 });
@@ -28,11 +28,11 @@ const card = {
   name: entry.name,
   description: entry.description,
   icon: "/app-icons/alumni.svg?v=0123456789ab",
-  guideHref: "/guides/alumni",
+  detailsHref: "/about/alumni",
 };
 
 describe("AppCard", () => {
-  it("shows the icon, name, description and named Open and Guide actions", () => {
+  it("shows the icon, name, description and named Open and Details actions", () => {
     const html = renderToStaticMarkup(createElement(AppCard, { ...card, href: "/apps/alumni" }));
     expect(html).toContain('src="/app-icons/alumni.svg?v=0123456789ab"');
     expect(html).toMatch(/<img[^>]*alt=""/);
@@ -42,15 +42,24 @@ describe("AppCard", () => {
       /href="\/apps\/alumni"[^>]*>Open<span class="sr-only"> Alumni Database<\/span>/,
     );
     expect(html).toMatch(
-      /href="\/guides\/alumni"[^>]*>Guide<span class="sr-only"> for Alumni Database<\/span>/,
+      /href="\/about\/alumni"[^>]*>Details<span class="sr-only"> for Alumni Database<\/span>/,
     );
   });
 
-  it("keeps the guide but shows Coming soon instead of Open when an app has no link", () => {
+  it("keeps the details link but shows Coming soon instead of Open when an app has no link", () => {
     const html = renderToStaticMarkup(createElement(AppCard, { ...card, href: null }));
     expect(html).not.toContain('href="/apps/alumni"');
     expect(html).toContain("Coming soon");
-    expect(html).toContain('href="/guides/alumni"');
+    expect(html).toContain('href="/about/alumni"');
+  });
+
+  it("says an app is private only when told it is", () => {
+    const open = renderToStaticMarkup(createElement(AppCard, { ...card, href: "/apps/alumni" }));
+    expect(open).not.toContain("Private");
+    const html = renderToStaticMarkup(
+      createElement(AppCard, { ...card, href: "/apps/alumni", isPrivate: true }),
+    );
+    expect(html).toContain("Private");
   });
 
   it("labels work-in-progress apps without changing their actions", () => {
@@ -61,7 +70,7 @@ describe("AppCard", () => {
     );
     expect(html).toContain("Work in progress");
     expect(html).toMatch(/href="\/apps\/alumni"[^>]*>Open/);
-    expect(html).toContain('href="/guides/alumni"');
+    expect(html).toContain('href="/about/alumni"');
   });
 
   it("escapes app text instead of rendering it as markup", () => {

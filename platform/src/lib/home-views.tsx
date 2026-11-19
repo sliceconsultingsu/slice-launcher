@@ -3,8 +3,8 @@
 import { AccountNav } from "../membership/account-nav";
 import { SignInCard } from "../membership/sign-in-card";
 import { ConnectionStatus } from "../ai-connections/connection-status";
-import { AppCard } from "@slice/ui";
-import { apps, getAppUrl, getGuideUrl } from "./apps";
+import { AppGrid } from "./app-grid";
+import { apps } from "./apps";
 
 function GridIcon() {
   return (
@@ -113,19 +113,7 @@ export function Launcher() {
               <h2>No apps have been added yet</h2>
             </div>
           ) : (
-            <div className="app-grid">
-              {apps.map((app) => (
-                <AppCard
-                  key={app.id}
-                  name={app.name}
-                  description={app.description}
-                  icon={app.icon}
-                  href={getAppUrl(app)}
-                  guideHref={getGuideUrl(app)}
-                  workInProgress={app.workInProgress}
-                />
-              ))}
-            </div>
+            <AppGrid />
           )}
         </section>
       </main>

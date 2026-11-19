@@ -115,6 +115,22 @@ export async function checkSignedIn(baseUrl, { sessions, emails }) {
   assert.equal(page.status, 200, "A permitted member must reach the app page");
   assert.match(page.headers.get("content-type") ?? "", /text\/html/);
   await page.body?.cancel();
+  assert.ok(
+    view.apps?.some((app) => app.id === "alumni" && app.canOpen && app.canManage),
+    "An owner must be told they can open and manage every app",
+  );
+  // Each app has one page for its guide and settings; old guide links lead there.
+  const about = await call("/about/alumni", sessions.owner);
+  assert.equal(about.status, 200, "An app's own page must load");
+  assert.match(about.headers.get("content-type") ?? "", /text\/html/);
+  await about.body?.cancel();
+  const oldGuide = await call("/guides/alumni", sessions.owner);
+  await oldGuide.body?.cancel();
+  assert.ok(
+    [301, 302, 303, 307, 308].includes(oldGuide.status) &&
+      new URL(oldGuide.headers.get("location") ?? "", baseUrl).pathname === "/about/alumni",
+    "An old guide link must lead to the app's page",
+  );
 
   // A pending member is signed in but holds nothing.
   const waiting = await call("/api/membership", sessions.pending);
@@ -123,6 +139,10 @@ export async function checkSignedIn(baseUrl, { sessions, emails }) {
   assert.equal(waitingView.me.status, "pending");
   assert.deepEqual(waitingView.permissions, []);
   assert.deepEqual(waitingView.members, [], "A pending member must not see the directory");
+  assert.ok(
+    waitingView.apps?.every((app) => !app.canOpen && !app.canManage),
+    "A pending member must not be shown any app",
+  );
   assert.equal(
     await status("/api/apps/alumni/records", sessions.pending),
     403,

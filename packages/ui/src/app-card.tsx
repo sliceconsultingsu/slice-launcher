@@ -6,9 +6,12 @@ export interface AppCardProps {
   icon: string;
   /** The app's platform route, or null while it is not yet available. */
   href: string | null;
-  guideHref: string;
+  /** The app's own page: its guide, and its settings for the people who run it. */
+  detailsHref: string;
   /** Labels an app that consultants can open but that is still being built. */
   workInProgress?: boolean;
+  /** Labels an app open only to the people added to it. */
+  isPrivate?: boolean;
 }
 
 const pill =
@@ -23,20 +26,33 @@ export function WorkInProgressBadge() {
   );
 }
 
-/** One app in the launcher grid: icon, name, description, then Open and Guide actions. */
+/** Marks an app open only to the people added to it; used on its launcher card and page. */
+export function PrivateBadge() {
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full border border-(--line) px-3 py-1 text-[13px] leading-4 font-semibold text-(--muted)">
+      Private
+    </span>
+  );
+}
+
+/** One app in the launcher grid: icon, name, description, then Open and Details actions. */
 export function AppCard({
   name,
   description,
   icon,
   href,
-  guideHref,
+  detailsHref,
   workInProgress = false,
+  isPrivate = false,
 }: AppCardProps) {
   return (
     <article className="flex h-full flex-col rounded-2xl border border-(--line) bg-(--surface) p-6 text-(--ink)">
       <div className="flex items-start justify-between gap-3">
         <AppIcon src={icon} size={40} />
-        {workInProgress && <WorkInProgressBadge />}
+        <span className="flex flex-wrap justify-end gap-2">
+          {isPrivate && <PrivateBadge />}
+          {workInProgress && <WorkInProgressBadge />}
+        </span>
       </div>
       <h2 className="mt-5 text-lg leading-snug font-bold tracking-tight">{name}</h2>
       <p className="mt-2 mb-6 line-clamp-3 text-[15px] leading-6 text-(--muted)">{description}</p>
@@ -52,9 +68,9 @@ export function AppCard({
         )}
         <a
           className={`${pill} border-[1.5px] border-(--ink) bg-(--surface) text-(--ink) hover:bg-(--selected)`}
-          href={guideHref}
+          href={detailsHref}
         >
-          Guide<span className="sr-only"> for {name}</span>
+          Details<span className="sr-only"> for {name}</span>
         </a>
       </div>
     </article>

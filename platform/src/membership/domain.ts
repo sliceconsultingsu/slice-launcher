@@ -1,5 +1,10 @@
-import { commandSchema, emailSchema, MembershipError, permissionCatalog } from "./contracts";
+import { apps } from "../lib/apps";
+import type { AppDescriptor } from "../platform/contracts";
+import { appPermissions, managesApp, settingsFor } from "./app-access";
+import { commandSchema, emailSchema, MembershipError, organizationPermissions } from "./contracts";
 import type {
+  AppSettings,
+  AppView,
   Audit,
   Identity,
   Member,
@@ -22,15 +27,28 @@ export function emptyState(ownerEmail: string | null): State {
     ownerClaimed: false,
     members: [],
     levels: [{ id: "member", name: "Member", permissions: ["members.read"] }],
+    apps: [],
   };
 }
-export function effectivePermissions(state: State, member: Member): string[] {
+/**
+ * Everything this member may do. Organization permissions come from their level and individual
+ * grants; app permissions come only from each app's own settings. Pages, app APIs and AI tools
+ * all ask here, so this is the one place the rules live.
+ */
+export function effectivePermissions(
+  state: State,
+  member: Member,
+  catalog: readonly AppDescriptor[] = apps,
+): string[] {
   if (member.status !== "active") return [];
-  if (member.owner) return permissionCatalog.map((p) => p.id).sort();
+  const organization = organizationPermissions.map((p) => p.id);
   const base = state.levels.find((level) => level.id === member.levelId)?.permissions ?? [];
-  return [...new Set([...base, ...member.allow])]
-    .filter((p) => !member.deny.includes(p) && permissionCatalog.some((item) => item.id === p))
-    .sort();
+  const held = member.owner
+    ? organization
+    : [...new Set([...base, ...member.allow])].filter(
+        (p) => organization.includes(p) && !member.deny.includes(p),
+      );
+  return [...held, ...catalog.flatMap((app) => appPermissions(state, member, app))].sort();
 }
 function subjectMember(state: State, subject: string): Member {
   return state.members.find((m) => m.subject === subject) ?? fail(403, "Membership not found.");
@@ -151,8 +169,15 @@ export function applyCommand(
   const requirePermission = (p: string) => {
     if (!access.includes(p)) fail(403, "You do not have permission for this action.");
   };
+  // Compares organization permissions only. App access never outranks a membership administrator,
+  // or they could not suspend someone merely because that person runs an app they are not in.
   const canDelegate = (permissions: string[]) => {
-    if (!actor.owner && permissions.some((p) => !access.includes(p)))
+    if (
+      !actor.owner &&
+      permissions.some(
+        (p) => organizationPermissions.some((item) => item.id === p) && !access.includes(p),
+      )
+    )
       fail(403, "You cannot assign permissions beyond your own access.");
   };
   const levelById = (id: string) =>
@@ -194,6 +219,32 @@ export function applyCommand(
     else state.levels.push(level);
     return finish(state, meta, actor.id, command.type, level.id, before, level);
   }
+  if (command.type === "app.update") {
+    const app =
+      apps.find((item) => item.id === command.id) ?? fail(400, "Application does not exist.");
+    if (!managesApp(state, actor, app.id))
+      fail(403, "Only the people who run this app can change its settings.");
+    const known = (memberId: string) =>
+      state.members.some((m) => m.id === memberId) || fail(400, "Member does not exist.");
+    command.managers.forEach(known);
+    const extra = app.permissions.filter((p) => !p.withAccess).map((p) => p.id);
+    for (const person of command.people) {
+      known(person.memberId);
+      if (person.powers.some((power) => !extra.includes(power)))
+        fail(400, "This app has no such extra power.");
+    }
+    if (new Set(command.people.map((p) => p.memberId)).size !== command.people.length)
+      fail(400, "A person is listed twice.");
+    const before = structuredClone(state.apps.find((item) => item.id === app.id) ?? null);
+    const settings: AppSettings = {
+      id: app.id,
+      visibility: command.visibility,
+      managers: command.managers,
+      people: [...command.people].sort((a, b) => a.memberId.localeCompare(b.memberId)),
+    };
+    state.apps = [...state.apps.filter((item) => item.id !== app.id), settings];
+    return finish(state, meta, actor.id, command.type, app.id, before, settings);
+  }
   requirePermission("members.manage");
   if (command.type === "member.add") {
     if (state.members.some((m) => m.email === command.email))
@@ -223,6 +274,12 @@ export function applyCommand(
     if (target.owner && !actor.owner) fail(403, "Only an owner can make this change.");
     canDelegate(effectivePermissions(state, { ...target, status: "active" }));
     state.members = state.members.filter((m) => m.id !== target.id);
+    // A removed person runs nothing and is on no app.
+    state.apps = state.apps.map((item) => ({
+      ...item,
+      managers: item.managers.filter((id) => id !== target.id),
+      people: item.people.filter((p) => p.memberId !== target.id),
+    }));
     return finish(state, meta, actor.id, command.type, target.id, target, null);
   }
   if (!actor.owner && (target.id === actor.id || target.owner || command.owner))
@@ -276,6 +333,26 @@ export function memberView(state: State, subject: string): View {
   const permissions = effectivePermissions(state, me);
   const manage = permissions.includes("members.manage");
   const directory = permissions.includes("members.read") || manage;
+  const appViews: AppView[] = apps.map((app) => {
+    const settings = settingsFor(state, app.id);
+    const canManage = managesApp(state, me, app.id);
+    const canOpen = permissions.includes(`app.${app.id}.open`);
+    return {
+      id: app.id,
+      canOpen,
+      canManage,
+      visibility: settings.visibility,
+      // Names only, and only to someone who can already see the member directory or is on this
+      // app. Anyone else is told to ask the Slice owner.
+      managers:
+        directory || canOpen || canManage
+          ? state.members
+              .filter((m) => m.status === "active" && settings.managers.includes(m.id))
+              .map((m) => m.name || "Member")
+          : [],
+      ...(canManage ? { settings } : {}),
+    };
+  });
   return {
     revision: state.revision,
     organization: "Slice Consulting",
@@ -294,6 +371,15 @@ export function memberView(state: State, subject: string): View {
               levelName: state.levels.find((l) => l.id === m.levelId)?.name ?? "",
             })),
     levels: manage || permissions.includes("levels.manage") ? state.levels : [],
-    catalog: manage || permissions.includes("levels.manage") ? permissionCatalog : [],
+    catalog: manage || permissions.includes("levels.manage") ? organizationPermissions : [],
+    apps: appViews,
+    ...(appViews.some((app) => app.canManage)
+      ? {
+          counts: {
+            active: state.members.filter((m) => m.status === "active").length,
+            invited: state.members.filter((m) => m.status === "invited").length,
+          },
+        }
+      : {}),
   };
 }

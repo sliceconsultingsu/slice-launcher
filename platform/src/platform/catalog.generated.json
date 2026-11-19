@@ -7,7 +7,8 @@
     "permissions": [
       {
         "id": "records.read",
-        "label": "Browse alumni, keep a student profile and receive matches"
+        "label": "Browse alumni, keep a student profile and receive matches",
+        "withAccess": true
       },
       { "id": "admin", "label": "Manage alumni data and review proposed changes" },
       { "id": "refresh.run", "label": "Run the alumni refresh and file proposed changes" }

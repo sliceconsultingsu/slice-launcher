@@ -12,9 +12,11 @@ export function authorizeMember(state: State, identity: Identity) {
 
 export function authorizeApp(state: State, identity: Identity, app: AppDescriptor): AppContext {
   const member = authorizeMember(state, identity);
-  const permissions = effectivePermissions(state, member);
+  // Worked out against the descriptor being opened, so the caller's catalog decides what the
+  // app declares and which of its permissions come with access.
+  const permissions = effectivePermissions(state, member, [app]);
   if (!permissions.includes(`app.${app.id}.open`))
-    throw new MembershipError(403, "You do not have access to this application.");
+    throw new MembershipError(403, "You do not have access to this application.", "no-app-access");
   return {
     appId: app.id,
     member: Object.freeze({ id: member.id, name: member.name, email: member.email }),

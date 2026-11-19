@@ -62,9 +62,14 @@ const server = createServer(async (req, res) => {
       }
       res.writeHead(response.status, Object.fromEntries(response.headers));
       res.end(await response.text());
-    } else if (req.url === "/" || req.url === "/account" || req.url === "/connect-ai") {
+    } else if (
+      req.url === "/" ||
+      req.url === "/account" ||
+      req.url === "/connect-ai" ||
+      /^\/about\/[a-z][a-z0-9-]{0,39}$/.test(req.url ?? "")
+    ) {
       const html = await vite.transformIndexHtml(
-        req.url,
+        req.url ?? "/",
         `<!doctype html><html lang="en"><head><meta charset="UTF-8"><title>Slice synthetic browser tests</title></head><body><div id="root"></div><script type="module" src="/tests/e2e/main.tsx"></script></body></html>`,
       );
       res.writeHead(200, { "Content-Type": "text/html" });

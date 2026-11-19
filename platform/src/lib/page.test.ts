@@ -34,12 +34,12 @@ it("shows a useful empty state before any apps are published", () => {
   expect(html).toContain("App Launcher");
   expect(html).toContain("No apps have been added yet");
 });
-it("renders the registered alumni starter and its platform link", () => {
+it("shows no tiles until it knows which apps this person can open", () => {
   entries.push(...catalog);
   const html = renderToStaticMarkup(createElement(Launcher));
-  expect(html).toContain("Alumni directory");
-  expect(html).toContain('href="/apps/alumni"');
-  expect(html).toContain('href="/guides/alumni"');
-  expect(html).toMatch(/src="\/app-icons\/alumni\.svg\?v=[0-9a-f]{12}"/);
+  expect(html).toContain("Applications");
+  expect(html).toContain('aria-busy="true"');
+  expect(html).not.toContain("Alumni directory");
+  expect(html).not.toContain('href="/apps/alumni"');
   expect(html).not.toContain("No apps have been added yet");
 });

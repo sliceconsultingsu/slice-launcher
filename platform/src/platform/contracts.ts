@@ -5,7 +5,11 @@ export interface AppDescriptor {
   id: string;
   name: string;
   description: string;
-  permissions: { id: string; label: string }[];
+  /**
+   * `withAccess` marks a permission everyone who can open the app holds. The rest are extra
+   * powers the app's managers give to named people. The catalog check only accepts `true`.
+   */
+  permissions: { id: string; label: string; withAccess?: boolean }[];
   /** Shows a "Work in progress" label on the launcher card and guide page. The catalog check
    * only accepts `true`; leave the field out once the app is ready. */
   workInProgress?: boolean;
