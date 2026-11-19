@@ -34,6 +34,8 @@ Your agent should explain work in clear business language and help you learn as 
 
 The launcher, member approval, access levels, per-app settings (each app Public or Private, run by its own managers), activity history, shared app routes, shared MCP adapter and CI/deployment pipeline are implemented. **The alumni app is a read-only learning starter with fictional records.** Persistent alumni data, matching, alumni MCP tools and refresh jobs remain to be built.
 
+Members making their own apps with their AI, each at its own address under `sliceos.app`, is built and **switched off**: see [member apps](docs/member-apps.md) for what it covers (screens only, for now) and what the maintainer has to do to turn it on.
+
 An ordinary Member can view the member directory by default. Admin permissions come from ownership or explicitly assigned permissions. Owners have full admin access even if their **base access level** is called Member. The account screen distinguishes the effective organization role from that base level. See [how access works](docs/membership.md).
 
 Remote MCP clients (AI apps) sign in through Slice's own OAuth and act with consultants' own identities and permissions. Members see connection status in the top bar and manage connected apps on their account page. Live use requires the activation steps in [MCP](docs/mcp.md#activate-remote-sign-in) and a real sign-in check; a successful code deployment does not prove that setup is complete.

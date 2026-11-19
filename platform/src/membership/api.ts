@@ -126,6 +126,11 @@ export async function membershipRequest(
     throw new MembershipError(403, "Complete sign-in before making changes.");
   if (body.data.revision !== state.revision)
     throw new MembershipError(409, "Membership changed. Reload before saving.");
+  // A member app is created and published by the AI tools (src/member-apps/service.ts), which
+  // store its files and version record with the change. Here an app can only be managed.
+  const kind = (body.data.command as { type?: unknown } | null)?.type;
+  if (kind === "memberapp.create" || kind === "memberapp.publish")
+    throw new MembershipError(400, "Create and publish apps through your connected AI.");
   const result = applyCommand(state, identity.subject, body.data.command, {
     id: crypto.randomUUID(),
     now: new Date().toISOString(),

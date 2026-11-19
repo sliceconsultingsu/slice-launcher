@@ -7,6 +7,9 @@ import { createLocalJWKSet, exportJWK } from "jose";
 import { verifyIdentity } from "../../src/membership/auth";
 import { errorResponse, membershipRequest } from "../../src/membership/api";
 import { Repository } from "../../src/membership/repository";
+import { appInfo } from "../../src/member-apps/info";
+import { MemberApps } from "../../src/member-apps/service";
+import { memoryFiles } from "../member-apps/memory-files";
 import { database, migrate, reset } from "../database";
 import { authConfig, keyPair, createIdentityKey } from "./identity";
 
@@ -17,6 +20,14 @@ const fixture = await database();
 await migrate(fixture.db);
 await reset(fixture.db);
 const repo = new Repository(fixture.db);
+// Member apps in the harness live under a made-up host; nothing is served there. Their files go
+// to an in-memory store.
+const APP_HOST = "apps.slice-e2e-only.test";
+const memberApps = new MemberApps({
+  repository: repo,
+  files: memoryFiles(),
+  origin: `https://${APP_HOST}`,
+});
 await createIdentityKey();
 const pair = await keyPair();
 const keys = createLocalJWKSet({
@@ -31,7 +42,11 @@ const vite = await createViteServer({
 });
 const server = createServer(async (req, res) => {
   try {
-    if (req.url?.startsWith("/api/membership")) {
+    if (
+      req.url?.startsWith("/api/membership") ||
+      req.url?.startsWith("/api/member-apps/") ||
+      req.url === "/__e2e/member-app"
+    ) {
       const body =
         req.method === "POST"
           ? await new Promise<string>((resolve, reject) => {
@@ -56,7 +71,18 @@ const server = createServer(async (req, res) => {
       try {
         // Exactly the production cryptographic verifier; no email/header/unsigned bypass.
         const identity = await verifyIdentity(request, authConfig, keys);
-        response = await membershipRequest(request, identity, repo);
+        const info = /^\/api\/member-apps\/([a-z][a-z0-9-]{2,31})$/.exec(req.url ?? "");
+        if (info) response = Response.json(await appInfo(identity, repo, info[1]));
+        else if (req.url === "/__e2e/member-app") {
+          // slice-e2e-only: stands in for a member's AI creating and publishing an app.
+          const { id, ...bundle } = JSON.parse(body ?? "{}");
+          await memberApps.create(identity, {
+            id,
+            name: bundle.name,
+            description: bundle.description,
+          });
+          response = Response.json(await memberApps.publish(identity, id, bundle));
+        } else response = await membershipRequest(request, identity, repo, { appHost: APP_HOST });
       } catch (error) {
         response = errorResponse(error);
       }

@@ -4,6 +4,8 @@ Slice owns one remote MCP endpoint at `/mcp`. Consultants connect with an OAuth-
 
 The endpoint exposes `slice_apps`, which returns the apps the current member may open, and the tools each app registers. The alumni app registers nine, listed in [its README](../platform/apps/alumni/README.md#assistant-tools). No membership administration or arbitrary API proxy is exposed. Code availability and production client access are separate: the operator must complete the activation steps below before advertising this endpoint to consultants.
 
+While [member apps](member-apps.md) are switched on, the endpoint also offers four tools to every active member: `slice_app_create`, `slice_app_publish`, `slice_app_status` and `slice_app_list`. They act only on apps the caller runs. A publish carries an app's files, so with member apps on a request to `/mcp` may be up to 2 MB instead of 16 KB.
+
 Consultants and their agents should start with [Connect your AI](connect-your-ai.md), also linked from the launcher. That guide explains setup and troubleshooting without granting access.
 
 ## Identity and authorization

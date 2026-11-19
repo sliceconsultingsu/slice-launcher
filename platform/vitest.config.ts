@@ -18,7 +18,9 @@ export default defineConfig({
       provider: "v8",
       include: [
         "src/membership/{auth,api,app-access,domain,repository,contracts,session,google}.ts",
-        "src/platform/{access,dispatch,mcp,mcp-tool}.ts",
+        "src/platform/{access,address,dispatch,mcp,mcp-tool}.ts",
+        // Member apps: names, the registry, publishing, sign-in across addresses, the front door.
+        "src/member-apps/{rules,registry,publish,service,app-sessions,pass-route,front-door,info}.ts",
         // oauth.ts is left out: its tests run it inside Miniflare, which V8 here cannot measure.
         "src/ai-connections/{activity,connections,consent,status}.ts",
       ],
@@ -46,6 +48,41 @@ export default defineConfig({
         "src/membership/google.ts": { statements: 92, branches: 86, functions: 100, lines: 96 },
         // Which addresses redirect to the launcher's address.
         "src/platform/address.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
+        // Member apps (docs/member-apps.md): names, the registry, publishing, sign-in across
+        // addresses and the front door that answers every app address.
+        "src/member-apps/rules.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
+        "src/member-apps/registry.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        "src/member-apps/service.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        "src/member-apps/app-sessions.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        "src/member-apps/publish.ts": { statements: 100, branches: 97, functions: 100, lines: 100 },
+        "src/member-apps/pass-route.ts": {
+          statements: 95,
+          branches: 95,
+          functions: 100,
+          lines: 100,
+        },
+        "src/member-apps/front-door.ts": {
+          statements: 95,
+          branches: 89,
+          functions: 100,
+          lines: 98,
+        },
+        "src/member-apps/info.ts": { statements: 100, branches: 90, functions: 100, lines: 100 },
         // Guarded dispatch for apps and AI tools.
         "src/platform/access.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
         "src/platform/dispatch.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },

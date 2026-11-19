@@ -79,6 +79,10 @@ Settings live in the `app_settings` table (migration `0010_app_settings.sql`). T
 
 Email/identity changes and loss of the last owner's sign-in require an operator recovery procedure with verified identity and an audit record. The normal UI does not let members rebind their identities. Changes use a global revision: if someone else saves first, reload and reapply your intended edit. This prevents a stale screen from overwriting a newer suspension or access change.
 
+### Apps members made
+
+A [member app](member-apps.md) has the same settings as a built-in app, with two differences. The person who creates it is its first manager, so it never starts with nobody. And it is shown to every member only after an owner has agreed once: a manager who saves it as Public has asked, the app stays Private, and an owner's save as Public is the agreement. A member is told about a member app only if they can open it or run it. Member apps are in the `member_apps` table (migration `0011_member_apps.sql`) and are switched off until [configured](member-apps.md#switching-member-apps-on).
+
 ## Remote MCP clients
 
 Consultants using the shared `/mcp` endpoint connect through Slice's own OAuth sign-in: their AI app opens the `/authorize` approval page, which uses their Slice session (signing in with Google first if needed), and they choose **Allow**. The grant carries their sign-in subject and email, so every request reloads current D1 membership. Suspending or revoking a member stops their connected apps on the next request, and members can disconnect apps under **Connected apps** on their account page; no separate MCP role database or shared service login exists. Tools require app access plus their declared action, and calls recheck permissions immediately before dispatch. MCP does not enroll a new member; use the browser account/approval flow first. See [MCP setup and tool contracts](mcp.md).

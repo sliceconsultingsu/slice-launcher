@@ -1098,13 +1098,30 @@ button.member-row:hover,
   font-weight: 700;
 }
 .member-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
   margin-top: 32px;
-  padding-top: 24px;
+  padding-top: 28px;
   border-top: 1px solid var(--line);
+  font-size: 15px;
 }
 .member-panel h3 {
-  margin: 24px 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  margin: 14px 0 0;
 }
 .member-panel h3:first-child {
   margin-top: 0;
+}
+.member-panel p {
+  margin: 0;
+}
+.member-panel .manage-list,
+.member-panel .manage-confirm {
+  align-self: stretch;
+}
+.member-panel .manage-list li {
+  justify-content: space-between;
 }

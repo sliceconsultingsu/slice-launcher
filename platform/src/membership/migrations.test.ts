@@ -104,3 +104,32 @@ it("upgrades the frozen prior schema without losing existing members or audit hi
     ),
   ).toEqual(files);
 });
+it("loads app settings and no member apps while only the member apps tables are missing", async () => {
+  // The state between the release of member apps and its migration: 0010 applied, 0011 not.
+  const partial = await database();
+  try {
+    const { db } = partial;
+    await migrate(db);
+    await db.batch([
+      db.prepare("DROP TABLE member_apps"),
+      db.prepare("DROP TABLE member_app_versions"),
+      db.prepare(
+        `INSERT INTO app_settings(id, document) VALUES ('alumni', '{"id":"alumni","visibility":"public","managers":[],"people":[]}')`,
+      ),
+    ]);
+    const state = await new Repository(db).load();
+    expect(state.memberApps).toEqual([]);
+    expect(state.apps).toEqual([{ id: "alumni", visibility: "public", managers: [], people: [] }]);
+  } finally {
+    await partial.runtime.dispose();
+  }
+});
+it("does not hide a database failure that is not a missing table", async () => {
+  const failing = {
+    prepare: () => ({ bind: () => ({}) }),
+    batch: async () => {
+      throw new Error("D1_ERROR: database is locked");
+    },
+  };
+  await expect(new Repository(failing as never).load()).rejects.toThrow("database is locked");
+});
