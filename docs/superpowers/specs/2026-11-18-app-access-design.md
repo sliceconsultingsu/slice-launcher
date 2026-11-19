@@ -1,6 +1,6 @@
 # App access: each app is Public or Private, run by its own managers
 
-Status: **proposed on November 18, 2026, awaiting Ivan's approval.** Nothing here is built. Decisions marked _(Ivan)_ are his, from the design conversation. Decisions marked _(proposed)_ were made while writing this and need his check.
+Status: **approved by Ivan on November 18, 2026.** This is the design the implementation follows. Decisions marked _(Ivan)_ are his, from the design conversation. Decisions marked _(proposed)_ were made while writing this; he approved them with the design.
 
 ## Why
 
