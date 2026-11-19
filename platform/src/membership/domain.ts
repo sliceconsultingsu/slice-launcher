@@ -1,4 +1,13 @@
-import { commandSchema, emailSchema, MembershipError, permissionCatalog } from "./contracts";
+import { apps } from "../lib/apps";
+import type { AppDescriptor } from "../platform/contracts";
+import { appPermissions } from "./app-access";
+import {
+  commandSchema,
+  emailSchema,
+  MembershipError,
+  organizationPermissions,
+  permissionCatalog,
+} from "./contracts";
 import type {
   Audit,
   Identity,
@@ -22,15 +31,28 @@ export function emptyState(ownerEmail: string | null): State {
     ownerClaimed: false,
     members: [],
     levels: [{ id: "member", name: "Member", permissions: ["members.read"] }],
+    apps: [],
   };
 }
-export function effectivePermissions(state: State, member: Member): string[] {
+/**
+ * Everything this member may do. Organization permissions come from their level and individual
+ * grants; app permissions come only from each app's own settings. Pages, app APIs and AI tools
+ * all ask here, so this is the one place the rules live.
+ */
+export function effectivePermissions(
+  state: State,
+  member: Member,
+  catalog: readonly AppDescriptor[] = apps,
+): string[] {
   if (member.status !== "active") return [];
-  if (member.owner) return permissionCatalog.map((p) => p.id).sort();
+  const organization = organizationPermissions.map((p) => p.id);
   const base = state.levels.find((level) => level.id === member.levelId)?.permissions ?? [];
-  return [...new Set([...base, ...member.allow])]
-    .filter((p) => !member.deny.includes(p) && permissionCatalog.some((item) => item.id === p))
-    .sort();
+  const held = member.owner
+    ? organization
+    : [...new Set([...base, ...member.allow])].filter(
+        (p) => organization.includes(p) && !member.deny.includes(p),
+      );
+  return [...held, ...catalog.flatMap((app) => appPermissions(state, member, app))].sort();
 }
 function subjectMember(state: State, subject: string): Member {
   return state.members.find((m) => m.subject === subject) ?? fail(403, "Membership not found.");

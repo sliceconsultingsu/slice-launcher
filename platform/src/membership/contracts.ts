@@ -1,11 +1,16 @@
 import { z } from "zod";
 import { apps } from "../lib/apps";
 
-export const permissionCatalog = [
+/** What a member can do across Slice. These come from access levels and individual grants. */
+export const organizationPermissions = [
   { id: "members.read", label: "View member directory" },
   { id: "members.manage", label: "Add and manage members" },
   { id: "levels.manage", label: "Create and edit access levels" },
   { id: "audit.read", label: "View access history" },
+];
+/** Every permission there is. App permissions come only from each app's own settings. */
+export const permissionCatalog = [
+  ...organizationPermissions,
   ...apps.flatMap((app) => [
     { id: `app.${app.id}.open`, label: `Open ${app.name}` },
     ...app.permissions.map((permission) => ({
@@ -44,12 +49,26 @@ export interface Level {
   name: string;
   permissions: string[];
 }
+/**
+ * Who can open one app and who runs it, set on the app's own page. An app with no saved settings
+ * is private with nobody added, so only owners can open it.
+ */
+export interface AppSettings {
+  id: string;
+  /** Public: every active member. Private: only the people listed. */
+  visibility: "private" | "public";
+  /** Member IDs. A manager can change these settings and holds all of the app's permissions. */
+  managers: string[];
+  /** Member IDs with the extra powers each was given, as the app declares them (e.g. "admin"). */
+  people: { memberId: string; powers: string[] }[];
+}
 export interface State {
   revision: number;
   ownerEmail: string | null;
   ownerClaimed: boolean;
   members: Member[];
   levels: Level[];
+  apps: AppSettings[];
 }
 export interface Audit {
   id: string;
