@@ -20,7 +20,7 @@ afterAll(async () => {
 
 const who = (name: string) => ({ subject: `${name}-sub`, email: `${name}@example.test` });
 /** An owner and active members Ana and Max; Pia has only asked to join. */
-async function setup(options: { memberApps?: boolean } = {}) {
+async function setup(options: { memberApps?: boolean; server?: boolean } = {}) {
   const repository = new Repository(fixture.db);
   for (const name of ["owner", "ana", "max", "pia"]) {
     let state = await repository.load();
@@ -52,7 +52,14 @@ async function setup(options: { memberApps?: boolean } = {}) {
     }
   }
   const files = memoryFiles();
-  const memberApps = new MemberApps({ repository, files, origin: "https://slice.example" });
+  const memberApps = new MemberApps({
+    repository,
+    files,
+    origin: "https://slice.example",
+    ...(options.server
+      ? { cloud: { ensureDatabase: async () => "db-1", uploadServer: async () => {} } }
+      : {}),
+  });
   const adapter = (name: string) =>
     createMcpAdapter({
       catalog: [],
@@ -113,6 +120,43 @@ describe("the tools a builder's AI gets", () => {
     const publish = listed.find((tool) => tool.name === "slice_app_publish")!.description;
     for (const fact of ["index.html", "1 MB", "50 files", "/__slice/me", "own address"])
       expect(publish).toContain(fact);
+  });
+
+  it("says an app is screens only while server code is off, and how to write it once it is on", async () => {
+    const describe = async (server: boolean) =>
+      (await (await setup({ server })).send("ana", "tools/list", {})).body.result!.tools!.find(
+        (tool) => tool.name === "slice_app_publish",
+      )!.description;
+    const off = await describe(false);
+    expect(off).toContain("no server code and no database yet");
+    expect(off).not.toContain("env.DB");
+    const on = await describe(true);
+    for (const fact of [
+      "worker.js",
+      "env.DB",
+      "/api/",
+      "X-Slice-Member-Id",
+      "CREATE TABLE IF NOT EXISTS",
+      "cannot call any other service",
+    ])
+      expect(on).toContain(fact);
+    expect(on).not.toContain("no server code and no database yet");
+  });
+
+  it("publishes server code through the tool when it is on", async () => {
+    const { call } = await setup({ server: true });
+    await call("ana", "slice_app_create", notes);
+    const published = await call(
+      "ana",
+      "slice_app_publish",
+      version({
+        files: [
+          { path: "index.html", text: page },
+          { path: "worker.js", text: "export default { fetch() { return new Response('hi') } }" },
+        ],
+      }),
+    );
+    expect(published.structuredContent).toMatchObject({ version: 1, server: true, files: 1 });
   });
 
   it("does not offer them while member apps are switched off", async () => {

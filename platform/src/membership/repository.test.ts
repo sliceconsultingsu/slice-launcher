@@ -352,6 +352,7 @@ const version = (overrides: Record<string, unknown> = {}) => ({
   at: "2026-11-19T12:00:00Z",
   publishedBy: "owner-member",
   store: "11111111-1111-4111-8111-111111111111",
+  server: null,
   name: "Notes",
   description: "Shared notes.",
   guide: "# Notes",

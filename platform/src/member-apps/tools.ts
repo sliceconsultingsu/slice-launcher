@@ -15,10 +15,21 @@ const CREATE = `Create a new Slice app for the signed-in member, who becomes the
 
 The ID is permanent and becomes the app's address (https://<id>.<Slice's host>): 3 to 32 lower-case letters, digits and single hyphens, starting with a letter. Ask the member what to call the app if they have not said. Then call slice_app_publish.`;
 
-const PUBLISH = `Publish a version of an app the member runs. It goes live at once, at the app's own address, for the people the member has shared it with. Every version is kept, and publishing again replaces what is live.
+const SCREENS_ONLY = `- Screens only: HTML, CSS, JavaScript and images, sent here as files. There is no server code and no database yet, so an app cannot save anything between visits or share data between people. Do not use localStorage as if it were shared storage, and tell the member plainly if what they want needs saved data.`;
+
+const WITH_SERVER = `- Screens (HTML, CSS, JavaScript and images, sent here as files) and, when the app needs to save or share data, server code: one extra file named worker.js.
+- worker.js is an ES module: export default { async fetch(request, env) { ... } }. It answers every address under /api/; the launcher answers everything else from the app's files. Pages call it with fetch("/api/...").
+- env.DB is the app's own database, and the only thing worker.js can reach. It is SQLite (Cloudflare D1): await env.DB.prepare("SELECT ... WHERE id = ?").bind(id).all(), .first() or .run(). It starts empty and is shared by every version of the app, so create tables with CREATE TABLE IF NOT EXISTS before using them, and keep existing data working when you change them.
+- Every request to worker.js carries who is asking, set by the launcher: X-Slice-Member-Id, X-Slice-Member-Name (percent-encoded), X-Slice-Manager ("true" or "false") and X-Slice-Powers (comma-separated). Trust these and nothing else; there are no cookies. Decide in worker.js who may read or change what, and check it there, not only on the page.
+- worker.js cannot call any other service (fetch to another address is refused), holds no secrets, gets 50 ms of processing per request, and receives at most 1 MB per request. Changes (POST, PUT, DELETE) are accepted only from the app's own pages.
+- An app with nothing to save needs no worker.js. Do not use localStorage as if it were shared storage.`;
+
+const publish = (
+  server: boolean,
+) => `Publish a version of an app the member runs. It goes live at once, at the app's own address, for the people the member has shared it with. Every version is kept, and publishing again replaces what is live.
 
 What an app is, in this release:
-- Screens only: HTML, CSS, JavaScript and images, sent here as files. There is no server code and no database yet, so an app cannot save anything between visits or share data between people. Do not use localStorage as if it were shared storage, and tell the member plainly if what they want needs saved data.
+${server ? WITH_SERVER : SCREENS_ONLY}
 - index.html is required and is the first screen. Folders are fine ("css/site.css"); "folder/" serves "folder/index.html".
 - Allowed file types: html, css, js, mjs, json, txt, md, csv, svg, png, jpg, jpeg, gif, webp, ico, woff2. Send text files as "text" and images or fonts as "base64".
 - Limits: 50 files, 512 KB per file, 1 MB in total.
@@ -85,7 +96,7 @@ export function registerMemberAppTools(server: McpServer, service: MemberApps, i
   server.registerTool(
     "slice_app_publish",
     {
-      description: PUBLISH,
+      description: publish(service.serverEnabled),
       inputSchema: z
         .object({
           id: z.string().describe("The ID of an app the member runs."),
