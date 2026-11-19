@@ -1,5 +1,6 @@
 // Where the launcher lives, and which earlier addresses send people there. Both come from
 // configuration (platform/wrangler.jsonc); see docs/launcher-address.md.
+import { validAppId } from "../member-apps/rules";
 
 export type AddressEnv = {
   /** The one address Slice tells people to use, for example "https://sliceos.app". */
@@ -35,6 +36,21 @@ export function movedTo(url: URL, env: AddressEnv): string | null {
   const target = launcher(env.LAUNCHER_ORIGIN);
   if (!target || former.includes(host(target.hostname))) return null;
   return `${target.origin}${url.pathname}${url.search}`;
+}
+
+/**
+ * Whether a request is for a member app's address. Returns the app's ID for a name directly under
+ * the launcher's host; "" for any other name under it, which is nobody's address and must never
+ * reach the launcher's own pages or sign-in; and null for everything else, the launcher included.
+ */
+export function appHost(url: URL, env: AddressEnv): string | null {
+  const home = launcher(env.LAUNCHER_ORIGIN);
+  if (!home) return null;
+  const suffix = `.${host(home.hostname)}`;
+  const name = host(url.hostname);
+  if (!name.endsWith(suffix)) return null;
+  const label = name.slice(0, -suffix.length);
+  return validAppId(label) ? label : "";
 }
 
 /** A member app's address: its ID as a name under the launcher's host. */

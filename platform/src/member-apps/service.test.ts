@@ -104,8 +104,13 @@ describe("creating and publishing through the launcher", () => {
       live: true,
       files: 2,
     });
-    expect(files.keys()).toEqual(["notes/1/app.js", "notes/1/index.html"]);
-    expect(await repository.version("notes", 1)).toMatchObject({
+    const first = await repository.version("notes", 1);
+    expect(first!.store).toMatch(/^[0-9a-f-]{36}$/);
+    expect(files.keys()).toEqual([
+      `notes/${first!.store}/app.js`,
+      `notes/${first!.store}/index.html`,
+    ]);
+    expect(first).toMatchObject({
       appId: "notes",
       version: 1,
       publishedBy: "ana-member",
@@ -149,6 +154,58 @@ describe("creating and publishing through the launcher", () => {
     await expect(apps.publish(who("ana"), "notes", bundle())).rejects.toThrow("store unavailable");
     expect((await repository.load()).memberApps).toMatchObject([{ live: null, latest: 0 }]);
     expect(await repository.versions("notes")).toEqual([]);
+  });
+
+  it("keeps the winner's files when two people publish at the same moment", async () => {
+    const { repository, files, save } = await setup();
+    const apps = new MemberApps({ repository, files, origin: "https://slice.example" });
+    await apps.create(who("ana"), notes);
+    await save("ana-sub", {
+      type: "app.update",
+      id: "notes",
+      visibility: "private",
+      managers: ["ana-member", "max-member"],
+      people: [],
+    });
+    // Ana's publish is held just before her files are stored; Max's whole publish happens first.
+    let held = false;
+    const slow = new MemberApps({
+      repository,
+      origin: "https://slice.example",
+      files: {
+        get: files.get,
+        async put(appId, store, list) {
+          if (!held) {
+            held = true;
+            await apps.publish(
+              who("max"),
+              "notes",
+              bundle({ files: [{ path: "index.html", text: "from Max" }] }),
+            );
+          }
+          await files.put(appId, store, list);
+        },
+      },
+    });
+    expect(
+      await status(() =>
+        slow.publish(
+          who("ana"),
+          "notes",
+          bundle({
+            files: [
+              { path: "index.html", text: "from Ana" },
+              { path: "extra.js", text: "1" },
+            ],
+          }),
+        ),
+      ),
+    ).toBe(409);
+    const live = await repository.version("notes", 1);
+    expect(live).toMatchObject({ publishedBy: "max-member", files: [{ path: "index.html" }] });
+    const served = await files.get("notes", live!.store, "index.html");
+    expect(new TextDecoder().decode(served!.body)).toBe("from Max");
+    expect(await files.get("notes", live!.store, "extra.js")).toBeNull();
   });
 
   it("refuses someone who is not an active member, whatever they ask", async () => {

@@ -39,6 +39,9 @@
     // (comma-separated). An empty FORMER_HOSTS redirects nothing: both addresses serve.
     // The workers.dev address must stay switched on (workers_dev above) for its redirect to work.
     "LAUNCHER_ORIGIN": "https://sliceos.app",
+    // Member apps (docs/member-apps.md) stay off until this is exactly "true" and the APP_FILES
+    // store is bound. Off: no app address is served and the app tools are not offered.
+    "MEMBER_APPS_ENABLED": "false",
     "FORMER_HOSTS": "slice-launcher.ivan27chen.workers.dev",
   },
   // Grants, passes and AI activity records for Slice's own AI sign-in (namespace

@@ -34,7 +34,7 @@ const allowed = [...Object.keys(TEXT_TYPES), ...Object.keys(BINARY_TYPES)].join(
 
 // Folders and names of letters, digits, dots, hyphens and underscores. Each starts with a letter
 // or digit, so nothing can be hidden (".env"), climb out ("..") or start from the root.
-const pathPattern = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
+export const pathPattern = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
 
 const input = z.strictObject({
   name: z.string().trim().min(1).max(80),

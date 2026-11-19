@@ -93,6 +93,11 @@ export interface VersionRecord {
   at: string;
   /** The member who published it. */
   publishedBy: string;
+  /**
+   * Where this publish's files are in the launcher's file store. Unique to the publish, so two
+   * publishes at the same moment can never write over each other's files.
+   */
+  store: string;
   name: string;
   description: string;
   /** Markdown shown on the app's page in the launcher. */

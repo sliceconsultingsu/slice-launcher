@@ -66,7 +66,8 @@ export class MemberApps {
 
   /**
    * Publishes a version and puts it live. The files are stored before the change is saved, so a
-   * version is never live without its files; if the save is refused the stored files are unused.
+   * version is never live without its files. They are stored under a key unique to this publish:
+   * if the save is refused (someone else published first), these files are simply never served.
    */
   async publish(identity: Identity, id: string, value: unknown) {
     const bundle = readBundle(value);
@@ -90,6 +91,7 @@ export class MemberApps {
       version: app.latest,
       at: stamp.now,
       publishedBy: mutation.audit.actorId,
+      store: stamp.id,
       name: app.name,
       description: app.description,
       guide: bundle.guide,
@@ -100,7 +102,7 @@ export class MemberApps {
         size: file.body.byteLength,
       })),
     };
-    await this.deps.files.put(id, app.latest, bundle.files);
+    await this.deps.files.put(id, version.store, bundle.files);
     await this.deps.repository.commit(state, mutation, { version });
     return {
       id,

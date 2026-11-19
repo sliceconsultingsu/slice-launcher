@@ -72,6 +72,12 @@ const defaultHandler = {
 
 export default createSliceWorker({
   defaultHandler,
+  // Stands in for the member apps front door: says which app it was asked for. "paused" is an
+  // app address while member apps are switched off.
+  memberApp: (request, _env, appId) =>
+    appId === "paused"
+      ? null
+      : Promise.resolve(new Response(`app:${appId}:${new URL(request.url).pathname}`)),
   mcp: (request, identity) =>
     createMcpAdapter({
       catalog: [],
