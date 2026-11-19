@@ -57,9 +57,15 @@ async function serve(t, fixture, fault = {}) {
           me: { email: emails.owner, status: "active" },
           permissions: ["app.alumni.open"],
           members: joined ? [{ email: emails.newcomer, status: "pending" }] : [],
+          apps: [{ id: "alumni", canOpen: true, canManage: true }],
         });
       if (who === "pending")
-        return send(200, { me: { status: "pending" }, permissions: [], members: [] });
+        return send(200, {
+          me: { status: "pending" },
+          permissions: [],
+          members: [],
+          apps: [{ id: "alumni", canOpen: Boolean(fault.pendingSeesApp), canManage: false }],
+        });
       return joined
         ? send(200, { revision: 1, me: { email: emails.newcomer, status: "pending" } })
         : send(200, { needsEnrollment: true });
@@ -67,6 +73,11 @@ async function serve(t, fixture, fault = {}) {
     const permitted = who === "owner" || fault.pendingReadsRecords;
     if (path === "/api/apps/alumni/records")
       return permitted ? send(200, { alumni: [] }) : send(403, { error: "No access." });
+    if (path === "/about/alumni") return send(200, undefined, { "content-type": "text/html" });
+    if (path === "/guides/alumni")
+      return fault.oldGuideLinkBreaks
+        ? send(404, { error: "Not found." })
+        : send(308, undefined, { location: "/about/alumni" });
     if (path === "/apps/alumni")
       return who === "owner"
         ? send(200, undefined, { "content-type": "text/html" })
@@ -122,5 +133,21 @@ test("fails when signing out everywhere leaves another device signed in", async 
   await assert.rejects(
     checkSignedIn(await serve(t, fixture, { everywhereEndsOneSession: true }), fixture),
     /Signing out everywhere must end every session/,
+  );
+});
+
+test("fails when a pending member is told they can open an app", async (t) => {
+  const fixture = signedInFixture();
+  await assert.rejects(
+    checkSignedIn(await serve(t, fixture, { pendingSeesApp: true }), fixture),
+    /pending member must not be shown any app/,
+  );
+});
+
+test("fails when an old guide link no longer reaches the app's page", async (t) => {
+  const fixture = signedInFixture();
+  await assert.rejects(
+    checkSignedIn(await serve(t, fixture, { oldGuideLinkBreaks: true }), fixture),
+    /old guide link must lead to the app's page/,
   );
 });
