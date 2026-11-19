@@ -16,7 +16,7 @@ Give the exact navigation steps for the verified client/version. Do not invent m
 
 ## 2. Check the person’s Slice account
 
-Direct the person to [their Slice account](https://slice-launcher.ivan27chen.workers.dev/account). Have them choose **Sign in with Google** and use the Google account Slice knows them by (normally their Syracuse account). If asked, they should create their member profile and wait for approval. They must have active membership before using tools.
+Direct the person to [their Slice account](https://sliceos.app/account). Have them choose **Sign in with Google** and use the Google account Slice knows them by (normally their Syracuse account). If asked, they should create their member profile and wait for approval. They must have active membership before using tools.
 
 The person enters their password, verification codes and any consent directly in the sign-in window. Never request these in chat, read or copy browser cookies, or ask for a shared service token. A sign-in identifies the person; membership determines what they can do.
 
@@ -26,18 +26,18 @@ The person enters their password, verification codes and any consent directly in
 
 Once the person's membership is active, guide the person to the client’s verified connector/MCP settings and enter:
 
-| Setting        | Value                                               |
-| -------------- | --------------------------------------------------- |
-| Name           | Slice                                               |
-| Server address | `https://slice-launcher.ivan27chen.workers.dev/mcp` |
-| Connection     | Remote / Streamable HTTP                            |
-| Sign-in        | OAuth through the client’s browser sign-in flow     |
+| Setting        | Value                                           |
+| -------------- | ----------------------------------------------- |
+| Name           | Slice                                           |
+| Server address | `https://sliceos.app/mcp`                       |
+| Connection     | Remote / Streamable HTTP                        |
+| Sign-in        | OAuth through the client’s browser sign-in flow |
 
 Verified client menus, checked November 5, 2026 against Anthropic and OpenAI help pages:
 
 - **Claude** (web and desktop): Customize → Connectors → Add → Add custom connector. Free plans allow one custom connector; on Team and Enterprise plans an owner adds it for the organization first, then each member connects.
 - **ChatGPT**: Plugins → + → Add custom MCP server, with OAuth. Full MCP support is on Business, Enterprise and Edu plans; other plans may be limited to read-only tools.
-- **Claude Code**: `claude mcp add --transport http slice https://slice-launcher.ivan27chen.workers.dev/mcp`, then sign in when prompted.
+- **Claude Code**: `claude mcp add --transport http slice https://sliceos.app/mcp`, then sign in when prompted.
 
 Any MCP-capable app may connect. Slice does not keep a list of approved apps, so help the person choose one they trust with Slice information. The approval page names Claude and ChatGPT when the connection returns to them, and warns when it returns to an address Slice does not recognize; that warning is expected for other AI apps and is a reason to stop if the person did not start the connection themselves.
 

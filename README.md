@@ -4,7 +4,7 @@
 
 One home for Slice Consulting's internal tools. Consultants sign in once; each tool uses the same account, permissions and release process.
 
-**Live app:** [slice-launcher.ivan27chen.workers.dev](https://slice-launcher.ivan27chen.workers.dev) — sign in with your approved Slice account.
+**Live app:** [sliceos.app](https://sliceos.app) — sign in with your approved Slice account.
 
 **Joining the alumni team? Start with [the beginner team guide](docs/team/README.md).** It includes your workspace, first task and review routine.
 
@@ -12,15 +12,15 @@ One home for Slice Consulting's internal tools. Consultants sign in once; each t
 
 ## Start here
 
-| I want to…                             | Go to…                                                                                             |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Use the platform                       | [Open Slice](https://slice-launcher.ivan27chen.workers.dev) and sign in with your approved account |
-| Understand the folders                 | [Repository map](docs/repository-map.md)                                                           |
-| Build or change an app                 | [Contributing](CONTRIBUTING.md), then [add an app](docs/adding-an-app.md)                          |
-| Work with an AI coding agent           | Ask it to read [AGENTS.md](AGENTS.md) first                                                        |
-| Understand roles and access            | [Membership guide](docs/membership.md)                                                             |
-| Connect an approved AI client          | [Connect your AI](docs/connect-your-ai.md)                                                         |
-| Find technical or operational guidance | [Documentation index](docs/README.md)                                                              |
+| I want to…                             | Go to…                                                                    |
+| -------------------------------------- | ------------------------------------------------------------------------- |
+| Use the platform                       | [Open Slice](https://sliceos.app) and sign in with your approved account  |
+| Understand the folders                 | [Repository map](docs/repository-map.md)                                  |
+| Build or change an app                 | [Contributing](CONTRIBUTING.md), then [add an app](docs/adding-an-app.md) |
+| Work with an AI coding agent           | Ask it to read [AGENTS.md](AGENTS.md) first                               |
+| Understand roles and access            | [Membership guide](docs/membership.md)                                    |
+| Connect an approved AI client          | [Connect your AI](docs/connect-your-ai.md)                                |
+| Find technical or operational guidance | [Documentation index](docs/README.md)                                     |
 
 ## Recommended AI models
 

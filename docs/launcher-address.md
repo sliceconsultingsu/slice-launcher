@@ -1,6 +1,6 @@
 # The launcher's address
 
-The launcher is moving from `slice-launcher.ivan27chen.workers.dev` to `https://sliceos.app`. This guide is for the maintainer who makes the move. It happens in two steps so that nothing a member sees changes until the new address has been checked.
+The launcher lives at `https://sliceos.app`. Its first address, `slice-launcher.ivan27chen.workers.dev`, redirects there. This guide records how the move was made, in two steps so that nothing a member saw changed until the new address had been checked, and how to go back.
 
 | Step                | What changes                                                               | What members notice                        |
 | ------------------- | -------------------------------------------------------------------------- | ------------------------------------------ |
