@@ -242,9 +242,7 @@ export function applyCommand(
       managers: command.managers,
       people: [...command.people].sort((a, b) => a.memberId.localeCompare(b.memberId)),
     };
-    state.apps = [...state.apps.filter((item) => item.id !== app.id), settings].sort((a, b) =>
-      a.id.localeCompare(b.id),
-    );
+    state.apps = [...state.apps.filter((item) => item.id !== app.id), settings];
     return finish(state, meta, actor.id, command.type, app.id, before, settings);
   }
   requirePermission("members.manage");

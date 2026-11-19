@@ -142,6 +142,12 @@ describe("who runs an app", () => {
     },
   );
 
+  it("gives a suspended person none of an app's permissions when asked directly", () => {
+    const sam = member("sam", { status: "suspended" });
+    const s = state([settings({ visibility: "public", managers: ["sam"] })], [sam]);
+    expect(appPermissions(s, sam, notes)).toEqual([]);
+  });
+
   it("gives a suspended owner no say over an app", () => {
     const olu = member("olu", { owner: true, status: "suspended" });
     expect(managesApp(state([], [olu]), olu, "notes")).toBe(false);

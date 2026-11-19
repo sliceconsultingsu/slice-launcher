@@ -18,7 +18,7 @@ Build the UI in the module's `Page` and any API in `api`. Import `AppModule` and
 
 ## Icon and guide
 
-The launcher shows each app as a card with its icon, name, description, and **Open** and **Guide** buttons. Before opening a PR:
+The launcher shows each app as a card with its icon, name, description, and **Open** and **Details** buttons. **Details** opens the app's own page: its guide, and its settings for the people who run it. Before opening a PR:
 
 1. Replace `icon.svg` with the app's own square icon (or use `icon.png`), following [app icons](design-profile.md#app-icons).
 2. Fill in the README's `## Icon` section: who made it, how, and its licence.
@@ -29,7 +29,7 @@ The launcher shows each app as a card with its icon, name, description, and **Op
 
 ## Permissions
 
-Registration automatically adds `app.my-tool.open` to the existing permission editor. An active owner can open every registered app. Other members need an administrator to grant access through their level or individual permissions. Revocation takes precedence for nonowners. New sign-ins still follow the existing enrollment/approval flow.
+Registration creates `app.my-tool.open` plus the actions the app declares. A new app is private with nobody added: an active owner can open every registered app, and names the app's managers on its page. Managers then make it Public (every active member) or add people by name; see [app access](membership.md#app-access). Mark a declared permission `"withAccess": true` if everyone who can open the app should hold it (ordinary use); leave it out for an extra power that managers give to named people (administration). `pnpm check:platform` accepts only `true`. New sign-ins still follow the existing enrollment/approval flow.
 
 Both page and API dispatch verify the Access token, load current membership from D1, and enforce the app capability before calling module code. Pending/suspended members are denied, including with an old valid session. Context exposes only the current member's ID/name/email and app-scoped permissions. App modules are trusted code in the same Worker, not a sandbox: server code could still import platform internals and read the membership database directly, and no automated check currently stops that. Use only the context and your app's own storage, and reviewers should reject any app that reaches into membership or platform internals. API responses are sent as `private, no-store`, and any `Set-Cookie` or `Clear-Site-Data` header an app sets is removed, because apps share the platform's origin and sign-in cookie.
 

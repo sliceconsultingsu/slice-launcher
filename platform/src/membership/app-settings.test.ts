@@ -165,6 +165,15 @@ describe("saving an app's settings", () => {
     ["a power the app does not declare", { people: [{ memberId: "ANA", powers: ["retired"] }] }],
     ["a power that comes with access", { people: [{ memberId: "ANA", powers: ["records.read"] }] }],
     ["the open permission as a power", { people: [{ memberId: "ANA", powers: ["open"] }] }],
+    [
+      "a person listed twice",
+      {
+        people: [
+          { memberId: "ANA", powers: [] },
+          { memberId: "ANA", powers: ["admin"] },
+        ],
+      },
+    ],
     ["a visibility that does not exist", { visibility: "everyone" }],
     ["an extra field", { owner: true }],
   ])("refuses %s", (_name, overrides) => {
@@ -194,6 +203,31 @@ describe("app access and the rest of membership", () => {
     });
     expect(status(() => act(state, edit("allow")))).toBe(400);
     expect(status(() => act(state, edit("deny")))).toBe(400);
+  });
+
+  it("still stops a membership administrator from editing a level an owner is on", () => {
+    const { state, ids } = organization();
+    let s = act(state, {
+      type: "level.save",
+      name: "Admin",
+      permissions: ["members.read", "members.manage", "levels.manage"],
+    });
+    const admin = s.levels.find((level) => level.name === "Admin")!.id;
+    s = act(s, {
+      type: "member.update",
+      id: ids.sam,
+      status: "active",
+      levelId: admin,
+      allow: [],
+      deny: [],
+      owner: false,
+    });
+    // The owner sits on the basic level; Sam may edit levels but not that one.
+    expect(
+      status(() =>
+        act(s, { type: "level.save", id: "member", name: "Member", permissions: [] }, "sam"),
+      ),
+    ).toBe(403);
   });
 
   it("takes a removed member off every app", () => {

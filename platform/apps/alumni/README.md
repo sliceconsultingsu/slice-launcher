@@ -37,7 +37,7 @@ The data dictionary, [`data/DATA-DICTIONARY.md`](data/DATA-DICTIONARY.md), descr
 
 ## Permissions
 
-Declared in [`app.json`](app.json). Owners inherit all three.
+Declared in [`app.json`](app.json). `records.read` comes with access: everyone who can open the app holds it. The other two are extra powers the app's managers give to named people on the app's page. Owners and the app's managers hold all three.
 
 | Action         | Lets a member                                                                          |
 | -------------- | -------------------------------------------------------------------------------------- |
@@ -152,7 +152,7 @@ Before a PR run all [contributor checks](../../../CONTRIBUTING.md#4-implement-an
 These are the maintainer's steps and are not done by merging code:
 
 1. Apply migrations `0004` to `0008`, in order, through the approved process in [migrations](../../../docs/migrations.md). The app's pages fail until they are applied.
-2. Grant `admin` and `refresh.run` to the members who should hold them.
+2. On the app's page (**Details** on its launcher tile), name its managers, choose Public or add people by name, and tick **Manage alumni data…** (`admin`) and **Run the alumni refresh…** (`refresh.run`) for the people who should hold them. Making the app Public opens alumni contact details to every active member, and to each invited person as they sign in.
 3. Load the alumni contact book on the **Add alumni** screen by pasting its rows, headings included. The screen reads the book's own columns: Name, Company, Role, Industry, Email, LinkedIn, Grad Year and Date updated. Every industry label the book uses is on the app's list, including Sales, Communications, Recruiting/HR and Other; its shorter labels Finance, Marketing and Government are understood. An unknown label is refused by row number with the industries to choose from.
 4. Remove `"workInProgress": true` from `app.json` when the app is ready.
 
@@ -193,7 +193,7 @@ IDs identify records, not names. Two people may share a name. Years must be inte
 
 ### Working now
 
-`GET /api/apps/alumni/records` returns `{ dataset: "synthetic", alumni: Alumnus[], students: Student[] }`. The platform requires active membership and `app.alumni.open`; the app additionally requires `app.alumni.records.read`. HEAD has no body. Writes return 405; unknown operations return 404. The same app module serves the production platform route and the isolated learning preview.
+`GET /api/apps/alumni/records` returns `{ dataset: "synthetic", alumni: Alumnus[], students: Student[] }`. The platform requires active membership and `app.alumni.open`; the app additionally requires `app.alumni.records.read`, which comes with access to the app. HEAD has no body. Writes return 405; unknown operations return 404. The same app module serves the production platform route and the isolated learning preview.
 
 `AlumniRepository` exposes `listAlumni(): Promise<Alumnus[]>` and `listStudents(): Promise<Student[]>`. The initial adapter is read-only and returns independent fixture copies. `readDirectory(context, repository)` enforces the read action and validates the response. UI code calls the guarded API; it never imports storage or server modules.
 

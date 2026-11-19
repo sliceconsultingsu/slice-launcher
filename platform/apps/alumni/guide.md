@@ -41,7 +41,7 @@ Admins see a fourth section, **Manage**. It counts the three jobs that keep the 
 
 ## Getting access
 
-You need an active Slice membership with **Open Alumni directory** and **Browse alumni, keep a student profile and receive matches**. Admin screens need **Manage alumni data and review proposed changes**. Running the refresh needs **Run the alumni refresh and file proposed changes**. Ask a Slice admin to grant them from the Members page of your account.
+You need an active Slice membership, and the app must be open to you: either it is public, or the people who run it have added you. If you cannot see **Alumni directory** on the launcher, ask the people who run it; a link to the app tells you who they are. Admin screens need **Manage alumni data and review proposed changes**, and running the refresh needs **Run the alumni refresh and file proposed changes**. The app's managers give those to named people on the app's page.
 
 ## Data and privacy
 
