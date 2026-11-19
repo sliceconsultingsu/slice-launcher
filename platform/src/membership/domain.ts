@@ -1,15 +1,15 @@
 import { apps } from "../lib/apps";
 import type { AppDescriptor } from "../platform/contracts";
-import { appPermissions, managesApp } from "./app-access";
+import { appPermissions, managesApp, settingsFor } from "./app-access";
 import {
   commandSchema,
   emailSchema,
   MembershipError,
   organizationPermissions,
-  permissionCatalog,
 } from "./contracts";
 import type {
   AppSettings,
+  AppView,
   Audit,
   Identity,
   Member,
@@ -340,6 +340,24 @@ export function memberView(state: State, subject: string): View {
   const permissions = effectivePermissions(state, me);
   const manage = permissions.includes("members.manage");
   const directory = permissions.includes("members.read") || manage;
+  const appViews: AppView[] = apps.map((app) => {
+    const settings = settingsFor(state, app.id);
+    const canManage = managesApp(state, me, app.id);
+    return {
+      id: app.id,
+      canOpen: permissions.includes(`app.${app.id}.open`),
+      canManage,
+      visibility: settings.visibility,
+      // Names only, and only to active members: the same people the member directory shows.
+      managers:
+        me.status === "active"
+          ? state.members
+              .filter((m) => m.status === "active" && settings.managers.includes(m.id))
+              .map((m) => m.name || "Member")
+          : [],
+      ...(canManage ? { settings } : {}),
+    };
+  });
   return {
     revision: state.revision,
     organization: "Slice Consulting",
@@ -358,6 +376,15 @@ export function memberView(state: State, subject: string): View {
               levelName: state.levels.find((l) => l.id === m.levelId)?.name ?? "",
             })),
     levels: manage || permissions.includes("levels.manage") ? state.levels : [],
-    catalog: manage || permissions.includes("levels.manage") ? permissionCatalog : [],
+    catalog: manage || permissions.includes("levels.manage") ? organizationPermissions : [],
+    apps: appViews,
+    ...(appViews.some((app) => app.canManage)
+      ? {
+          counts: {
+            active: state.members.filter((m) => m.status === "active").length,
+            invited: state.members.filter((m) => m.status === "invited").length,
+          },
+        }
+      : {}),
   };
 }

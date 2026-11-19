@@ -471,3 +471,40 @@ it("never reports success when disconnecting fails: suspension stays saved, remo
     errors.mockRestore();
   }
 });
+
+it("saves an app's settings through the membership API, refusing a stale save", async () => {
+  const repo = new Repository(fixture.db);
+  const owner = { subject: "owner", email: "owner@example.test", emailManaged: true };
+  const post = async (body: unknown) => {
+    try {
+      return await membershipRequest(
+        new Request("https://slice.example/api/membership", {
+          method: "POST",
+          headers: { origin: "https://slice.example", "content-type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+        owner,
+        repo,
+      );
+    } catch (e) {
+      return errorResponse(e);
+    }
+  };
+  const joined = (await (await post({ command: { type: "join" } })).json()) as View;
+  const command = {
+    type: "app.update",
+    id: "alumni",
+    visibility: "public",
+    managers: [joined.me.id],
+    people: [],
+  };
+  const saved = (await (await post({ revision: joined.revision, command })).json()) as View;
+  expect(saved.apps.find((app) => app.id === "alumni")).toMatchObject({
+    canManage: true,
+    visibility: "public",
+    settings: { managers: [joined.me.id] },
+  });
+  const stale = await post({ revision: joined.revision, command: { ...command, managers: [] } });
+  expect(stale.status).toBe(409);
+  expect((await repo.load()).apps[0].managers).toEqual([joined.me.id]);
+});

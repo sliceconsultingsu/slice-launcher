@@ -98,6 +98,17 @@ export interface DirectoryMember {
   title: string;
   levelName: string;
 }
+/** What one person is told about one app: enough to draw their launcher and the app's page. */
+export interface AppView {
+  id: string;
+  canOpen: boolean;
+  canManage: boolean;
+  visibility: AppSettings["visibility"];
+  /** Names of the active members who run the app; empty unless the viewer is an active member. */
+  managers: string[];
+  /** The full settings, only for someone who runs the app. */
+  settings?: AppSettings;
+}
 export interface View {
   revision: number;
   organization: string;
@@ -105,7 +116,12 @@ export interface View {
   permissions: string[];
   members: (DirectoryMember | MemberRecord)[];
   levels: Level[];
-  catalog: typeof permissionCatalog;
+  /** The organization permissions a level or member can be given. */
+  catalog: typeof organizationPermissions;
+  /** One entry per app in the catalog. */
+  apps: AppView[];
+  /** How many people making an app public would reach; only for someone who runs an app. */
+  counts?: { active: number; invited: number };
 }
 export class MembershipError extends Error {
   constructor(
