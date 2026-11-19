@@ -44,6 +44,8 @@ export default defineConfig({
         // The production sign-in path: Slice sessions and Google sign-in.
         "src/membership/session.ts": { statements: 100, branches: 94, functions: 100, lines: 100 },
         "src/membership/google.ts": { statements: 92, branches: 86, functions: 100, lines: 96 },
+        // Which addresses redirect to the launcher's address.
+        "src/platform/address.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
         // Guarded dispatch for apps and AI tools.
         "src/platform/access.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
         "src/platform/dispatch.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },

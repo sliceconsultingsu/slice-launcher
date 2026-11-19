@@ -9,6 +9,7 @@ import {
   type OAuthProviderOptions,
 } from "@cloudflare/workers-oauth-provider";
 import type { Identity, State } from "../membership/contracts";
+import { movedTo, type AddressEnv } from "../platform/address";
 import { withSecurityHeaders } from "../platform/security-headers";
 import { ActivityStore } from "./activity";
 import { returnTarget } from "./supported-apps";
@@ -24,7 +25,7 @@ export const SCOPE = "slice";
 export type GrantProps = { subject: string; email: string; clientId: string; grantId?: string };
 
 export type OAuthEnv = { OAUTH_KV: KVNamespace };
-export type SliceWorkerEnv = OAuthEnv & { OAUTH_LIMITER: RateLimit };
+export type SliceWorkerEnv = OAuthEnv & AddressEnv & { OAUTH_LIMITER: RateLimit };
 type McpHandler<Env> = (request: Request, identity: Identity, env: Env) => Promise<Response>;
 
 /**
@@ -151,7 +152,8 @@ const privatePath = (path: string) =>
   path === "/mcp" || path.startsWith("/oauth/") || path.startsWith("/.well-known/oauth-");
 
 /**
- * The Slice Worker: sends plain HTTP to HTTPS, refuses the unused image endpoint, rate limits
+ * The Slice Worker: sends plain HTTP to HTTPS and retired addresses to the launcher's address
+ * (docs/launcher-address.md), refuses the unused image endpoint, rate limits
  * sign-in endpoints, then hands every request to the OAuth provider, which serves /mcp and the
  * OAuth endpoints and passes everything else to the app.
  */
@@ -175,6 +177,16 @@ export function createSliceWorker<Env extends SliceWorkerEnv>(deps: {
           }),
         );
       }
+      // A retired address answers nothing itself: every request is sent to the launcher's
+      // address with its method, path and query. Not cached, so the setting can be turned off.
+      const moved = movedTo(url, env);
+      if (moved)
+        return withSecurityHeaders(
+          new Response(null, {
+            status: 308,
+            headers: { Location: moved, "Cache-Control": "no-store" },
+          }),
+        );
       if (imageEndpoint(url.pathname))
         return withSecurityHeaders(
           new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } }),

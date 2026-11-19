@@ -33,7 +33,7 @@ Retain the protected GitHub `production` environment, restrict it to protected m
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_API_TOKEN`, scoped to the intended account and Worker with the permissions needed by deploy, deployment status, and rollback.
 
-Repository variable `SLICE_LAUNCHER_URL` identifies the protected production origin. `SLICE_LAUNCHER_DEPLOY_ENABLED=true` enables forward deployment. Production checks run without any credential: Slice's own sign-in has replaced Cloudflare Access (retired November 5, 2026). No production settings are changed by these files alone.
+Repository variable `SLICE_LAUNCHER_URL` identifies the protected production origin; it changes when [the launcher moves to `sliceos.app`](launcher-address.md). `SLICE_LAUNCHER_DEPLOY_ENABLED=true` enables forward deployment. Production checks run without any credential: Slice's own sign-in has replaced Cloudflare Access (retired November 5, 2026). No production settings are changed by these files alone.
 
 Both deploy and rollback share `slice-launcher-production` concurrency, preserve queued jobs, and do not cancel an in-flight production change. Immediately before forward deployment, the job checks whether its commit is still main; superseded commits skip upload. A main update during deployment is handled by the next queued release. Manual rollback intentionally restores the operator-selected prior release even if it is not current main; operators should pause forward deployment during incident recovery when a queued new release would supersede recovery.
 
