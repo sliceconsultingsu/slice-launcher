@@ -833,6 +833,32 @@ describe("an app's server code", () => {
     expect(seen).toEqual([]);
   });
 
+  it("stops reading a body that does not say how long it is once it passes 1 MB", async () => {
+    const { door, enter, seen } = await withServer();
+    const { cookie } = await enter("max");
+    let sent = 0;
+    const chunk = new Uint8Array(64 * 1024);
+    // An endless body: the launcher must give up, not wait for the end.
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        sent += chunk.byteLength;
+        controller.enqueue(chunk);
+      },
+    });
+    const response = await door(
+      new Request("https://notes.slice.example/api/items", {
+        method: "POST",
+        headers: { Cookie: cookie, Origin: "https://notes.slice.example" },
+        body: endless,
+        duplex: "half",
+      } as RequestInit),
+      "notes",
+    );
+    expect(response.status).toBe(413);
+    expect(seen).toEqual([]);
+    expect(sent).toBeLessThan(4 * 1024 * 1024);
+  });
+
   it("never serves the code itself as a file", async () => {
     const { door, enter } = await withServer();
     const { cookie } = await enter("max");

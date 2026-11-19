@@ -86,6 +86,35 @@ function redirect(location: string, status = 302, cookies: string[] = []) {
   return response;
 }
 
+/**
+ * A request's body, or null once it is larger than `most`. It stops reading at the limit, so a
+ * body that does not say how long it is, or goes on for ever, is never held in full.
+ */
+export async function readUpTo(request: Request, most: number): Promise<ArrayBuffer | null> {
+  if (Number(request.headers.get("Content-Length") ?? 0) > most) return null;
+  if (!request.body) return new ArrayBuffer(0);
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > most) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const whole = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    whole.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return whole.buffer;
+}
+
 /** Whether the browser is opening a page (a link, the address bar), not loading something into one. */
 function opening(request: Request): boolean {
   if (request.method !== "GET") return false;
@@ -214,11 +243,9 @@ export function createFrontDoor(deps: FrontDoorDeps) {
       );
       let body: ArrayBuffer | undefined;
       if (!reading) {
-        if (Number(request.headers.get("Content-Length") ?? 0) > MAX_API_BODY_BYTES)
-          return json(413, { error: "That is too much to send in one request." });
-        body = await request.arrayBuffer();
-        if (body.byteLength > MAX_API_BODY_BYTES)
-          return json(413, { error: "That is too much to send in one request." });
+        const read = await readUpTo(request, MAX_API_BODY_BYTES);
+        if (read === null) return json(413, { error: "That is too much to send in one request." });
+        body = read;
       }
       try {
         const answered = await worker.fetch(
