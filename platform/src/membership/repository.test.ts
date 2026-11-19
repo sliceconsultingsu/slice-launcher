@@ -276,3 +276,71 @@ it("counts one member's recent actions of one kind", async () => {
   expect(await repo.actionsSince("pat", "profile.update", "2026-01-01T12:00:00.000Z")).toBe(2);
   expect(await repo.actionsSince("nobody", "profile.update", "2026-01-01T12:00:00.000Z")).toBe(0);
 });
+
+const appUpdate = (overrides: Record<string, unknown> = {}) => ({
+  type: "app.update",
+  id: "alumni",
+  visibility: "private",
+  managers: [],
+  people: [],
+  ...overrides,
+});
+it("keeps an app's settings across a save and reload", async () => {
+  const { repo } = await setup();
+  const before = await repo.load();
+  expect(before.apps).toEqual([]);
+  const saved = applyCommand(
+    before,
+    "owner",
+    appUpdate({ visibility: "public", managers: ["owner-member"] }),
+    { id: "app-one", now: "2026-11-18T12:00:00Z" },
+  );
+  await repo.commit(before, saved);
+  const after = await repo.load();
+  expect(after.apps).toEqual([
+    { id: "alumni", visibility: "public", managers: ["owner-member"], people: [] },
+  ]);
+  expect((await repo.history()).filter((entry) => entry.action === "app.update")).toMatchObject([
+    { id: "app-one", targetId: "alumni", before: null },
+  ]);
+});
+it("writes an app's settings only when they change", async () => {
+  const { repo, db } = await setup();
+  let state = await repo.load();
+  await repo.commit(
+    state,
+    applyCommand(state, "owner", appUpdate({ visibility: "public" }), { id: "a", now: "now" }),
+  );
+  // Mark the stored row; an unrelated save must leave it exactly as it is.
+  await db.prepare("UPDATE app_settings SET document = json_set(document, '$.kept', 1)").run();
+  state = await repo.load();
+  await repo.commit(
+    state,
+    applyCommand(
+      state,
+      "owner",
+      { type: "level.save", name: "Other", permissions: [] },
+      { id: "b", now: "now" },
+    ),
+  );
+  expect(
+    await db.prepare("SELECT json_extract(document, '$.kept') AS kept FROM app_settings").first(),
+  ).toEqual({ kept: 1 });
+});
+it("refuses the second of two saves made from the same starting point", async () => {
+  const { repo } = await setup();
+  const before = await repo.load();
+  const first = applyCommand(before, "owner", appUpdate({ visibility: "public" }), {
+    id: "first",
+    now: "now",
+  });
+  const second = applyCommand(before, "owner", appUpdate({ managers: ["owner-member"] }), {
+    id: "second",
+    now: "now",
+  });
+  await repo.commit(before, first);
+  await expect(repo.commit(before, second)).rejects.toMatchObject({ status: 409 });
+  expect((await repo.load()).apps).toEqual([
+    { id: "alumni", visibility: "public", managers: [], people: [] },
+  ]);
+});

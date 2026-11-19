@@ -1,21 +1,35 @@
 import { MembershipError } from "./contracts";
-import type { Audit, Level, Member, Mutation, State } from "./contracts";
+import type { AppSettings, Audit, Level, Member, Mutation, State } from "./contracts";
 
 type Database = Pick<D1Database, "prepare" | "batch">;
 /** How many history entries one page holds. */
 export const HISTORY_PAGE = 50;
 /** Where a page of history ended: the entry's time and its position in the table. */
 export type HistoryCursor = { at: string; position: number };
+const missingAppSettings = (error: unknown) =>
+  error instanceof Error && /no such table: app_settings/.test(error.message);
 export class Repository {
   constructor(private db: Database) {}
   async load(): Promise<State> {
-    const results = await this.db.batch<Record<string, unknown>>([
+    const core = [
       this.db.prepare(
         "SELECT revision, owner_email, owner_claimed FROM organization WHERE id = 'slice'",
       ),
       this.db.prepare("SELECT document FROM members ORDER BY id"),
       this.db.prepare("SELECT document FROM access_levels ORDER BY name"),
-    ]);
+    ];
+    let results;
+    try {
+      results = await this.db.batch<Record<string, unknown>>([
+        ...core,
+        this.db.prepare("SELECT document FROM app_settings ORDER BY id"),
+      ]);
+    } catch (error) {
+      // Code is released before its migration is applied (docs/migrations.md). Until the
+      // app_settings table exists, every app is private with nobody added.
+      if (!missingAppSettings(error)) throw error;
+      results = [...(await this.db.batch<Record<string, unknown>>(core)), { results: [] }];
+    }
     const meta = results[0].results[0];
     if (!meta) throw new MembershipError(503, "Membership storage is not configured.");
     return {
@@ -24,6 +38,7 @@ export class Repository {
       ownerClaimed: Boolean(meta.owner_claimed),
       members: results[1].results.map((row) => JSON.parse(String(row.document)) as Member),
       levels: results[2].results.map((row) => JSON.parse(String(row.document)) as Level),
+      apps: results[3].results.map((row) => JSON.parse(String(row.document)) as AppSettings),
     };
   }
   async commit(before: State, mutation: Mutation): Promise<void> {
@@ -44,6 +59,17 @@ export class Repository {
             "INSERT INTO access_levels(id, name, document) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, document=excluded.document",
           )
           .bind(level.id, level.name, JSON.stringify(level)),
+      );
+    }
+    for (const app of state.apps) {
+      if (JSON.stringify(before.apps.find((a) => a.id === app.id)) === JSON.stringify(app))
+        continue;
+      statements.push(
+        this.db
+          .prepare(
+            "INSERT INTO app_settings(id, document) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET document=excluded.document",
+          )
+          .bind(app.id, JSON.stringify(app)),
       );
     }
     for (const member of state.members) {
@@ -92,6 +118,8 @@ export class Repository {
     } catch (error) {
       if (error instanceof Error && /membership_revision_match/.test(error.message))
         throw new MembershipError(409, "Membership changed. Reload and try again.");
+      if (missingAppSettings(error))
+        throw new MembershipError(503, "App settings cannot be saved yet. Try again later.");
       throw error;
     }
   }

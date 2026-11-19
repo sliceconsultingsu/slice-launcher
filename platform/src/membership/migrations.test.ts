@@ -53,6 +53,20 @@ it("upgrades the frozen prior schema without losing existing members or audit hi
   await repo.commit(initial, { ...enrolled, audit: enrolled.audit });
   const before = await repo.load();
   const audit = await repo.history();
+  // Code is released before its migration is applied: until then every app is private and
+  // empty, and saving an app's settings is refused rather than failing the whole request.
+  expect(before.apps).toEqual([]);
+  await expect(
+    repo.commit(before, {
+      state: {
+        ...before,
+        revision: before.revision + 1,
+        apps: [{ id: "alumni", visibility: "public", managers: [], people: [] }],
+      },
+      audit: { ...audit[0], id: "too-early" },
+    }),
+  ).rejects.toMatchObject({ status: 503 });
+  expect(await repo.load()).toEqual(before);
   const files = await migrate(db);
   expect(await repo.load()).toEqual(before);
   expect(await repo.history()).toEqual(audit);
