@@ -1,4 +1,6 @@
 import { apps } from "../lib/apps";
+import { catalogFor } from "../member-apps/registry";
+import { APP_LIMIT, appIdProblem } from "../member-apps/rules";
 import type { AppDescriptor } from "../platform/contracts";
 import { appPermissions, managesApp, settingsFor } from "./app-access";
 import { commandSchema, emailSchema, MembershipError, organizationPermissions } from "./contracts";
@@ -8,6 +10,7 @@ import type {
   Audit,
   Identity,
   Member,
+  MemberApp,
   MemberRecord,
   Meta,
   Mutation,
@@ -28,6 +31,7 @@ export function emptyState(ownerEmail: string | null): State {
     members: [],
     levels: [{ id: "member", name: "Member", permissions: ["members.read"] }],
     apps: [],
+    memberApps: [],
   };
 }
 /**
@@ -38,7 +42,7 @@ export function emptyState(ownerEmail: string | null): State {
 export function effectivePermissions(
   state: State,
   member: Member,
-  catalog: readonly AppDescriptor[] = apps,
+  catalog: readonly AppDescriptor[] = catalogFor(state),
 ): string[] {
   if (member.status !== "active") return [];
   const organization = organizationPermissions.map((p) => p.id);
@@ -221,7 +225,8 @@ export function applyCommand(
   }
   if (command.type === "app.update") {
     const app =
-      apps.find((item) => item.id === command.id) ?? fail(400, "Application does not exist.");
+      catalogFor(state).find((item) => item.id === command.id) ??
+      fail(400, "Application does not exist.");
     if (!managesApp(state, actor, app.id))
       fail(403, "Only the people who run this app can change its settings.");
     const known = (memberId: string) =>
@@ -236,14 +241,103 @@ export function applyCommand(
     if (new Set(command.people.map((p) => p.memberId)).size !== command.people.length)
       fail(400, "A person is listed twice.");
     const before = structuredClone(state.apps.find((item) => item.id === app.id) ?? null);
+    // A member app is shown to every member only after an owner has agreed once. Until then a
+    // manager who saves it as Public has asked: the rest of the save applies and it stays Private.
+    const made = state.memberApps.find((item) => item.id === app.id);
+    let visibility = command.visibility;
+    if (made && command.visibility === "public") {
+      if (actor.owner) {
+        made.publicApproved = true;
+        made.publicRequestedBy = null;
+      } else if (!made.publicApproved) {
+        visibility = "private";
+        made.publicRequestedBy = actor.id;
+      }
+    } else if (made && !made.publicApproved) made.publicRequestedBy = null;
     const settings: AppSettings = {
       id: app.id,
-      visibility: command.visibility,
+      visibility,
       managers: command.managers,
       people: [...command.people].sort((a, b) => a.memberId.localeCompare(b.memberId)),
     };
     state.apps = [...state.apps.filter((item) => item.id !== app.id), settings];
-    return finish(state, meta, actor.id, command.type, app.id, before, settings);
+    return finish(
+      state,
+      meta,
+      actor.id,
+      command.type,
+      app.id,
+      before,
+      made
+        ? {
+            ...settings,
+            publicApproved: made.publicApproved,
+            publicRequested: made.publicRequestedBy !== null,
+          }
+        : settings,
+    );
+  }
+  if (command.type === "memberapp.create") {
+    if (actor.status !== "active") fail(403, "An active Slice membership is required.");
+    const invalid = appIdProblem(command.id, []);
+    if (invalid) fail(400, invalid);
+    const taken = appIdProblem(command.id, [
+      ...apps.map((item) => item.id),
+      ...state.memberApps.map((item) => item.id),
+    ]);
+    if (taken) fail(409, taken);
+    if (
+      !actor.owner &&
+      state.memberApps.filter((item) => item.createdBy === actor.id && !item.deletedAt).length >=
+        APP_LIMIT
+    )
+      fail(403, `You already have ${APP_LIMIT} apps. Delete one first, or ask the Slice owner.`);
+    const created: MemberApp = {
+      id: command.id,
+      name: command.name,
+      description: command.description,
+      powers: [],
+      createdBy: actor.id,
+      createdAt: meta.now,
+      live: null,
+      latest: 0,
+      publicApproved: false,
+      publicRequestedBy: null,
+      deletedAt: null,
+    };
+    state.memberApps.push(created);
+    // Private, run by the person who created it.
+    state.apps.push({ id: created.id, visibility: "private", managers: [actor.id], people: [] });
+    return finish(state, meta, actor.id, command.type, created.id, null, created);
+  }
+  if (
+    command.type === "memberapp.publish" ||
+    command.type === "memberapp.live" ||
+    command.type === "memberapp.delete"
+  ) {
+    const made =
+      state.memberApps.find((item) => item.id === command.id && !item.deletedAt) ??
+      fail(404, "There is no app with that ID.");
+    if (!managesApp(state, actor, made.id))
+      fail(403, "Only the people who run this app can change it.");
+    const before = structuredClone(made);
+    if (command.type === "memberapp.publish") {
+      made.name = command.name;
+      made.description = command.description;
+      made.powers = command.powers;
+      made.latest += 1;
+      made.live = made.latest;
+    } else if (command.type === "memberapp.live") {
+      if (command.version !== null && command.version > made.latest)
+        fail(400, "That version was never published.");
+      made.live = command.version;
+    } else {
+      made.deletedAt = meta.now;
+      made.live = null;
+      made.publicRequestedBy = null;
+      state.apps = state.apps.filter((item) => item.id !== made.id);
+    }
+    return finish(state, meta, actor.id, command.type, made.id, before, made);
   }
   requirePermission("members.manage");
   if (command.type === "member.add") {
@@ -280,6 +374,9 @@ export function applyCommand(
       managers: item.managers.filter((id) => id !== target.id),
       people: item.people.filter((p) => p.memberId !== target.id),
     }));
+    // Their apps stay: an app belongs to Slice, and an owner names a new manager.
+    for (const made of state.memberApps)
+      if (made.publicRequestedBy === target.id) made.publicRequestedBy = null;
     return finish(state, meta, actor.id, command.type, target.id, target, null);
   }
   if (!actor.owner && (target.id === actor.id || target.owner || command.owner))

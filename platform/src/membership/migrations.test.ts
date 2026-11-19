@@ -67,6 +67,33 @@ it("upgrades the frozen prior schema without losing existing members or audit hi
     }),
   ).rejects.toMatchObject({ status: 503 });
   expect(await repo.load()).toEqual(before);
+  // The same holds for member apps: none exist, and creating one is refused, until its tables do.
+  expect(before.memberApps).toEqual([]);
+  await expect(
+    repo.commit(before, {
+      state: {
+        ...before,
+        revision: before.revision + 1,
+        memberApps: [
+          {
+            id: "notes",
+            name: "Notes",
+            description: "Shared notes.",
+            powers: [],
+            createdBy: "prior-member",
+            createdAt: "2026-11-19T12:00:00Z",
+            live: null,
+            latest: 0,
+            publicApproved: false,
+            publicRequestedBy: null,
+            deletedAt: null,
+          },
+        ],
+      },
+      audit: { ...audit[0], id: "too-early-app" },
+    }),
+  ).rejects.toMatchObject({ status: 503 });
+  expect(await repo.load()).toEqual(before);
   const files = await migrate(db);
   expect(await repo.load()).toEqual(before);
   expect(await repo.history()).toEqual(audit);
