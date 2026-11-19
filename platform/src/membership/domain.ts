@@ -1,6 +1,6 @@
 import { apps } from "../lib/apps";
 import type { AppDescriptor } from "../platform/contracts";
-import { appPermissions } from "./app-access";
+import { appPermissions, managesApp } from "./app-access";
 import {
   commandSchema,
   emailSchema,
@@ -9,6 +9,7 @@ import {
   permissionCatalog,
 } from "./contracts";
 import type {
+  AppSettings,
   Audit,
   Identity,
   Member,
@@ -173,8 +174,15 @@ export function applyCommand(
   const requirePermission = (p: string) => {
     if (!access.includes(p)) fail(403, "You do not have permission for this action.");
   };
+  // Compares organization permissions only. App access never outranks a membership administrator,
+  // or they could not suspend someone merely because that person runs an app they are not in.
   const canDelegate = (permissions: string[]) => {
-    if (!actor.owner && permissions.some((p) => !access.includes(p)))
+    if (
+      !actor.owner &&
+      permissions.some(
+        (p) => organizationPermissions.some((item) => item.id === p) && !access.includes(p),
+      )
+    )
       fail(403, "You cannot assign permissions beyond your own access.");
   };
   const levelById = (id: string) =>
@@ -216,6 +224,34 @@ export function applyCommand(
     else state.levels.push(level);
     return finish(state, meta, actor.id, command.type, level.id, before, level);
   }
+  if (command.type === "app.update") {
+    const app =
+      apps.find((item) => item.id === command.id) ?? fail(400, "Application does not exist.");
+    if (!managesApp(state, actor, app.id))
+      fail(403, "Only the people who run this app can change its settings.");
+    const known = (memberId: string) =>
+      state.members.some((m) => m.id === memberId) || fail(400, "Member does not exist.");
+    command.managers.forEach(known);
+    const extra = app.permissions.filter((p) => !p.withAccess).map((p) => p.id);
+    for (const person of command.people) {
+      known(person.memberId);
+      if (person.powers.some((power) => !extra.includes(power)))
+        fail(400, "This app has no such extra power.");
+    }
+    if (new Set(command.people.map((p) => p.memberId)).size !== command.people.length)
+      fail(400, "A person is listed twice.");
+    const before = structuredClone(state.apps.find((item) => item.id === app.id) ?? null);
+    const settings: AppSettings = {
+      id: app.id,
+      visibility: command.visibility,
+      managers: command.managers,
+      people: [...command.people].sort((a, b) => a.memberId.localeCompare(b.memberId)),
+    };
+    state.apps = [...state.apps.filter((item) => item.id !== app.id), settings].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    );
+    return finish(state, meta, actor.id, command.type, app.id, before, settings);
+  }
   requirePermission("members.manage");
   if (command.type === "member.add") {
     if (state.members.some((m) => m.email === command.email))
@@ -245,6 +281,12 @@ export function applyCommand(
     if (target.owner && !actor.owner) fail(403, "Only an owner can make this change.");
     canDelegate(effectivePermissions(state, { ...target, status: "active" }));
     state.members = state.members.filter((m) => m.id !== target.id);
+    // A removed person runs nothing and is on no app.
+    state.apps = state.apps.map((item) => ({
+      ...item,
+      managers: item.managers.filter((id) => id !== target.id),
+      people: item.people.filter((p) => p.memberId !== target.id),
+    }));
     return finish(state, meta, actor.id, command.type, target.id, target, null);
   }
   if (!actor.owner && (target.id === actor.id || target.owner || command.owner))

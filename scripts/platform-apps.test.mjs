@@ -116,6 +116,39 @@ test("apps can be marked work in progress, and only with the value true", async 
     await assert.rejects(syncApps(root), /workInProgress/);
   }
 });
+test("a permission can come with access, and only with the value true", async (t) => {
+  const root = await fixture(t);
+  await createApp(root, "alumni", "Alumni");
+  await finishIdentity(root, "alumni");
+  const file = join(root, "platform/apps/alumni/app.json");
+  const app = { id: "alumni", name: "Alumni", description: "" };
+  const read = { id: "records.read", label: "Browse alumni" };
+  writeFileSync(
+    file,
+    JSON.stringify({
+      ...app,
+      permissions: [
+        { ...read, withAccess: true },
+        { id: "admin", label: "Manage alumni" },
+      ],
+    }),
+  );
+  await syncApps(root);
+  const catalog = JSON.parse(
+    readFileSync(join(root, "platform/src/platform/catalog.generated.json"), "utf8"),
+  );
+  assert.deepEqual(
+    catalog[0].permissions.map((permission) => permission.withAccess),
+    [true, undefined],
+  );
+  for (const value of [false, "yes", 1, null]) {
+    writeFileSync(file, JSON.stringify({ ...app, permissions: [{ ...read, withAccess: value }] }));
+    await assert.rejects(syncApps(root), /withAccess/);
+  }
+  writeFileSync(file, JSON.stringify({ ...app, permissions: [{ ...read, everyone: true }] }));
+  await assert.rejects(syncApps(root), /invalid or duplicate permission/);
+});
+
 test("CI rejects app routes shadowing the central permission guard", async (t) => {
   const root = await fixture(t);
   const directory = join(root, "platform/app/apps/alumni");

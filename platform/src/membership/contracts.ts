@@ -115,9 +115,13 @@ export class MembershipError extends Error {
     super(message);
   }
 }
+// Levels and individual grants carry organization permissions only; app access is set on the app.
 const permission = z
   .string()
-  .refine((value) => permissionCatalog.some((item) => item.id === value), "Unknown permission");
+  .refine(
+    (value) => organizationPermissions.some((item) => item.id === value),
+    "Unknown permission",
+  );
 const permissions = z
   .array(permission)
   .max(100)
@@ -142,5 +146,26 @@ export const commandSchema = z.discriminatedUnion("type", [
   }),
   z.strictObject({ type: z.literal("member.remove"), id }),
   z.strictObject({ type: z.literal("level.save"), id: id.optional(), name, permissions }),
+  // The whole settings document for one app, like member.update and level.save.
+  z.strictObject({
+    type: z.literal("app.update"),
+    id,
+    visibility: z.enum(["private", "public"]),
+    managers: z
+      .array(id)
+      .max(50)
+      .transform((values) => [...new Set(values)].sort()),
+    people: z
+      .array(
+        z.strictObject({
+          memberId: id,
+          powers: z
+            .array(z.string().min(1).max(80))
+            .max(20)
+            .transform((values) => [...new Set(values)].sort()),
+        }),
+      )
+      .max(1000),
+  }),
 ]);
 export type Command = z.infer<typeof commandSchema>;
