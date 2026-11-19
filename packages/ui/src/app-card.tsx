@@ -12,6 +12,8 @@ export interface AppCardProps {
   workInProgress?: boolean;
   /** Labels an app open only to the people added to it. */
   isPrivate?: boolean;
+  /** What to say in place of Open while `href` is null. */
+  unavailableLabel?: string;
 }
 
 const pill =
@@ -44,6 +46,7 @@ export function AppCard({
   detailsHref,
   workInProgress = false,
   isPrivate = false,
+  unavailableLabel = "Coming soon",
 }: AppCardProps) {
   return (
     <article className="flex h-full flex-col rounded-2xl border border-(--line) bg-(--surface) p-6 text-(--ink)">
@@ -63,7 +66,7 @@ export function AppCard({
           </a>
         ) : (
           <span className="inline-flex rounded-full border border-(--line) bg-(--selected) px-3 py-1 text-[13px] font-semibold text-(--muted)">
-            Coming soon
+            {unavailableLabel}
           </span>
         )}
         <a

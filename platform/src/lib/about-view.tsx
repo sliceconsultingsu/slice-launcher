@@ -12,6 +12,7 @@ import { SignInCard } from "../membership/sign-in-card";
 import { AppManage } from "./app-manage";
 import { aboutState } from "./app-manage-model";
 import { getAppUrl, type LauncherApp } from "./apps";
+import type { PublicRule } from "./member-app-model";
 
 export type AboutLoad =
   | { kind: "loading" }
@@ -35,6 +36,10 @@ export function AboutContent({
   busy = false,
   notice = "",
   error = "",
+  openHref,
+  publicRule,
+  publicRequestedBy,
+  children,
 }: {
   app: LauncherApp;
   guide: ReactNode;
@@ -44,10 +49,18 @@ export function AboutContent({
   busy?: boolean;
   notice?: string;
   error?: string;
+  /** Where Open goes when it is not the built-in route; null when the app cannot be opened. */
+  openHref?: string | null;
+  /** For a member app: what saving as Public does, and whose request is waiting. */
+  publicRule?: PublicRule;
+  publicRequestedBy?: string | null;
+  /** More for the people who run the app, below its settings. */
+  children?: ReactNode;
 }) {
   const state = load.kind === "loaded" ? aboutState(load.view, app.id) : null;
   const open = state?.kind === "open" ? state.app : null;
   const view = load.kind === "loaded" && "me" in load.view ? load.view : null;
+  const href = openHref === undefined ? getAppUrl(app) : openHref;
   return (
     <>
       <nav className="guide-actions" aria-label="App page actions">
@@ -56,8 +69,8 @@ export function AboutContent({
         </a>
         {open?.visibility === "private" && <PrivateBadge />}
         {open && app.workInProgress && <WorkInProgressBadge />}
-        {open?.canOpen && (
-          <a className="guide-open" href={getAppUrl(app)}>
+        {open?.canOpen && href && (
+          <a className="guide-open" href={href}>
             Open<span className="sr-only"> {app.name}</span>
           </a>
         )}
@@ -123,7 +136,10 @@ export function AboutContent({
                 settings={open.settings}
                 save={save}
                 busy={busy}
+                publicRule={publicRule}
+                publicRequestedBy={publicRequestedBy}
               />
+              {children}
             </section>
           )}
         </>

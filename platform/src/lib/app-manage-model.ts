@@ -48,6 +48,14 @@ export function toCommand(draft: AppSettings): Command {
 export function needsPublicConfirmation(saved: AppSettings, draft: AppSettings): boolean {
   return saved.visibility === "private" && draft.visibility === "public";
 }
+/** Whether to ask first. A save that only asks the owner opens nothing, so it does not. */
+export function confirmsPublic(
+  saved: AppSettings,
+  draft: AppSettings,
+  rule: "free" | "ask" | "approve",
+): boolean {
+  return rule !== "ask" && needsPublicConfirmation(saved, draft);
+}
 export function publicConfirmation(
   appName: string,
   counts: { active: number; invited: number },
@@ -87,10 +95,16 @@ export function extraPowers(app: LauncherApp): { id: string; label: string }[] {
  * The settings a manager starts editing from. A power the app no longer declares is dropped
  * here, because the server refuses a save that names one and the form has no box to untick.
  */
-export function startingDraft(settings: AppSettings, app: LauncherApp): AppSettings {
+export function startingDraft(
+  settings: AppSettings,
+  app: LauncherApp,
+  /** A request to make a member app Public is waiting: start on Public, so a save asks again. */
+  publicRequested = false,
+): AppSettings {
   const declared = extraPowers(app).map((power) => power.id);
   return {
     ...settings,
+    visibility: publicRequested ? "public" : settings.visibility,
     people: settings.people.map((person) => ({
       ...person,
       powers: person.powers.filter((power) => declared.includes(power)),

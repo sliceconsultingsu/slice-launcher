@@ -153,6 +153,22 @@ export interface AppView {
   managers: string[];
   /** The full settings, only for someone who runs the app. */
   settings?: AppSettings;
+  /** Set for an app a member made (docs/member-apps.md); built-in apps are in the catalog. */
+  member?: {
+    name: string;
+    description: string;
+    /** Whether a version is live. An offline app opens for nobody. */
+    live: boolean;
+    /** Only for someone who runs the app. */
+    manage?: {
+      powers: MemberApp["powers"];
+      liveVersion: number | null;
+      latest: number;
+      publicApproved: boolean;
+      /** The name of the manager waiting for an owner's OK to make it Public, if any. */
+      publicRequestedBy: string | null;
+    };
+  };
 }
 export interface View {
   revision: number;
@@ -163,8 +179,10 @@ export interface View {
   levels: Level[];
   /** The organization permissions a level or member can be given. */
   catalog: typeof organizationPermissions;
-  /** One entry per app in the catalog. */
+  /** One entry per built-in app, then one per member app this person can open or runs. */
   apps: AppView[];
+  /** The host member apps live under ("<id>.<appHost>"), or null while they are switched off. */
+  appHost: string | null;
   /** How many people making an app public would reach; only for someone who runs an app. */
   counts?: { active: number; invited: number };
 }

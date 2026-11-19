@@ -5,9 +5,9 @@ import {
   addManager,
   addPerson,
   candidates,
+  confirmsPublic,
   displayName,
   extraPowers,
-  needsPublicConfirmation,
   publicConfirmation,
   removeManager,
   removePerson,
@@ -16,6 +16,7 @@ import {
   toCommand,
 } from "./app-manage-model";
 import type { LauncherApp } from "./apps";
+import { publicNote, type PublicRule } from "./member-app-model";
 
 /** Choosing a member to add to a list. Offers only people this person can already see. */
 function AddMember({
@@ -68,14 +69,22 @@ export function AppManage({
   settings,
   save,
   busy,
+  publicRule = "free",
+  publicRequestedBy = null,
 }: {
   app: LauncherApp;
   view: View;
   settings: AppSettings;
   save: (command: Command) => void;
   busy: boolean;
+  /** What saving as Public does; member apps need an owner's OK once (docs/member-apps.md). */
+  publicRule?: PublicRule;
+  /** The name of the manager whose request to make it Public is waiting, if any. */
+  publicRequestedBy?: string | null;
 }) {
-  const [draft, setDraft] = useState(() => startingDraft(settings, app));
+  const [draft, setDraft] = useState(() =>
+    startingDraft(settings, app, publicRule === "ask" && publicRequestedBy !== null),
+  );
   const [confirming, setConfirming] = useState(false);
   const powers = extraPowers(app);
   const isPublic = draft.visibility === "public";
@@ -86,7 +95,7 @@ export function AppManage({
   };
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (needsPublicConfirmation(settings, draft) && !confirming) {
+    if (confirmsPublic(settings, draft, publicRule) && !confirming) {
       setConfirming(true);
       return;
     }
@@ -108,7 +117,7 @@ export function AppManage({
             />
             <span>
               <strong>Public</strong>
-              <span className="field-note">Every active member of Slice</span>
+              <span className="field-note">{publicNote(publicRule, publicRequestedBy)}</span>
             </span>
           </label>
           <label className="check-label">

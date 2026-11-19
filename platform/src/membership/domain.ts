@@ -1,5 +1,5 @@
 import { apps } from "../lib/apps";
-import { catalogFor } from "../member-apps/registry";
+import { catalogFor, memberApps } from "../member-apps/registry";
 import { APP_LIMIT, appIdProblem } from "../member-apps/rules";
 import type { AppDescriptor } from "../platform/contracts";
 import { appPermissions, managesApp, settingsFor } from "./app-access";
@@ -425,17 +425,21 @@ export function auditView(audit: Audit): Audit {
   };
   return { ...audit, before: hide(audit.before), after: hide(audit.after) };
 }
-export function memberView(state: State, subject: string): View {
+export function memberView(
+  state: State,
+  subject: string,
+  options: { appHost?: string | null } = {},
+): View {
   const me = subjectMember(state, subject);
   const permissions = effectivePermissions(state, me);
   const manage = permissions.includes("members.manage");
   const directory = permissions.includes("members.read") || manage;
-  const appViews: AppView[] = apps.map((app) => {
-    const settings = settingsFor(state, app.id);
-    const canManage = managesApp(state, me, app.id);
-    const canOpen = permissions.includes(`app.${app.id}.open`);
+  const describe = (id: string): AppView => {
+    const settings = settingsFor(state, id);
+    const canManage = managesApp(state, me, id);
+    const canOpen = permissions.includes(`app.${id}.open`);
     return {
-      id: app.id,
+      id,
       canOpen,
       canManage,
       visibility: settings.visibility,
@@ -449,7 +453,34 @@ export function memberView(state: State, subject: string): View {
           : [],
       ...(canManage ? { settings } : {}),
     };
-  });
+  };
+  const appViews: AppView[] = apps.map((app) => describe(app.id));
+  // A member app is mentioned only to the people who can open it or who run it.
+  for (const made of memberApps(state)) {
+    const view = describe(made.id);
+    if (!view.canOpen && !view.canManage) continue;
+    appViews.push({
+      ...view,
+      member: {
+        name: made.name,
+        description: made.description,
+        live: made.live !== null,
+        ...(view.canManage
+          ? {
+              manage: {
+                powers: made.powers,
+                liveVersion: made.live,
+                latest: made.latest,
+                publicApproved: made.publicApproved,
+                publicRequestedBy: made.publicRequestedBy
+                  ? state.members.find((m) => m.id === made.publicRequestedBy)?.name || "A member"
+                  : null,
+              },
+            }
+          : {}),
+      },
+    });
+  }
   return {
     revision: state.revision,
     organization: "Slice Consulting",
@@ -470,6 +501,7 @@ export function memberView(state: State, subject: string): View {
     levels: manage || permissions.includes("levels.manage") ? state.levels : [],
     catalog: manage || permissions.includes("levels.manage") ? organizationPermissions : [],
     apps: appViews,
+    appHost: options.appHost ?? null,
     ...(appViews.some((app) => app.canManage)
       ? {
           counts: {

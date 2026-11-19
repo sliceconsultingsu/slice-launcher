@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { applyCommand, effectivePermissions, emptyState, enroll } from "../membership/domain";
+import {
+  applyCommand,
+  effectivePermissions,
+  emptyState,
+  enroll,
+  memberView,
+} from "../membership/domain";
 import type { State } from "../membership/contracts";
 import { catalogFor } from "./registry";
 
@@ -365,5 +371,109 @@ describe("sharing a member app", () => {
     s = act(s, { type: "member.remove", id: ids.ana });
     expect(app(s)).toMatchObject({ createdBy: ids.ana, publicRequestedBy: null, deletedAt: null });
     expect(s.apps.find((item) => item.id === "notes")!.managers).toEqual([ids.max]);
+  });
+});
+
+describe("what each person is told about member apps", () => {
+  /** Ana runs "notes" (published, with a power); Max is on it; Sam is not. */
+  function shared() {
+    const { state, ids } = organization();
+    let s = act(state, { type: "profile.update", name: "Ana", title: "" }, "ana");
+    s = act(s, create(), "ana");
+    s = act(s, publish("notes", { powers: [{ id: "edit", label: "Edit notes" }] }), "ana");
+    s = act(
+      s,
+      settings("notes", { managers: [ids.ana], people: [{ memberId: ids.max, powers: [] }] }),
+      "ana",
+    );
+    return { state: s, ids };
+  }
+  const told = (state: State, name: string, id = "notes") =>
+    memberView(state, `${name}-sub`, { appHost: "slice.example" }).apps.find(
+      (item) => item.id === id,
+    );
+
+  it("tells the people who run an app everything needed to manage it", () => {
+    const { state, ids } = shared();
+    expect(told(state, "ana")).toMatchObject({
+      id: "notes",
+      canOpen: true,
+      canManage: true,
+      visibility: "private",
+      managers: ["Ana"],
+      settings: { id: "notes", managers: [ids.ana] },
+      member: {
+        name: "Team notes",
+        description: "Notes the team shares.",
+        live: true,
+        manage: {
+          powers: [{ id: "edit", label: "Edit notes" }],
+          liveVersion: 1,
+          latest: 1,
+          publicApproved: false,
+          publicRequestedBy: null,
+        },
+      },
+    });
+  });
+
+  it("tells someone on the app only what they need to open it", () => {
+    const { state } = shared();
+    const view = told(state, "max")!;
+    expect(view).toMatchObject({
+      canOpen: true,
+      canManage: false,
+      member: { name: "Team notes", description: "Notes the team shares.", live: true },
+    });
+    expect(view.member).not.toHaveProperty("manage");
+    expect(view).not.toHaveProperty("settings");
+  });
+
+  it("does not mention the app to someone who is not on it", () => {
+    const { state } = shared();
+    expect(told(state, "sam")).toBeUndefined();
+    expect(told(state, "pia")).toBeUndefined();
+    expect(memberView(state, "sam-sub").permissions).not.toContain("app.notes.open");
+  });
+
+  it("shows an owner every member app, and who is waiting for their OK", () => {
+    const { state, ids } = shared();
+    const asked = act(
+      state,
+      settings("notes", {
+        visibility: "public",
+        managers: [ids.ana],
+        people: [{ memberId: ids.max, powers: [] }],
+      }),
+      "ana",
+    );
+    expect(told(asked, "owner")).toMatchObject({
+      canManage: true,
+      member: { manage: { publicApproved: false, publicRequestedBy: "Ana" } },
+    });
+    expect(told(asked, "ana")!.member!.manage!.publicRequestedBy).toBe("Ana");
+  });
+
+  it("keeps an offline app in view, marked as not live, and drops a deleted one", () => {
+    const { state } = shared();
+    const offline = act(state, { type: "memberapp.live", id: "notes", version: null }, "ana");
+    expect(told(offline, "ana")!.member).toMatchObject({
+      live: false,
+      manage: { liveVersion: null },
+    });
+    expect(told(offline, "max")!.member).toMatchObject({ live: false });
+    const deleted = act(state, { type: "memberapp.delete", id: "notes" }, "ana");
+    expect(told(deleted, "ana")).toBeUndefined();
+    expect(told(deleted, "owner")).toBeUndefined();
+  });
+
+  it("says where member apps live, or that they are off", () => {
+    const { state } = shared();
+    expect(memberView(state, "ana-sub", { appHost: "slice.example" }).appHost).toBe(
+      "slice.example",
+    );
+    expect(memberView(state, "ana-sub").appHost).toBeNull();
+    // Built-in apps are listed as before, for everyone.
+    expect(memberView(state, "sam-sub").apps.map((item) => item.id)).toEqual(["alumni"]);
   });
 });
