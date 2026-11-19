@@ -36,3 +36,8 @@ export function movedTo(url: URL, env: AddressEnv): string | null {
   if (!target || former.includes(host(target.hostname))) return null;
   return `${target.origin}${url.pathname}${url.search}`;
 }
+
+/** A member app's address: its ID as a name under the launcher's host. */
+export function appAddress(launcherOrigin: string, appId: string): string {
+  return `https://${appId}.${new URL(launcherOrigin).host}`;
+}
