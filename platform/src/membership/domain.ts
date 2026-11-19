@@ -1,12 +1,7 @@
 import { apps } from "../lib/apps";
 import type { AppDescriptor } from "../platform/contracts";
 import { appPermissions, managesApp, settingsFor } from "./app-access";
-import {
-  commandSchema,
-  emailSchema,
-  MembershipError,
-  organizationPermissions,
-} from "./contracts";
+import { commandSchema, emailSchema, MembershipError, organizationPermissions } from "./contracts";
 import type {
   AppSettings,
   AppView,
@@ -343,14 +338,16 @@ export function memberView(state: State, subject: string): View {
   const appViews: AppView[] = apps.map((app) => {
     const settings = settingsFor(state, app.id);
     const canManage = managesApp(state, me, app.id);
+    const canOpen = permissions.includes(`app.${app.id}.open`);
     return {
       id: app.id,
-      canOpen: permissions.includes(`app.${app.id}.open`),
+      canOpen,
       canManage,
       visibility: settings.visibility,
-      // Names only, and only to active members: the same people the member directory shows.
+      // Names only, and only to someone who can already see the member directory or is on this
+      // app. Anyone else is told to ask the Slice owner.
       managers:
-        me.status === "active"
+        directory || canOpen || canManage
           ? state.members
               .filter((m) => m.status === "active" && settings.managers.includes(m.id))
               .map((m) => m.name || "Member")

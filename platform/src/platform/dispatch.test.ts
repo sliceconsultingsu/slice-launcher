@@ -71,6 +71,25 @@ async function updateMember(changes: Record<string, unknown>) {
     .bind(JSON.stringify(member), member.id)
     .run();
 }
+/** Puts the test person on an app with these extra powers, or takes them off it with null. */
+async function grant(
+  appId: string,
+  powers: string[] | null,
+  visibility: "private" | "public" = "private",
+) {
+  const settings = {
+    id: appId,
+    visibility,
+    managers: [],
+    people: powers ? [{ memberId: "person", powers }] : [],
+  };
+  await fixture.db
+    .prepare(
+      "INSERT INTO app_settings(id, document) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET document=excluded.document",
+    )
+    .bind(appId, JSON.stringify(settings))
+    .run();
+}
 beforeAll(async () => {
   fixture = await database();
   await migrate(fixture.db);
@@ -91,7 +110,8 @@ beforeEach(async () => {
   );
   if (!joined.audit) throw new Error("Expected new enrollment");
   await repo.commit(initial, { ...joined, audit: joined.audit });
-  await updateMember({ status: "active", levelId: "member", allow: ["app.example.open"] });
+  await updateMember({ status: "active", levelId: "member" });
+  await grant("example", []);
   page.mockClear();
   api.mockClear();
 });
@@ -160,30 +180,54 @@ it("blocks unenrolled or rebound identities", async () => {
   ])
     expect((await platform().api(request("GET", token), "example", [])).status).toBe(403);
 });
-it("requires this app's permission, with revocation winning over access-level grants", async () => {
-  await updateMember({ allow: ["app.other.open"] });
+it("requires being on this app; a level or individual grant no longer opens it", async () => {
+  await grant("example", null);
+  await grant("other", []);
   expect((await platform().api(request(), "example", [])).status).toBe(403);
   await fixture.db
     .prepare("UPDATE access_levels SET document = ? WHERE id = 'member'")
     .bind(JSON.stringify({ id: "member", name: "Member", permissions: ["app.example.open"] }))
     .run();
+  await updateMember({ allow: ["app.example.open", "app.example.records.edit"] });
+  expect((await platform().api(request(), "example", [])).status).toBe(403);
+  await grant("example", []);
   expect((await platform().api(request(), "example", [])).status).toBe(200);
-  await updateMember({ deny: ["app.example.open"], allow: ["app.example.open"] });
+});
+it("opens a public app to an active member who is not listed, without its extra powers", async () => {
+  await grant("example", null, "public");
+  expect((await platform().api(request(), "example", [])).status).toBe(200);
+  expect((await platform().api(request("POST"), "example", [])).status).toBe(403);
+  await grant("example", null, "private");
   expect((await platform().api(request(), "example", [])).status).toBe(403);
 });
-it("reloads membership for an existing session after permission revocation or suspension", async () => {
+it("says why when an active member is not on the app, and not when membership is the problem", async () => {
+  await grant("example", null);
+  await expect(
+    platform().page(request(), "example", { path: [], searchParams: {} }),
+  ).rejects.toMatchObject({ status: 403, reason: "no-app-access" });
+  await grant("example", []);
+  await updateMember({ status: "suspended" });
+  const refusal = await platform()
+    .page(request(), "example", { path: [], searchParams: {} })
+    .catch((error: unknown) => error);
+  expect(refusal).toMatchObject({ status: 403 });
+  expect(refusal).not.toHaveProperty("reason", "no-app-access");
+});
+it("reloads membership for an existing session after removal from the app or suspension", async () => {
   const host = platform();
   expect((await host.api(request(), "example", [])).status).toBe(200);
-  await updateMember({ deny: ["app.example.open"] });
+  await grant("example", null);
   expect((await host.api(request(), "example", [])).status).toBe(403);
-  await updateMember({ deny: [], status: "suspended" });
+  await grant("example", []);
+  expect((await host.api(request(), "example", [])).status).toBe(200);
+  await updateMember({ status: "suspended" });
   await expect(
     host.page(request(), "example", { path: [], searchParams: {} }),
   ).rejects.toMatchObject({ status: 403 });
 });
-it("uses the shared permission catalog for declared app actions", async () => {
+it("requires the declared extra power for an action, and stops when it is taken away", async () => {
   expect((await platform().api(request("POST"), "example", [])).status).toBe(403);
-  await updateMember({ allow: ["app.example.open", "app.example.records.edit"] });
+  await grant("example", ["records.edit"]);
   const response = await platform().api(
     request("POST", jwt, undefined, '{"title":"Example"}'),
     "example",
@@ -191,11 +235,12 @@ it("uses the shared permission catalog for declared app actions", async () => {
   );
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ input: { title: "Example" } });
-  await updateMember({ deny: ["app.example.records.edit"] });
+  await grant("example", []);
   expect((await platform().api(request("POST"), "example", [])).status).toBe(403);
 });
 it("active owners get declared permissions but cannot request undeclared actions", async () => {
-  await updateMember({ owner: true, allow: [] });
+  await updateMember({ owner: true });
+  await grant("example", null);
   expect((await platform().api(request("POST"), "example", [])).status).toBe(200);
   const host = platform({
     Page: page,

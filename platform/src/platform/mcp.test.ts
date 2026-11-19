@@ -117,6 +117,25 @@ async function updateMember(changes: Record<string, unknown>) {
     .bind(JSON.stringify(member), member.id)
     .run();
 }
+/** Puts the test person on an app with these extra powers, or takes them off it with null. */
+async function grant(
+  appId: string,
+  powers: string[] | null,
+  visibility: "private" | "public" = "private",
+) {
+  const settings = {
+    id: appId,
+    visibility,
+    managers: [],
+    people: powers ? [{ memberId: "person", powers }] : [],
+  };
+  await fixture.db
+    .prepare(
+      "INSERT INTO app_settings(id, document) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET document=excluded.document",
+    )
+    .bind(appId, JSON.stringify(settings))
+    .run();
+}
 beforeAll(async () => {
   fixture = await database();
   await migrate(fixture.db);
@@ -135,11 +154,8 @@ beforeEach(async () => {
   );
   if (!joined.audit) throw new Error("Expected enrollment");
   await repo.commit(initial, { ...joined, audit: joined.audit });
-  await updateMember({
-    status: "active",
-    levelId: "member",
-    allow: ["app.notes.open", "app.notes.records.read"],
-  });
+  await updateMember({ status: "active", levelId: "member" });
+  await grant("notes", ["records.read"]);
   run.mockClear();
 });
 afterAll(async () => fixture?.runtime.dispose());
@@ -164,7 +180,7 @@ it("an SDK client initializes, discovers only permitted tools, and calls with in
     expect(result.isError).not.toBe(true);
     expect(result.structuredContent).toEqual({ query: "hello", memberId: "person" });
     expect(run.mock.calls[0][1].permissions).toEqual(["app.notes.open", "app.notes.records.read"]);
-    await updateMember({ deny: ["app.notes.records.read"] });
+    await grant("notes", []);
     expect((await client.listTools()).tools.map((t) => t.name)).toEqual(["slice_apps"]);
     await expect(
       client.callTool({ name: "notes__search", arguments: { query: "again" } }),
@@ -208,8 +224,10 @@ it("denies unknown and rebound subjects", async () => {
   ])
     expect((await createMcpAdapter(dependencies())(request(undefined, token))).status).toBe(403);
 });
-it("app.open and a declared action are both required; owner status does not bless undeclared tools", async () => {
-  await updateMember({ allow: ["app.notes.records.read"] });
+it("offers no tools for an app the person is not on; owner status does not bless undeclared tools", async () => {
+  await grant("notes", null);
+  // A grant left on the member from before app settings existed opens nothing.
+  await updateMember({ allow: ["app.notes.open", "app.notes.records.read"] });
   const response = await createMcpAdapter(dependencies())(request());
   expect((await rpc(response)).result?.tools?.map((t) => t.name)).toEqual(["slice_apps"]);
   await updateMember({ owner: true, allow: [] });
@@ -313,7 +331,7 @@ it("keeps an empty platform usable without exposing membership or admin tools", 
   expect(response.headers.has("mcp-session-id")).toBe(false);
 });
 
-it("requires explicit action grants for mutations and observes deny precedence", async () => {
+it("requires the extra power for a mutation, and stops on the next call once it is taken away", async () => {
   const adapter = createMcpAdapter(dependencies());
   const call = () =>
     request({
@@ -324,21 +342,32 @@ it("requires explicit action grants for mutations and observes deny precedence",
     });
   expect((await rpc(await adapter(call()))).error).toBeDefined();
   expect(run).not.toHaveBeenCalled();
-  await updateMember({ allow: ["app.notes.open", "app.notes.records.edit"] });
+  await grant("notes", ["records.edit"]);
   expect((await rpc(await adapter(call()))).result?.structuredContent).toEqual({
     query: "updated",
     memberId: "person",
   });
+  // The power is taken away, with a leftover level grant that must not bring it back.
   await fixture.db
     .prepare("UPDATE access_levels SET document = ? WHERE id = 'member'")
     .bind(JSON.stringify({ id: "member", name: "Member", permissions: ["app.notes.records.edit"] }))
     .run();
-  await updateMember({ deny: ["app.notes.records.edit"] });
+  await grant("notes", []);
   expect((await rpc(await adapter(call()))).error).toBeDefined();
   expect(run).toHaveBeenCalledTimes(1);
-  await updateMember({ owner: true, allow: [], deny: [] });
+  // Making the app public keeps everyone in, still without the extra power.
+  await grant("notes", null, "public");
+  expect((await rpc(await adapter(call()))).error).toBeDefined();
+  // Back with the power, then the app goes private and the person is taken off it.
+  await grant("notes", ["records.edit"], "public");
   expect((await rpc(await adapter(call()))).result?.isError).not.toBe(true);
   expect(run).toHaveBeenCalledTimes(2);
+  await grant("notes", null, "private");
+  expect((await rpc(await adapter(call()))).error).toBeDefined();
+  expect(run).toHaveBeenCalledTimes(2);
+  await updateMember({ owner: true });
+  expect((await rpc(await adapter(call()))).result?.isError).not.toBe(true);
+  expect(run).toHaveBeenCalledTimes(3);
 });
 
 it("concurrent requests cannot share identity or permission state", async () => {
@@ -349,6 +378,7 @@ it("concurrent requests cannot share identity or permission state", async () => 
     subject: `${config.issuer}|second`,
     email: "second@example.test",
   });
+  state.apps[0].people.push({ memberId: "second", powers: ["records.read"] });
   const deps = dependencies();
   deps.loadState = async () => state;
   const adapter = createMcpAdapter(deps);

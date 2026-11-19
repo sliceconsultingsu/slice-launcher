@@ -113,6 +113,28 @@ describe("what each person is told about an app", () => {
     });
   });
 
+  it("names who runs an app only to people who could already see those names", () => {
+    const { state, ids } = organization();
+    // Ana's level cannot see the member directory.
+    let s = act(state, { type: "level.save", name: "No directory", permissions: [] });
+    const level = s.levels.find((item) => item.name === "No directory")!.id;
+    s = act(s, {
+      type: "member.update",
+      id: ids.ana,
+      status: "active",
+      levelId: level,
+      allow: [],
+      deny: [],
+      owner: false,
+    });
+    s = act(s, settings({ managers: [ids.max] }));
+    expect(memberView(s, "ana-sub").members).toEqual([]);
+    expect(alumni(s, "ana").managers).toEqual([]);
+    // Once she is on the app she can see who runs it.
+    s = act(s, settings({ managers: [ids.max], people: [{ memberId: ids.ana, powers: [] }] }));
+    expect(alumni(s, "ana").managers).toEqual(["max Example"]);
+  });
+
   it("never puts an email address or account ID in what it says about apps", () => {
     const { state, ids } = organization();
     const s = act(

@@ -8,9 +8,15 @@ import alumni from "./server";
 import { directorySchema } from "./contracts";
 import { AlumniApp } from "./ui/app";
 import { createSampleRepository, readDirectory } from "./data";
-import type { AppContext } from "../../src/platform/contracts";
+import type { AppContext, AppDescriptor } from "../../src/platform/contracts";
+import { descriptor as strict } from "./tests/members";
 
-function host(permissions = ["app.alumni.open", "app.alumni.records.read"]) {
+/**
+ * The platform with one learner. `powers` is what the learner was given on the app, or null when
+ * they are not on it. By default nothing comes with access, so each action's own check is
+ * exercised; pass the real descriptor to test the app as it ships.
+ */
+function host(powers: string[] | null = ["records.read"], catalog: AppDescriptor = strict) {
   const state: State = {
     revision: 0,
     ownerEmail: null,
@@ -25,15 +31,23 @@ function host(permissions = ["app.alumni.open", "app.alumni.records.read"]) {
         title: "",
         status: "active",
         levelId: null,
-        allow: permissions,
+        allow: [],
         deny: [],
         owner: false,
         joinedAt: "2026-10-26",
       },
     ],
+    apps: [
+      {
+        id: "alumni",
+        visibility: "private",
+        managers: [],
+        people: powers ? [{ memberId: "learner", powers }] : [],
+      },
+    ],
   };
   return createPlatform({
-    catalog: [descriptor],
+    catalog: [catalog],
     modules: new Map([["alumni", alumni]]),
     verify: async () => ({ subject: "test|learner", email: "learner@example.test" }),
     loadState: async () => state,
@@ -59,10 +73,10 @@ it("loads synthetic alumni and student examples through the guarded API", async 
   expect(result.students[0].id).toBe("student-001");
 });
 it("requires record permission even when the member can open the app", async () => {
-  expect((await host(["app.alumni.open"]).api(request(), "alumni", ["records"])).status).toBe(403);
-});
-it("denies opening the app without membership permission", async () => {
   expect((await host([]).api(request(), "alumni", ["records"])).status).toBe(403);
+});
+it("denies the app to someone who is not on it", async () => {
+  expect((await host(null).api(request(), "alumni", ["records"])).status).toBe(403);
 });
 it("rejects writes instead of pretending to save sample records", async () => {
   expect((await host().api(request("", "POST"), "alumni", ["records"])).status).toBe(405);
@@ -78,7 +92,7 @@ it("HEAD returns no body", async () => {
 
 it("requires record permission on the page as well as the API", async () => {
   await expect(
-    host(["app.alumni.open"]).page(request(), "alumni", { path: [], searchParams: {} }),
+    host([]).page(request(), "alumni", { path: [], searchParams: {} }),
   ).rejects.toMatchObject({ status: 403 });
 });
 it("rejects unexpected fields from storage instead of leaking them to the client", async () => {
@@ -107,12 +121,16 @@ it("tells consultants the app is a work in progress", () => {
   expect(html).toContain("Loading the alumni app");
 });
 it("lets only an admin open the review page", async () => {
-  const page = (permissions: string[]) =>
-    host(permissions).page(request(), "alumni", { path: ["review"], searchParams: {} });
-  await expect(page(["app.alumni.open", "app.alumni.records.read"])).rejects.toMatchObject({
-    status: 403,
-  });
+  const page = (powers: string[]) =>
+    host(powers).page(request(), "alumni", { path: ["review"], searchParams: {} });
+  await expect(page(["records.read"])).rejects.toMatchObject({ status: 403 });
+  await expect(page(["records.read", "admin"])).resolves.toBeTruthy();
+});
+it("as shipped, lets anyone on the app browse records but not review changes", async () => {
+  const shipped = host([], descriptor);
+  expect((await shipped.api(request(), "alumni", ["records"])).status).toBe(200);
   await expect(
-    page(["app.alumni.open", "app.alumni.records.read", "app.alumni.admin"]),
-  ).resolves.toBeTruthy();
+    shipped.page(request(), "alumni", { path: ["review"], searchParams: {} }),
+  ).rejects.toMatchObject({ status: 403 });
+  expect((await host(null, descriptor).api(request(), "alumni", ["records"])).status).toBe(403);
 });

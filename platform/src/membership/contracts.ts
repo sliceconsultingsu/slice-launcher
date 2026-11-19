@@ -104,7 +104,8 @@ export interface AppView {
   canOpen: boolean;
   canManage: boolean;
   visibility: AppSettings["visibility"];
-  /** Names of the active members who run the app; empty unless the viewer is an active member. */
+  /** Names of the active members who run the app; empty unless the viewer can see the member
+   * directory or is on this app. */
   managers: string[];
   /** The full settings, only for someone who runs the app. */
   settings?: AppSettings;
@@ -127,6 +128,8 @@ export class MembershipError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** Set when an active member is refused only because they are not on this app. */
+    public reason?: "no-app-access",
   ) {
     super(message);
   }
