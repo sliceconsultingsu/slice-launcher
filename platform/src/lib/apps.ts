@@ -15,7 +15,8 @@ export function getAppUrl(app: Pick<AppDescriptor, "id">): string {
   return `/apps/${app.id}`;
 }
 
-export function getGuideUrl(app: Pick<AppDescriptor, "id">): string {
+/** The app's own page: its guide for everyone who can open it, its settings for who runs it. */
+export function getAboutUrl(app: Pick<AppDescriptor, "id">): string {
   if (!idPattern.test(app.id)) throw new Error("Invalid application ID");
-  return `/guides/${app.id}`;
+  return `/about/${app.id}`;
 }
