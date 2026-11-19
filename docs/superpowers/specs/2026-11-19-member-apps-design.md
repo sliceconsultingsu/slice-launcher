@@ -1,6 +1,6 @@
 # Member apps: members build, publish and run their own apps through the launcher
 
-Status: **proposed on November 19, 2026, for Ivan's read. Not built.** Ivan set the goal and three points, marked _(Ivan)_. Every other choice here is a recommendation made at his instruction ("do the rest with your recommended choice") and is marked _(proposed)_. Nothing in this document has been checked against a live Cloudflare account; facts taken from Cloudflare's documentation are marked _(documented)_.
+Status: **Ivan said to build every stage on November 19, 2026 ("do all stages sequentially"). He has not commented on the individual choices.** Ivan set the goal and three points, marked _(Ivan)_. Every other choice here is a recommendation made at his instruction ("do the rest with your recommended choice") and is marked _(proposed)_. Nothing in this document has been checked against a live Cloudflare account; facts taken from Cloudflare's documentation are marked _(documented)_.
 
 This is stage 2 of three. Stage 1, [app access](2026-11-18-app-access-design.md), shipped on November 19, 2026. Stage 3 (a starter kit for the builder's AI, with preview and roll back) gets its own design.
 
@@ -134,6 +134,20 @@ Two releases, each useful alone:
 - An app goes Public without an owner having approved it.
 - A builder needs Git, a terminal or Cloudflare to publish.
 - An app is stranded, or its data lost, because its builder left.
+
+## Decisions made while planning (November 19, 2026)
+
+Made by the builder after reading the launcher's code and Cloudflare's documentation. Each is a recommendation, like the rest of this document. Where one differs from the text above, this section wins.
+
+- **Stage 2 ships as three releases, not two.** (1) The launcher's address, as two pull requests: add `sliceos.app`, then move. (2a) Member apps made of screens only: the registry, addresses, sign-in across addresses, the four tools and the owner's OK. This needs no purchase. (2b) Server code and a private database per app. Only this needs Workers for Platforms.
+- **The launcher serves an app's screens itself.** A published version's files are kept in a store the launcher owns (a Cloudflare KV namespace) and the launcher answers every request for a page, script, style or image. The app's own Worker, when it has one, answers only addresses under `/api/`. The launcher therefore sets the browser rules on every page, no file upload goes through Cloudflare's assets API, and an app with no server code needs no sandbox at all.
+- **What an app's browser pages may do.** Pages may load, call and post only to their own address. That is enforced by a browser content policy the launcher sets, alongside the outbound block on server code. It is not airtight: a page can still send its viewer to another site, so a dishonest app could leak what it can itself see, which is its own data and the viewer's name. It can never see an email address, the launcher's session or another app's data. This is why going Public needs the owner's OK and every version is kept.
+- **Publishing through an AI tool call is limited to 1 MB and 50 files.** That is what a tool call can reasonably carry. A separate upload address for larger apps, for an AI that can run commands, moves to stage 3 with the starter kit. The 5 MB figure above applies then.
+- **Asking for Public is saving Public.** When a manager who is not an owner saves a member app as Public before it has been approved, the rest of the save applies, the app stays Private, and the app's page shows that the owner has been asked. When an owner saves it as Public, that is the approval. After approval its managers can switch it either way.
+- **Sign-in at an app's address depends on the launcher's.** An app's session is tied to the launcher session it came from. Signing out of the launcher, being suspended or being removed ends it at once, without a second list to clear.
+- **Member apps stay off until configured.** The code can be released with member apps switched off. Turning them on is a separate configuration change (the store, the wildcard address and one setting), so a release never depends on a Cloudflare resource that does not exist yet.
+- **An app's ID is never reused.** A deleted app keeps its ID reserved, so an old link can never open someone else's app.
+- **Unpublish and roll back are one action.** The registry records which version is live; "none" is unpublished. Stage 3's roll back sets it to an earlier version.
 
 ## What the builder of this must settle first
 
