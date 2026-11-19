@@ -2,8 +2,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { database, migrate, reset } from "../../tests/database";
 import { applyCommand, enroll } from "../membership/domain";
 import { Repository } from "../membership/repository";
-import { createSession, SESSION_COOKIE } from "../membership/session";
-import { appIdentity, APP_COOKIE, redeemPass } from "./app-sessions";
+import { createSession } from "../membership/session";
+import { appIdentity, APP_COOKIE, redeemPass, STATE_COOKIE } from "./app-sessions";
 import { passRequest } from "./pass-route";
 
 let fixture: Awaited<ReturnType<typeof database>>;
@@ -31,7 +31,10 @@ async function setup() {
     const state = await repository.load();
     await repository.commit(
       state,
-      applyCommand(state, subject, command, { id: crypto.randomUUID(), now: "2026-11-19T10:00:00Z" }),
+      applyCommand(state, subject, command, {
+        id: crypto.randomUUID(),
+        now: "2026-11-19T10:00:00Z",
+      }),
     );
   };
   for (const name of ["owner", "ana", "max", "sam", "pia"]) {
@@ -61,11 +64,15 @@ async function setup() {
   });
   return { repository, save };
 }
+const STATE = "s".repeat(43);
 async function ask(
   name: string | null,
-  query: string,
-  options: { enabled?: boolean; method?: string } = {},
+  asked: string,
+  options: { enabled?: boolean; method?: string; state?: string | null } = {},
 ) {
+  // The app's address sends the browser here with the state it made for it.
+  const state = options.state === undefined ? STATE : options.state;
+  const query = state === null ? asked : `${asked}${asked ? "&" : "?"}state=${state}`;
   const repository = new Repository(fixture.db);
   const headers: Record<string, string> = {};
   if (name) {
@@ -98,7 +105,14 @@ describe("carrying a signed-in person to a member app", () => {
     expect(target.origin).toBe("https://notes.slice.example");
     expect(target.pathname).toBe("/__slice/session");
     expect(target.searchParams.get("next")).toBe("/page.html?tab=2");
-    const setCookie = await redeemPass(fixture.db, "notes", target.searchParams.get("pass") ?? "");
+    const setCookie = await redeemPass(
+      fixture.db,
+      "notes",
+      target.searchParams.get("pass") ?? "",
+      new Request("https://notes.slice.example/__slice/session", {
+        headers: { Cookie: `${STATE_COOKIE}=${STATE}` },
+      }),
+    );
     const atApp = new Request("https://notes.slice.example/", {
       headers: { Cookie: `${APP_COOKIE}=${setCookie!.split(";")[0].split("=")[1]}` },
     });
@@ -116,7 +130,9 @@ describe("carrying a signed-in person to a member app", () => {
     const response = await ask("sam", "?app=notes");
     expect(response.status).toBe(302);
     expect(where(response)).toBe("/about/notes");
-    expect(await fixture.db.prepare("SELECT COUNT(*) AS n FROM app_passes").first()).toEqual({ n: 0 });
+    expect(await fixture.db.prepare("SELECT COUNT(*) AS n FROM app_passes").first()).toEqual({
+      n: 0,
+    });
   });
 
   it("sends someone who is not an active member to their account", async () => {
@@ -139,10 +155,24 @@ describe("carrying a signed-in person to a member app", () => {
     await setup();
     const response = await ask(null, "?app=notes&next=%2Fpage.html");
     expect(response.status).toBe(302);
+    // The state is left behind: signing in can take longer than it lasts.
     expect(where(response)).toBe(
       `/api/auth/google/start?next=${encodeURIComponent("/api/app-pass?app=notes&next=%2Fpage.html")}`,
     );
   });
+
+  it.each([null, "", "short", "s".repeat(44)])(
+    "sends a browser that arrives without a usable state (%j) to the app's address to start there",
+    async (state) => {
+      await setup();
+      const response = await ask("max", "?app=notes&next=%2Fpage.html", { state });
+      expect(response.status).toBe(302);
+      expect(where(response)).toBe("https://notes.slice.example/page.html");
+      expect(await fixture.db.prepare("SELECT COUNT(*) AS n FROM app_passes").first()).toEqual({
+        n: 0,
+      });
+    },
+  );
 
   it("gives no pass for an app that is offline, even to its manager", async () => {
     const { save } = await setup();
@@ -151,7 +181,7 @@ describe("carrying a signed-in person to a member app", () => {
     expect(where(await ask("max", "?app=notes"))).toBe("/about/notes");
   });
 
-  it.each(["?app=nowhere", "?app=alumni", "?app=Notes", "?app=", "", "?app=../notes"])(
+  it.each(["?app=nowhere", "?app=alumni", "?app=Notes", "?app=", "?", "?app=../notes"])(
     "answers 404 for %j",
     async (query) => {
       await setup();
@@ -185,6 +215,8 @@ describe("carrying a signed-in person to a member app", () => {
     expect((await ask("max", "?app=notes", { enabled: false })).status).toBe(404);
     const posted = await ask("max", "?app=notes", { method: "POST" });
     expect(posted.status).toBe(405);
-    expect(await fixture.db.prepare("SELECT COUNT(*) AS n FROM app_passes").first()).toEqual({ n: 0 });
+    expect(await fixture.db.prepare("SELECT COUNT(*) AS n FROM app_passes").first()).toEqual({
+      n: 0,
+    });
   });
 });

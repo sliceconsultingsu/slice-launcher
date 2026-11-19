@@ -437,13 +437,21 @@ describe("requests the Worker answers itself", () => {
       });
       expect(await response.text()).toBe(`app:notes:${path}`);
     }
-    const metadata = await raw("https://notes.slice.example/.well-known/oauth-authorization-server");
+    const metadata = await raw(
+      "https://notes.slice.example/.well-known/oauth-authorization-server",
+    );
     expect(await metadata.text()).toBe("app:notes:/.well-known/oauth-authorization-server");
   });
 
   it("any other name under the launcher's host is nobody's address", async () => {
     for (const host of ["www", "a.b", "admin", "my--notes", "ab", "paused"]) {
-      for (const path of ["/", "/account", "/oauth/register", "/.well-known/oauth-authorization-server", "/mcp"]) {
+      for (const path of [
+        "/",
+        "/account",
+        "/oauth/register",
+        "/.well-known/oauth-authorization-server",
+        "/mcp",
+      ]) {
         const response = await raw(`https://${host}.slice.example${path}`, {
           method: path === "/oauth/register" || path === "/mcp" ? "POST" : "GET",
           body: path === "/oauth/register" || path === "/mcp" ? "{}" : undefined,

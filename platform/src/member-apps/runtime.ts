@@ -4,6 +4,7 @@ import { Repository } from "../membership/repository";
 import { kvFiles, type AppFiles } from "./files";
 import { createFrontDoor } from "./front-door";
 import type { PassDeps } from "./pass-route";
+import { MemberApps } from "./service";
 
 type MemberAppsEnv = {
   MEMBER_APPS_ENABLED?: string;
@@ -68,4 +69,15 @@ export function memberAppRequest(
     origin: launcherOrigin(request, source),
   });
   return door(request, appId);
+}
+
+/** What the AI tools use to create and publish apps, or undefined while member apps are off. */
+export function memberAppsService(request: Request, source: MemberAppsEnv): MemberApps | undefined {
+  const files = appFiles(source);
+  if (!files) return undefined;
+  return new MemberApps({
+    repository: new Repository(source.MEMBERSHIP_DB),
+    files,
+    origin: launcherOrigin(request, source),
+  });
 }

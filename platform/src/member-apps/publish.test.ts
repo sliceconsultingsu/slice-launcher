@@ -58,26 +58,164 @@ describe("reading what a builder's AI publishes", () => {
   it.each([
     ["no files", { files: [] }, /at least one file/],
     ["no index.html", { files: [{ path: "home.html", text: page }] }, /index\.html/],
-    ["an index.html in other capitals", { files: [{ path: "Index.html", text: page }] }, /index\.html/],
-    ["an index.html only in a folder", { files: [{ path: "site/index.html", text: page }] }, /index\.html/],
+    [
+      "an index.html in other capitals",
+      { files: [{ path: "Index.html", text: page }] },
+      /index\.html/,
+    ],
+    [
+      "an index.html only in a folder",
+      { files: [{ path: "site/index.html", text: page }] },
+      /index\.html/,
+    ],
     ["a path that climbs out", { files: [{ path: "../index.html", text: page }] }, /path/],
     ["a path from the root", { files: [{ path: "/index.html", text: page }] }, /path/],
-    ["a hidden file", { files: [{ path: "index.html", text: page }, { path: ".env", text: "x" }] }, /path/],
-    ["a hidden folder", { files: [{ path: "index.html", text: page }, { path: "a/.git/x.txt", text: "x" }] }, /path/],
-    ["a backslash", { files: [{ path: "index.html", text: page }, { path: "a\\b.js", text: "x" }] }, /path/],
-    ["a space", { files: [{ path: "index.html", text: page }, { path: "my file.js", text: "x" }] }, /path/],
-    ["an encoded dot", { files: [{ path: "index.html", text: page }, { path: "%2e%2e/x.js", text: "x" }] }, /path/],
-    ["a doubled slash", { files: [{ path: "index.html", text: page }, { path: "a//b.js", text: "x" }] }, /path/],
-    ["a trailing slash", { files: [{ path: "index.html", text: page }, { path: "a/", text: "x" }] }, /path/],
-    ["a file type that is not allowed", { files: [{ path: "index.html", text: page }, { path: "run.php", text: "x" }] }, /type/],
-    ["no file type", { files: [{ path: "index.html", text: page }, { path: "LICENSE", text: "x" }] }, /type/],
-    ["a file under api/", { files: [{ path: "index.html", text: page }, { path: "api/data.json", text: "{}" }] }, /api\//],
-    ["server code", { files: [{ path: "index.html", text: page }, { path: "worker.js", text: "x" }] }, /Server code/],
-    ["the same file twice", { files: [{ path: "index.html", text: page }, { path: "Index.html", text: page }] }, /twice/],
-    ["both text and base64", { files: [{ path: "index.html", text: page, base64: "eA==" }] }, /text or base64/],
+    [
+      "a hidden file",
+      {
+        files: [
+          { path: "index.html", text: page },
+          { path: ".env", text: "x" },
+        ],
+      },
+      /path/,
+    ],
+    [
+      "a hidden folder",
+      {
+        files: [
+          { path: "index.html", text: page },
+          { path: "a/.git/x.txt", text: "x" },
+        ],
+      },
+      /path/,
+    ],
+    [
+      "a backslash",
+      {
+        files: [
+          { path: "index.html", text: page },
+          { path: "a\\b.js", text: "x" },
+        ],
+      },
+      /path/,
+    ],
+    [
+      "a space",
+      {
+        files: [
+          { path: "index.html", text: page },
+          { path: "my file.js", text: "x" },
+        ],
+      },
+      /path/,
+    ],
+    [
+      "an encoded dot",
+      {
+        files: [
+          { path: "index.html", text: page },
+          { path: "%2e%2e/x.js", text: "x" },
+        ],
+      },
+      /path/,
+    ],
+    [
+      "a doubled slash",
+      {
+        files: [
+          { path: "index.html", text: page },
+          { path: "a//b.js", text: "x" },
+        ],
+      },
+      /path/,
+    ],
+    [
+      "a trailing slash",
+      {
+        files: [
+          { path: "index.html", text: page },
+          { path: "a/", text: "x" },
+        ],
+      },
+      /path/,
+    ],
+    [
+      "a file type that is not allowed",
+      {
+        files: [
+          { path: "index.html", text: page },
+          { path: "run.php", text: "x" },
+        ],
+      },
+      /type/,
+    ],
+    [
+      "no file type",
+      {
+        files: [
+          { path: "index.html", text: page },
+          { path: "LICENSE", text: "x" },
+        ],
+      },
+      /type/,
+    ],
+    [
+      "a file under api/",
+      {
+        files: [
+          { path: "index.html", text: page },
+          { path: "api/data.json", text: "{}" },
+        ],
+      },
+      /api\//,
+    ],
+    [
+      "server code",
+      {
+        files: [
+          { path: "index.html", text: page },
+          { path: "worker.js", text: "x" },
+        ],
+      },
+      /Server code/,
+    ],
+    [
+      "the same file twice",
+      {
+        files: [
+          { path: "index.html", text: page },
+          { path: "Index.html", text: page },
+        ],
+      },
+      /twice/,
+    ],
+    [
+      "both text and base64",
+      { files: [{ path: "index.html", text: page, base64: "eA==" }] },
+      /text or base64/,
+    ],
     ["neither text nor base64", { files: [{ path: "index.html" }] }, /text or base64/],
-    ["base64 that is not base64", { files: [{ path: "index.html", text: page }, { path: "a.png", base64: "not base64!" }] }, /base64/],
-    ["an image sent as text", { files: [{ path: "index.html", text: page }, { path: "a.png", text: "x" }] }, /base64/],
+    [
+      "base64 that is not base64",
+      {
+        files: [
+          { path: "index.html", text: page },
+          { path: "a.png", base64: "not base64!" },
+        ],
+      },
+      /base64/,
+    ],
+    [
+      "an image sent as text",
+      {
+        files: [
+          { path: "index.html", text: page },
+          { path: "a.png", text: "x" },
+        ],
+      },
+      /base64/,
+    ],
     ["no guide", { guide: " " }, /guide/],
     ["a guide that is too long", { guide: "x".repeat(20001) }, /guide/],
     ["no name", { name: "" }, /name/],
@@ -98,7 +236,14 @@ describe("reading what a builder's AI publishes", () => {
   it("refuses a file over 512 KB and a bundle over 1 MB", () => {
     const big = "x".repeat(512 * 1024 + 1);
     expect(
-      refusal(bundle({ files: [{ path: "index.html", text: page }, { path: "big.js", text: big }] })),
+      refusal(
+        bundle({
+          files: [
+            { path: "index.html", text: page },
+            { path: "big.js", text: big },
+          ],
+        }),
+      ),
     ).toMatch(/512 KB/);
     const part = "x".repeat(400 * 1024);
     expect(
@@ -118,7 +263,14 @@ describe("reading what a builder's AI publishes", () => {
   it("counts a file's size in bytes, not characters", () => {
     const wide = "é".repeat(300 * 1024);
     expect(
-      refusal(bundle({ files: [{ path: "index.html", text: page }, { path: "a.js", text: wide }] })),
+      refusal(
+        bundle({
+          files: [
+            { path: "index.html", text: page },
+            { path: "a.js", text: wide },
+          ],
+        }),
+      ),
     ).toMatch(/512 KB/);
   });
 });

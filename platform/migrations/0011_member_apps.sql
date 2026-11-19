@@ -24,6 +24,7 @@ CREATE TABLE app_passes (
   hash TEXT PRIMARY KEY,
   app_id TEXT NOT NULL,
   session_hash TEXT NOT NULL, -- The launcher session (sessions.hash) the pass was issued to.
+  state_hash TEXT NOT NULL, -- Hash of the state the app's address gave the browser that asked.
   expires_at TEXT NOT NULL
 );
 CREATE INDEX app_passes_expires ON app_passes(expires_at);

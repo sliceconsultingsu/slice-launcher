@@ -38,7 +38,10 @@ async function setup() {
     const state = await repository.load();
     await repository.commit(
       state,
-      applyCommand(state, subject, command, { id: crypto.randomUUID(), now: "2026-11-19T10:00:00Z" }),
+      applyCommand(state, subject, command, {
+        id: crypto.randomUUID(),
+        now: "2026-11-19T10:00:00Z",
+      }),
     );
   };
   for (const name of ["owner", "ana", "max", "pia"]) {
@@ -215,9 +218,50 @@ describe("creating and publishing through the launcher", () => {
     expect(await status(() => apps.list(who("nobody")))).toBe(403);
     expect(await status(() => apps.status(who("pia"), "notes"))).toBe(403);
     // A session whose email no longer matches the member is refused too.
-    expect(
-      await status(() => apps.list({ subject: "ana-sub", email: "other@example.test" })),
-    ).toBe(403);
+    expect(await status(() => apps.list({ subject: "ana-sub", email: "other@example.test" }))).toBe(
+      403,
+    );
+  });
+});
+
+describe("keeping a runaway AI from filling the launcher", () => {
+  it("stops a member at 30 publishes in an hour", async () => {
+    const { apps, repository } = await setup();
+    await apps.create(who("ana"), notes);
+    // 29 earlier publishes in the last hour, recorded the way the launcher records them.
+    const at = new Date(Date.now() - 60_000).toISOString();
+    await fixture.db.batch(
+      Array.from({ length: 29 }, (_, n) =>
+        fixture.db.prepare("INSERT INTO access_audit(id, at, document) VALUES (?, ?, ?)").bind(
+          `earlier-${n}`,
+          at,
+          JSON.stringify({
+            id: `earlier-${n}`,
+            at,
+            actorId: "ana-member",
+            action: "memberapp.publish",
+          }),
+        ),
+      ),
+    );
+    expect(await status(() => apps.publish(who("ana"), "notes", bundle()))).toBeUndefined();
+    expect(await status(() => apps.publish(who("ana"), "notes", bundle()))).toBe(429);
+    expect((await repository.load()).memberApps).toMatchObject([{ latest: 1 }]);
+    // Someone else is not held back by Ana's publishing.
+    await apps.create(who("max"), { ...notes, id: "ledger" });
+    expect(await status(() => apps.publish(who("max"), "ledger", bundle()))).toBeUndefined();
+  });
+
+  it("stops a member at 10 new apps in a day, however many they deleted", async () => {
+    const { apps, save } = await setup();
+    for (const round of [1, 2]) {
+      for (const n of [1, 2, 3, 4, 5])
+        await apps.create(who("ana"), { ...notes, id: `ana-${round}-${n}` });
+      for (const n of [1, 2, 3, 4, 5])
+        await save("ana-sub", { type: "memberapp.delete", id: `ana-${round}-${n}` });
+    }
+    expect(await status(() => apps.create(who("ana"), { ...notes, id: "ana-3-1" }))).toBe(429);
+    expect(await status(() => apps.create(who("max"), { ...notes, id: "max-1" }))).toBeUndefined();
   });
 });
 

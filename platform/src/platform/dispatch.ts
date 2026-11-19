@@ -4,12 +4,15 @@ import { readCommand } from "../membership/auth";
 import { errorResponse } from "../membership/api";
 import { authorizeApp } from "./access";
 import type { AppDescriptor, AppModule, AppPageProps } from "./contracts";
+import type { MemberApps } from "../member-apps/service";
 
 export interface PlatformDependencies {
   catalog: readonly AppDescriptor[];
   modules: ReadonlyMap<string, AppModule>;
   verify(request: Request): Promise<Identity>;
   loadState(): Promise<State>;
+  /** Member apps (docs/member-apps.md). Left out while they are switched off. */
+  memberApps?: MemberApps;
 }
 
 /** Both pages and APIs enter here; app code never receives an unauthenticated request. */

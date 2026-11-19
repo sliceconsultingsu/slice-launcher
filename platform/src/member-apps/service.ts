@@ -20,6 +20,10 @@ export type MemberAppsDeps = {
   origin: string;
 };
 
+/** How often one member can publish, and create apps. Every one adds a history entry. */
+export const PUBLISHES_PER_HOUR = 30;
+export const CREATES_PER_DAY = 10;
+
 const meta = () => ({ id: crypto.randomUUID(), now: new Date().toISOString() });
 
 export class MemberApps {
@@ -30,6 +34,19 @@ export class MemberApps {
     const state = await this.deps.repository.load();
     authorizeMember(state, identity);
     return state;
+  }
+
+  /** Refuses once this member has done this many times since the window began. */
+  private async pace(state: State, identity: Identity, action: string, most: number, ms: number) {
+    const member = authorizeMember(state, identity);
+    const since = new Date(Date.now() - ms).toISOString();
+    if ((await this.deps.repository.actionsSince(member.id, action, since)) >= most)
+      throw new MembershipError(
+        429,
+        action === "memberapp.publish"
+          ? "You have published many times in the last hour. Try again later."
+          : "You have created many apps today. Try again tomorrow.",
+      );
   }
 
   private summary(app: MemberApp) {
@@ -54,6 +71,7 @@ export class MemberApps {
   /** Reserves the ID and records the caller as the app's first manager. */
   async create(identity: Identity, input: { id: string; name: string; description: string }) {
     const state = await this.load(identity);
+    await this.pace(state, identity, "memberapp.create", CREATES_PER_DAY, 86400_000);
     const mutation = applyCommand(
       state,
       identity.subject,
@@ -72,6 +90,7 @@ export class MemberApps {
   async publish(identity: Identity, id: string, value: unknown) {
     const bundle = readBundle(value);
     const state = await this.load(identity);
+    await this.pace(state, identity, "memberapp.publish", PUBLISHES_PER_HOUR, 3600_000);
     const stamp = meta();
     const mutation = applyCommand(
       state,
@@ -146,7 +165,9 @@ export class MemberApps {
     const member = authorizeMember(state, identity);
     const existing = memberApps(state);
     return {
-      apps: existing.filter((app) => managesApp(state, member, app.id)).map((app) => this.summary(app)),
+      apps: existing
+        .filter((app) => managesApp(state, member, app.id))
+        .map((app) => this.summary(app)),
       canCreate: member.owner
         ? null
         : Math.max(0, APP_LIMIT - existing.filter((app) => app.createdBy === member.id).length),

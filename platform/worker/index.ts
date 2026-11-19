@@ -4,7 +4,7 @@
 import vinext from "vinext/server/fetch-handler";
 import { createSliceWorker } from "../src/ai-connections/oauth";
 import { apps } from "../src/lib/apps";
-import { memberAppRequest } from "../src/member-apps/runtime";
+import { memberAppRequest, memberAppsService } from "../src/member-apps/runtime";
 import { Repository } from "../src/membership/repository";
 import { createMcpAdapter } from "../src/platform/mcp";
 import { modules } from "../src/platform/registry.generated";
@@ -21,6 +21,7 @@ export default createSliceWorker<CloudflareEnv>({
       modules,
       verify: async () => identity,
       loadState: () => new Repository(env.MEMBERSHIP_DB).load(),
+      memberApps: memberAppsService(request, env),
     })(request),
   // Member apps live at their own addresses under the launcher's (docs/member-apps.md).
   memberApp: (request, env, appId) => memberAppRequest(request, env, appId),

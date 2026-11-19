@@ -4,7 +4,7 @@ import { memoryFiles } from "../../tests/member-apps/memory-files";
 import { applyCommand, enroll } from "../membership/domain";
 import { Repository } from "../membership/repository";
 import { createSession, endSession } from "../membership/session";
-import { APP_COOKIE, issuePass, redeemPass } from "./app-sessions";
+import { APP_COOKIE, issuePass, redeemPass, STATE_COOKIE } from "./app-sessions";
 import { createFrontDoor } from "./front-door";
 import { MemberApps } from "./service";
 
@@ -54,7 +54,10 @@ async function setup() {
     const state = await repository.load();
     await repository.commit(
       state,
-      applyCommand(state, subject, command, { id: crypto.randomUUID(), now: "2026-11-19T10:00:00Z" }),
+      applyCommand(state, subject, command, {
+        id: crypto.randomUUID(),
+        now: "2026-11-19T10:00:00Z",
+      }),
     );
   };
   for (const name of ["owner", "ana", "max", "sam"]) {
@@ -103,12 +106,20 @@ async function setup() {
   const enter = async (name: string, appId = "notes") => {
     const session = await createSession(fixture.db, who(name), "test browser");
     const atLauncher = new Request(`${launcher}/`, { headers: { Cookie: session.split(";")[0] } });
-    const pass = await issuePass(fixture.db, atLauncher, appId);
-    const setCookie = await redeemPass(fixture.db, appId, pass ?? "");
+    const pass = await issuePass(fixture.db, atLauncher, appId, STATE);
+    const setCookie = await redeemPass(
+      fixture.db,
+      appId,
+      pass ?? "",
+      new Request(`https://${appId}.slice.example/`, { headers: { Cookie: stateCookie } }),
+    );
     return { cookie: setCookie!.split(";")[0], atLauncher };
   };
   return { repository, files, apps, save, door, enter };
 }
+/** The state a browser holds after the app's address started its sign-in. */
+const STATE = "s".repeat(43);
+const stateCookie = `${STATE_COOKIE}=${STATE}`;
 type Sent = { cookie?: string; method?: string; headers?: Record<string, string>; body?: string };
 const request = (appId: string, path: string, sent: Sent = {}) =>
   new Request(`https://${appId}.slice.example${path}`, {
@@ -133,13 +144,19 @@ describe("serving a member app to someone who may open it", () => {
     expect(home.status).toBe(200);
     expect(home.headers.get("Content-Type")).toBe("text/html; charset=utf-8");
     expect(await home.text()).toBe(page);
-    expect(await (await door(request("notes", "/index.html", { cookie }), "notes")).text()).toBe(page);
-    expect(await (await door(request("notes", "/docs/", { cookie }), "notes")).text()).toBe("<p>docs</p>");
+    expect(await (await door(request("notes", "/index.html", { cookie }), "notes")).text()).toBe(
+      page,
+    );
+    expect(await (await door(request("notes", "/docs/", { cookie }), "notes")).text()).toBe(
+      "<p>docs</p>",
+    );
     const script = await door(request("notes", "/js/app.js", { cookie }), "notes");
     expect(script.headers.get("Content-Type")).toBe("text/javascript; charset=utf-8");
     const image = await door(request("notes", "/img/dot.png", { cookie }), "notes");
     expect(image.headers.get("Content-Type")).toBe("image/png");
-    expect([...new Uint8Array(await image.arrayBuffer())].slice(0, 4)).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    expect([...new Uint8Array(await image.arrayBuffer())].slice(0, 4)).toEqual([
+      0x89, 0x50, 0x4e, 0x47,
+    ]);
   });
 
   it("sets the browser rules on every file it serves", async () => {
@@ -186,7 +203,10 @@ describe("serving a member app to someone who may open it", () => {
 
   it("tells the app's page who is using it, without their email", async () => {
     const { door, enter } = await setup();
-    const max = await door(request("notes", "/__slice/me", { cookie: (await enter("max")).cookie }), "notes");
+    const max = await door(
+      request("notes", "/__slice/me", { cookie: (await enter("max")).cookie }),
+      "notes",
+    );
     expect(max.headers.get("Cache-Control")).toBe("private, no-store");
     expect(await max.json()).toEqual({
       id: "max-member",
@@ -194,14 +214,26 @@ describe("serving a member app to someone who may open it", () => {
       manager: false,
       powers: ["edit"],
     });
-    const ana = await door(request("notes", "/__slice/me", { cookie: (await enter("ana")).cookie }), "notes");
-    expect(await ana.json()).toEqual({ id: "ana-member", name: "Ana", manager: true, powers: ["edit"] });
+    const ana = await door(
+      request("notes", "/__slice/me", { cookie: (await enter("ana")).cookie }),
+      "notes",
+    );
+    expect(await ana.json()).toEqual({
+      id: "ana-member",
+      name: "Ana",
+      manager: true,
+      powers: ["edit"],
+    });
   });
 
   it("serves the version that is live, and an earlier one when that is put back", async () => {
     const { door, enter, apps, save } = await setup();
     const { cookie } = await enter("max");
-    await apps.publish(who("ana"), "notes", publishNotes({ files: [{ path: "index.html", text: "second" }] }));
+    await apps.publish(
+      who("ana"),
+      "notes",
+      publishNotes({ files: [{ path: "index.html", text: "second" }] }),
+    );
     expect(await (await door(request("notes", "/", { cookie }), "notes")).text()).toBe("second");
     // A file only the first version had is gone.
     expect((await door(request("notes", "/js/app.js", { cookie }), "notes")).status).toBe(404);
@@ -262,21 +294,33 @@ describe("keeping everyone else out", () => {
     const { door } = await setup();
     const response = await door(request("notes", "/docs/?tab=2"), "notes");
     expect(response.status).toBe(302);
-    expect(where(response)).toBe(
-      `${launcher}/api/app-pass?app=notes&next=${encodeURIComponent("/docs/?tab=2")}`,
+    // It also starts the sign-in: a state only this browser holds, which the pass must match.
+    const started = response.headers.get("Set-Cookie") ?? "";
+    expect(started).toMatch(
+      /^__Host-slice_app_state=[\w-]{43}; Max-Age=600; HttpOnly; Secure; SameSite=Lax; Path=\/$/,
     );
+    const state = started.split(";")[0].split("=")[1];
+    expect(where(response)).toBe(
+      `${launcher}/api/app-pass?app=notes&next=${encodeURIComponent("/docs/?tab=2")}&state=${state}`,
+    );
+    const again = await door(request("notes", "/docs/?tab=2"), "notes");
+    expect(again.headers.get("Set-Cookie")).not.toBe(started);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it("answers 401, not a redirect, to anything that is not a page being opened", async () => {
     const { door } = await setup();
     const script = await door(
-      request("notes", "/js/app.js", { headers: { "Sec-Fetch-Mode": "no-cors", "Sec-Fetch-Dest": "script", Accept: "*/*" } }),
+      request("notes", "/js/app.js", {
+        headers: { "Sec-Fetch-Mode": "no-cors", "Sec-Fetch-Dest": "script", Accept: "*/*" },
+      }),
       "notes",
     );
     expect(script.status).toBe(401);
     const me = await door(
-      request("notes", "/__slice/me", { headers: { "Sec-Fetch-Mode": "cors", "Sec-Fetch-Dest": "empty", Accept: "*/*" } }),
+      request("notes", "/__slice/me", {
+        headers: { "Sec-Fetch-Mode": "cors", "Sec-Fetch-Dest": "empty", Accept: "*/*" },
+      }),
       "notes",
     );
     expect(me.status).toBe(401);
@@ -288,7 +332,7 @@ describe("keeping everyone else out", () => {
     const real = await door(request("notes", "/"), "notes");
     const none = await door(request("nowhere", "/"), "nowhere");
     expect(none.status).toBe(real.status);
-    expect(where(none)).toBe(`${launcher}/api/app-pass?app=nowhere&next=%2F`);
+    expect(where(none)).toContain(`${launcher}/api/app-pass?app=nowhere&next=%2F&state=`);
   });
 
   it("refuses a session from another app", async () => {
@@ -315,7 +359,10 @@ describe("keeping everyone else out", () => {
     expect(opened.status).toBe(302);
     expect(where(opened)).toBe(`${launcher}/about/notes`);
     const fetched = await door(
-      request("notes", "/__slice/me", { cookie, headers: { "Sec-Fetch-Mode": "cors", Accept: "*/*" } }),
+      request("notes", "/__slice/me", {
+        cookie,
+        headers: { "Sec-Fetch-Mode": "cors", Accept: "*/*" },
+      }),
       "notes",
     );
     expect(fetched.status).toBe(403);
@@ -363,10 +410,22 @@ describe("keeping everyone else out", () => {
 
 describe("requests from other sites and other apps", () => {
   it.each([
-    ["a script on another app", { "Sec-Fetch-Site": "same-site", "Sec-Fetch-Mode": "no-cors", "Sec-Fetch-Dest": "script" }],
-    ["a fetch from another app", { "Sec-Fetch-Site": "same-site", "Sec-Fetch-Mode": "cors", "Sec-Fetch-Dest": "empty" }],
-    ["an image on another site", { "Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "no-cors", "Sec-Fetch-Dest": "image" }],
-    ["a frame on another app", { "Sec-Fetch-Site": "same-site", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "iframe" }],
+    [
+      "a script on another app",
+      { "Sec-Fetch-Site": "same-site", "Sec-Fetch-Mode": "no-cors", "Sec-Fetch-Dest": "script" },
+    ],
+    [
+      "a fetch from another app",
+      { "Sec-Fetch-Site": "same-site", "Sec-Fetch-Mode": "cors", "Sec-Fetch-Dest": "empty" },
+    ],
+    [
+      "an image on another site",
+      { "Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "no-cors", "Sec-Fetch-Dest": "image" },
+    ],
+    [
+      "a frame on another app",
+      { "Sec-Fetch-Site": "same-site", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "iframe" },
+    ],
   ])("refuses %s, even with the person's session", async (_what, headers) => {
     const { door, enter } = await setup();
     const { cookie } = await enter("max");
@@ -406,61 +465,114 @@ describe("requests from other sites and other apps", () => {
 });
 
 describe("arriving with a pass", () => {
-  async function pass(setupResult: Awaited<ReturnType<typeof setup>>, name: string, appId = "notes") {
+  /** A pass for this person, issued against the state this test's browser holds. */
+  async function pass(name: string, appId = "notes") {
     const session = await createSession(fixture.db, who(name), "test browser");
     const atLauncher = new Request(`${launcher}/`, { headers: { Cookie: session.split(";")[0] } });
-    void setupResult;
-    return (await issuePass(fixture.db, atLauncher, appId))!;
+    return (await issuePass(fixture.db, atLauncher, appId, STATE))!;
   }
+  const appCookie = (response: Response) =>
+    response.headers.getSetCookie().find((item) => item.startsWith(`${APP_COOKIE}=`));
 
   it("signs the browser in at the app and sends it on to where it was going", async () => {
     const context = await setup();
-    const token = await pass(context, "max");
+    const token = await pass("max");
     const response = await context.door(
-      request("notes", `/__slice/session?pass=${token}&next=${encodeURIComponent("/docs/?tab=2")}`),
+      request(
+        "notes",
+        `/__slice/session?pass=${token}&next=${encodeURIComponent("/docs/?tab=2")}`,
+        {
+          cookie: stateCookie,
+        },
+      ),
       "notes",
     );
     expect(response.status).toBe(303);
     expect(where(response)).toBe("/docs/?tab=2");
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(response.headers.get("Referrer-Policy")).toBe("no-referrer");
-    const cookie = response.headers.get("Set-Cookie")!;
-    expect(cookie).toMatch(new RegExp(`^${APP_COOKIE}=[\\w-]{43}; Max-Age=86400; HttpOnly; Secure; SameSite=Lax; Path=/$`));
-    const opened = await context.door(request("notes", "/docs/", { cookie: cookie.split(";")[0] }), "notes");
+    const cookie = appCookie(response)!;
+    expect(cookie).toMatch(
+      new RegExp(
+        `^${APP_COOKIE}=[\\w-]{43}; Max-Age=86400; HttpOnly; Secure; SameSite=Lax; Path=/$`,
+      ),
+    );
+    // The state has done its job and is cleared.
+    expect(response.headers.getSetCookie()).toContain(
+      `${STATE_COOKIE}=; Max-Age=0; HttpOnly; Secure; SameSite=Lax; Path=/`,
+    );
+    const opened = await context.door(
+      request("notes", "/docs/", { cookie: cookie.split(";")[0] }),
+      "notes",
+    );
     expect(opened.status).toBe(200);
+  });
+
+  it("does not sign a browser in with a pass someone else obtained and sent it", async () => {
+    const context = await setup();
+    // Max, who may open the app, gets a pass and lures another person's browser to the link.
+    const lure = `/__slice/session?pass=${await pass("max")}&next=%2F`;
+    for (const cookie of [undefined, `${STATE_COOKIE}=${"v".repeat(43)}`]) {
+      const response = await context.door(request("notes", lure, { cookie }), "notes");
+      expect(response.status).toBe(302);
+      expect(where(response)).toBe(`${launcher}/about/notes`);
+      expect(appCookie(response)).toBeUndefined();
+    }
+  });
+
+  it("carries on to where it was going if this browser is already signed in at the app", async () => {
+    const context = await setup();
+    const { cookie } = await context.enter("max");
+    // A second tab's pass arrives after the first tab finished: its state is gone.
+    const late = `/__slice/session?pass=${await pass("max")}&next=%2Fdocs%2F`;
+    const response = await context.door(request("notes", late, { cookie }), "notes");
+    expect(response.status).toBe(303);
+    expect(where(response)).toBe("/docs/");
+    expect(appCookie(response)).toBeUndefined();
   });
 
   it("sends a browser with a used, made-up or wrong-app pass to the app's page, with no cookie", async () => {
     const context = await setup();
-    const token = await pass(context, "max");
-    await context.door(request("notes", `/__slice/session?pass=${token}`), "notes");
-    const forLedger = await pass(context, "sam", "ledger");
+    const token = await pass("max");
+    await context.door(
+      request("notes", `/__slice/session?pass=${token}`, { cookie: stateCookie }),
+      "notes",
+    );
+    const forLedger = await pass("sam", "ledger");
     for (const value of [token, "x".repeat(43), "", forLedger]) {
-      const response = await context.door(request("notes", `/__slice/session?pass=${value}`), "notes");
+      const response = await context.door(
+        request("notes", `/__slice/session?pass=${value}`, { cookie: stateCookie }),
+        "notes",
+      );
       expect(response.status).toBe(302);
       expect(where(response)).toBe(`${launcher}/about/notes`);
-      expect(response.headers.get("Set-Cookie")).toBeNull();
+      expect(appCookie(response)).toBeUndefined();
     }
   });
 
-  it.each(["//evil.example/x", "https://evil.example/", "/\\evil.example", "/__slice/session?pass=x"])(
-    "lands on the first screen when asked to continue to %s",
-    async (next) => {
-      const context = await setup();
-      const token = await pass(context, "max");
-      const response = await context.door(
-        request("notes", `/__slice/session?pass=${token}&next=${encodeURIComponent(next)}`),
-        "notes",
-      );
-      expect(where(response)).toBe("/");
-    },
-  );
+  it.each([
+    "//evil.example/x",
+    "https://evil.example/",
+    "/\\evil.example",
+    "/__slice/session?pass=x",
+  ])("lands on the first screen when asked to continue to %s", async (next) => {
+    const context = await setup();
+    const token = await pass("max");
+    const response = await context.door(
+      request("notes", `/__slice/session?pass=${token}&next=${encodeURIComponent(next)}`, {
+        cookie: stateCookie,
+      }),
+      "notes",
+    );
+    expect(where(response)).toBe("/");
+  });
 
   it("does not accept a pass sent as anything but a page being opened", async () => {
     const context = await setup();
-    const token = await pass(context, "max");
+    const token = await pass("max");
     const posted = await context.door(
       request("notes", `/__slice/session?pass=${token}`, {
+        cookie: stateCookie,
         method: "POST",
         headers: { Origin: "https://notes.slice.example" },
         body: "",
@@ -468,6 +580,6 @@ describe("arriving with a pass", () => {
       "notes",
     );
     expect(posted.status).toBe(405);
-    expect(posted.headers.get("Set-Cookie")).toBeNull();
+    expect(appCookie(posted)).toBeUndefined();
   });
 });

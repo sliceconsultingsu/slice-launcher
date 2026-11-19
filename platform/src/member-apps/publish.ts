@@ -108,14 +108,13 @@ export function readBundle(value: unknown): Bundle {
     if (file.base64 === undefined && extension in BINARY_TYPES)
       refuse(`"${path}" must be sent as base64.`);
     const body =
-      file.base64 === undefined
-        ? new TextEncoder().encode(file.text)
-        : decode(path, file.base64);
+      file.base64 === undefined ? new TextEncoder().encode(file.text) : decode(path, file.base64);
     if (body.byteLength > MAX_FILE_BYTES) refuse(`"${path}" is larger than 512 KB.`);
     total += body.byteLength;
     files.push({ path, type, body });
   }
   if (total > MAX_BUNDLE_BYTES) refuse("The files add up to more than 1 MB.");
-  if (!files.some((file) => file.path === "index.html")) refuse("An app needs an index.html: it is the first screen.");
+  if (!files.some((file) => file.path === "index.html"))
+    refuse("An app needs an index.html: it is the first screen.");
   return { name, description, guide, powers, files };
 }

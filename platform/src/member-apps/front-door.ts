@@ -5,7 +5,8 @@ import { managesApp } from "../membership/app-access";
 import type { State, VersionRecord } from "../membership/contracts";
 import { effectivePermissions } from "../membership/domain";
 import { appAddress } from "../platform/address";
-import { appIdentity, redeemPass } from "./app-sessions";
+import { cookie } from "../membership/session";
+import { appIdentity, redeemPass, startState, STATE_COOKIE } from "./app-sessions";
 import type { AppFiles } from "./files";
 import { safeAppPath } from "./pass-route";
 import { pathPattern } from "./publish";
@@ -51,25 +52,33 @@ function guarded(response: Response): Response {
   return new Response(response.body, { status: response.status, headers });
 }
 const text = (status: number, body: string, headers: Record<string, string> = {}) =>
-  new Response(body, { status, headers: { "Content-Type": "text/plain; charset=utf-8", ...headers } });
-const json = (status: number, body: unknown) =>
-  Response.json(body, { status, headers: { "Cache-Control": "private, no-store", Vary: "Cookie" } });
-const redirect = (location: string, status = 302, headers: Record<string, string> = {}) =>
-  new Response(null, {
+  new Response(body, {
     status,
-    headers: {
-      Location: location,
-      "Cache-Control": "no-store",
-      "Referrer-Policy": "no-referrer",
-      ...headers,
-    },
+    headers: { "Content-Type": "text/plain; charset=utf-8", ...headers },
   });
+const json = (status: number, body: unknown) =>
+  Response.json(body, {
+    status,
+    headers: { "Cache-Control": "private, no-store", Vary: "Cookie" },
+  });
+function redirect(location: string, status = 302, cookies: string[] = []) {
+  const headers = new Headers({
+    Location: location,
+    "Cache-Control": "no-store",
+    "Referrer-Policy": "no-referrer",
+  });
+  for (const value of cookies) headers.append("Set-Cookie", value);
+  return new Response(null, { status, headers });
+}
 
 /** Whether the browser is opening a page (a link, the address bar), not loading something into one. */
 function opening(request: Request): boolean {
   if (request.method !== "GET") return false;
   const mode = request.headers.get("Sec-Fetch-Mode");
-  if (mode) return mode === "navigate" && (request.headers.get("Sec-Fetch-Dest") ?? "document") === "document";
+  if (mode)
+    return (
+      mode === "navigate" && (request.headers.get("Sec-Fetch-Dest") ?? "document") === "document"
+    );
   return (request.headers.get("Accept") ?? "").includes("text/html");
 }
 
@@ -104,9 +113,20 @@ export function createFrontDoor(deps: FrontDoorDeps) {
 
     if (url.pathname === "/__slice/session") {
       if (request.method !== "GET") return text(405, "Method not allowed", { Allow: "GET" });
-      const setCookie = await redeemPass(deps.db, appId, url.searchParams.get("pass") ?? "");
-      if (!setCookie) return redirect(`${deps.origin}/about/${appId}`);
-      return redirect(safeAppPath(url.searchParams.get("next")), 303, { "Set-Cookie": setCookie });
+      const next = safeAppPath(url.searchParams.get("next"));
+      const setCookie = await redeemPass(
+        deps.db,
+        appId,
+        url.searchParams.get("pass") ?? "",
+        request,
+      );
+      // The state has done its job.
+      if (setCookie) return redirect(next, 303, [setCookie, cookie(STATE_COOKIE, "", 0)]);
+      // A pass that does not work here: carry on only if this browser is already signed in at
+      // the app (a second tab), otherwise explain on the app's page in the launcher.
+      return (await appIdentity(deps.db, appId, request))
+        ? redirect(next, 303)
+        : redirect(`${deps.origin}/about/${appId}`);
     }
 
     // Who is signed in comes first, so a browser that is not signed in learns nothing, not even
@@ -114,8 +134,12 @@ export function createFrontDoor(deps: FrontDoorDeps) {
     const identity = await appIdentity(deps.db, appId, request);
     if (!identity) {
       if (!opening(request)) return json(401, { error: "Sign in to Slice." });
+      // Start signing in: a state only this browser holds, which the launcher's pass must match.
+      const { state, setCookie } = startState();
       const next = encodeURIComponent(url.pathname + url.search);
-      return redirect(`${deps.origin}/api/app-pass?app=${appId}&next=${next}`);
+      return redirect(`${deps.origin}/api/app-pass?app=${appId}&next=${next}&state=${state}`, 302, [
+        setCookie,
+      ]);
     }
 
     // Current membership and app access, on every request.

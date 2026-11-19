@@ -1,7 +1,8 @@
 // The launcher's side of sign-in at a member app: GET /api/app-pass?app=<id>&next=<path>.
 // It checks, with current membership, that this signed-in person may open the app, and only then
 // sends them to the app's address with a one-time pass. An app's page can send a browser here,
-// which is harmless: the pass only ever goes to the address of the app it names.
+// which is harmless: the pass only ever goes to the address of the app it names, and it works
+// only in the browser whose state it was issued against.
 import { MembershipError } from "../membership/contracts";
 import type { State } from "../membership/contracts";
 import { effectivePermissions } from "../membership/domain";
@@ -29,7 +30,8 @@ export function safeAppPath(value: string | null): string {
     value.startsWith("//") ||
     value.startsWith("/__slice/") ||
     // Backslashes and control characters are read differently by different browsers.
-    /[\\\u0000-\u001f\u007f]/.test(value)
+    value.includes("\\") ||
+    [...value].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)
   )
     return "/";
   return value;
@@ -72,7 +74,11 @@ export async function passRequest(request: Request, deps: PassDeps): Promise<Res
     !effectivePermissions(state, member, [memberAppDescriptor(app)]).includes(`app.${appId}.open`)
   )
     return redirect(`/about/${appId}`);
-  const pass = await issuePass(deps.db, request, appId);
+  // The pass is tied to the state the app's address gave this browser. A browser that arrives
+  // without one (a link straight here, or back from signing in) starts at the app's address.
+  const browserState = url.searchParams.get("state") ?? "";
+  if (browserState.length !== 43) return redirect(`${appAddress(deps.origin, appId)}${next}`);
+  const pass = await issuePass(deps.db, request, appId, browserState);
   if (!pass) return redirect("/account");
   return redirect(
     `${appAddress(deps.origin, appId)}/__slice/session?pass=${pass}&next=${encodeURIComponent(next)}`,
