@@ -12,6 +12,7 @@ import {
   removeManager,
   removePerson,
   setPower,
+  startingDraft,
   toCommand,
 } from "./app-manage-model";
 
@@ -113,6 +114,31 @@ describe("editing an app's settings", () => {
     expect(publicConfirmation("Notes", { active: 2, invited: 0 })).toBe(
       "This opens Notes to all 2 active members.",
     );
+  });
+});
+
+describe("settings that name a power the app no longer has", () => {
+  const app = {
+    id: "alumni",
+    name: "Alumni directory",
+    description: "",
+    icon: "",
+    permissions: [
+      { id: "records.read", label: "Browse", withAccess: true },
+      { id: "admin", label: "Manage alumni data" },
+    ],
+  };
+  it("starts the form without it, so the next save is not refused", () => {
+    const stale: AppSettings = {
+      ...saved,
+      people: [{ memberId: "ana", powers: ["admin", "retired", "records.read"] }],
+    };
+    expect(startingDraft(stale, app).people).toEqual([{ memberId: "ana", powers: ["admin"] }]);
+    expect(stale.people[0].powers).toHaveLength(3);
+  });
+
+  it("leaves current settings exactly as saved", () => {
+    expect(startingDraft(saved, app)).toEqual(saved);
   });
 });
 

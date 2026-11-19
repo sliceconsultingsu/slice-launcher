@@ -83,6 +83,21 @@ export function extraPowers(app: LauncherApp): { id: string; label: string }[] {
     .map(({ id, label }) => ({ id, label }));
 }
 
+/**
+ * The settings a manager starts editing from. A power the app no longer declares is dropped
+ * here, because the server refuses a save that names one and the form has no box to untick.
+ */
+export function startingDraft(settings: AppSettings, app: LauncherApp): AppSettings {
+  const declared = extraPowers(app).map((power) => power.id);
+  return {
+    ...settings,
+    people: settings.people.map((person) => ({
+      ...person,
+      powers: person.powers.filter((power) => declared.includes(power)),
+    })),
+  };
+}
+
 export type AboutState =
   /** No member profile yet, or membership is not active. */
   | { kind: "inactive" }

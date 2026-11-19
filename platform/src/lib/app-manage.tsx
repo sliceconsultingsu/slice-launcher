@@ -12,6 +12,7 @@ import {
   removeManager,
   removePerson,
   setPower,
+  startingDraft,
   toCommand,
 } from "./app-manage-model";
 import type { LauncherApp } from "./apps";
@@ -74,7 +75,7 @@ export function AppManage({
   save: (command: Command) => void;
   busy: boolean;
 }) {
-  const [draft, setDraft] = useState(settings);
+  const [draft, setDraft] = useState(() => startingDraft(settings, app));
   const [confirming, setConfirming] = useState(false);
   const powers = extraPowers(app);
   const isPublic = draft.visibility === "public";
