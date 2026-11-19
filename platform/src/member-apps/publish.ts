@@ -8,6 +8,8 @@ export const MAX_FILES = 50;
 export const MAX_FILE_BYTES = 512 * 1024;
 export const MAX_BUNDLE_BYTES = 1024 * 1024;
 export const MAX_GUIDE = 20_000;
+/** Through a one-time upload address, where the files do not have to fit in a tool call. */
+export const LARGE = { files: 100, fileBytes: 2 * 1024 * 1024, bundleBytes: 5 * 1024 * 1024 };
 
 /** The file types an app can publish, and how the launcher serves each. */
 const TEXT_TYPES: Record<string, string> = {
@@ -77,7 +79,15 @@ function decode(path: string, base64: string): Uint8Array {
   return Uint8Array.from(atob(compact), (character) => character.charCodeAt(0));
 }
 
-export function readBundle(value: unknown, options: { server?: boolean } = {}): Bundle {
+export function readBundle(
+  value: unknown,
+  options: { server?: boolean; large?: boolean } = {},
+): Bundle {
+  const most = options.large
+    ? LARGE
+    : { files: MAX_FILES, fileBytes: MAX_FILE_BYTES, bundleBytes: MAX_BUNDLE_BYTES };
+  const megabytes = (bytes: number) =>
+    bytes >= 1024 * 1024 ? `${bytes / (1024 * 1024)} MB` : `${bytes / 1024} KB`;
   const parsed = input.safeParse(value);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
@@ -86,8 +96,8 @@ export function readBundle(value: unknown, options: { server?: boolean } = {}): 
   }
   const { name, description, guide, powers } = parsed.data;
   if (parsed.data.files.length === 0) refuse("Publish at least one file, including index.html.");
-  if (parsed.data.files.length > MAX_FILES)
-    refuse(`An app can have up to ${MAX_FILES} files in one publish.`);
+  if (parsed.data.files.length > most.files)
+    refuse(`An app can have up to ${most.files} files in one publish.`);
   const seen = new Set<string>();
   const files: StoredFile[] = [];
   let server: string | null = null;
@@ -115,13 +125,15 @@ export function readBundle(value: unknown, options: { server?: boolean } = {}): 
       refuse(`"${path}" must be sent as base64.`);
     const body =
       file.base64 === undefined ? new TextEncoder().encode(file.text) : decode(path, file.base64);
-    if (body.byteLength > MAX_FILE_BYTES) refuse(`"${path}" is larger than 512 KB.`);
+    if (body.byteLength > most.fileBytes)
+      refuse(`"${path}" is larger than ${megabytes(most.fileBytes)}.`);
     total += body.byteLength;
     // Server code is uploaded as the app's Worker. It is not a screen and is never served.
     if (isServer) server = new TextDecoder().decode(body);
     else files.push({ path, type, body });
   }
-  if (total > MAX_BUNDLE_BYTES) refuse("The files add up to more than 1 MB.");
+  if (total > most.bundleBytes)
+    refuse(`The files add up to more than ${megabytes(most.bundleBytes)}.`);
   if (!files.some((file) => file.path === "index.html"))
     refuse("An app needs an index.html: it is the first screen.");
   return { name, description, guide, powers, files, server };

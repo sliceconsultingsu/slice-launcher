@@ -11,7 +11,7 @@ import { appAddress } from "../platform/address";
 import type { AppCloud } from "./cloud";
 import type { AppFiles } from "./files";
 import { liveCommand } from "./live";
-import { readBundle } from "./publish";
+import { LARGE, readBundle } from "./publish";
 import { memberApps } from "./registry";
 import { APP_LIMIT } from "./rules";
 
@@ -22,6 +22,8 @@ export type MemberAppsDeps = {
   origin: string;
   /** Cloudflare, for an app's server code. Left out while server code is switched off. */
   cloud?: AppCloud;
+  /** Makes a one-time upload address's token (src/member-apps/uploads.ts). */
+  startUpload?: (identity: Identity, appId: string, preview: boolean) => Promise<string>;
 };
 
 /** How often one member can publish, and create apps. Every one adds a history entry. */
@@ -100,10 +102,10 @@ export class MemberApps {
     identity: Identity,
     id: string,
     value: unknown,
-    options: { preview?: boolean } = {},
+    options: { preview?: boolean; large?: boolean } = {},
   ) {
     const preview = options.preview === true;
-    const bundle = readBundle(value, { server: this.serverEnabled });
+    const bundle = readBundle(value, { server: this.serverEnabled, large: options.large });
     const state = await this.load(identity);
     await this.pace(state, identity, "memberapp.publish", PUBLISHES_PER_HOUR, 3600_000);
     const stamp = meta();
@@ -176,6 +178,27 @@ export class MemberApps {
       preview,
       files: bundle.files.length,
       server: server !== null,
+    };
+  }
+
+  /**
+   * A one-time address the member's AI can send the app's files to from a terminal, for an app
+   * too large for a tool call. Only for the people who run the app.
+   */
+  async upload(identity: Identity, id: string, options: { preview?: boolean } = {}) {
+    const state = await this.load(identity);
+    const app = this.find(state, id);
+    if (!managesApp(state, authorizeMember(state, identity), app.id))
+      throw new MembershipError(403, "Only the people who run this app can change it.");
+    if (!this.deps.startUpload)
+      throw new MembershipError(503, "Upload addresses are not available just now.");
+    const token = await this.deps.startUpload(identity, id, options.preview === true);
+    return {
+      address: `${this.deps.origin}/api/app-upload/${token}`,
+      minutes: 10,
+      files: LARGE.files,
+      megabytes: LARGE.bundleBytes / (1024 * 1024),
+      preview: options.preview === true,
     };
   }
 

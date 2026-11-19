@@ -5,15 +5,22 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { MembershipError } from "../membership/contracts";
 import type { Identity } from "../membership/contracts";
-import { MAX_GUIDE } from "./publish";
+import { builderGuide } from "./guide";
+import { LARGE, MAX_GUIDE } from "./publish";
 import type { MemberApps } from "./service";
 
 /** The largest request the AI connection reads when member apps are on: one publish. */
 export const MAX_PUBLISH_REQUEST_BYTES = 2_000_000;
 
+const GUIDE = `Read this first when a member asks for an app. It returns the builder's guide (how to work with someone who has never built an app, what a Slice app can and cannot be, the limits, and how to send a larger app from a folder) and a small starter app to adapt. It changes nothing.`;
+
+const UPLOAD = `For an AI that can run commands: a one-time address to send an app's files to from a terminal, for an app too large to type into slice_app_publish (up to ${LARGE.files} files and ${LARGE.bundleBytes / (1024 * 1024)} MB). POST the same JSON as slice_app_publish, without "id", to the address within ten minutes. It works once. slice_app_guide has a recipe that builds the JSON from a folder. If you cannot run commands, use slice_app_publish.`;
+
 const CREATE = `Create a new Slice app for the signed-in member, who becomes the person who runs it. Call this once, before publishing. The app is private to them until they share it from its page in the launcher; you cannot share it for them.
 
-The ID is permanent and becomes the app's address (https://<id>.<Slice's host>): 3 to 32 lower-case letters, digits and single hyphens, starting with a letter. Ask the member what to call the app if they have not said. Then call slice_app_publish.`;
+The ID is permanent and becomes the app's address (https://<id>.<Slice's host>): 3 to 32 lower-case letters, digits and single hyphens, starting with a letter. Ask the member what to call the app if they have not said. Then call slice_app_publish.
+
+If you have not read slice_app_guide in this conversation, call it first.`;
 
 const SCREENS_ONLY = `- Screens only: HTML, CSS, JavaScript and images, sent here as files. There is no server code and no database yet, so an app cannot save anything between visits or share data between people. Do not use localStorage as if it were shared storage, and tell the member plainly if what they want needs saved data.`;
 
@@ -39,7 +46,9 @@ ${server ? WITH_SERVER : SCREENS_ONLY}
 - Only signed-in Slice members the member has shared the app with can open it. A page can fetch "/__slice/me" to learn who is using it: { id, name, manager, powers }. It never gets an email address.
 - "powers" are optional extra abilities the member can give to named people on the app's page (for example { "id": "edit", "label": "Edit entries" }); they appear in /__slice/me.
 
-"guide" is Markdown shown on the app's page in the launcher: what the app is for and how to use it, written for the people it will be shared with.`;
+"guide" is Markdown shown on the app's page in the launcher: what the app is for and how to use it, written for the people it will be shared with.
+
+slice_app_guide has a starter app and the way to work with the member; read it before the first publish.`;
 
 const STATUS = `Where one app stands, for the member who runs it: whether it is live, its address, its versions, who it is shared with in numbers, and whether it is waiting for the Slice owner's OK to be shown to every member.`;
 
@@ -80,6 +89,25 @@ export function registerMemberAppTools(server: McpServer, service: MemberApps, i
   const writes = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
   const reads = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
 
+  server.registerTool(
+    "slice_app_guide",
+    { description: GUIDE, inputSchema: z.object({}).strict(), annotations: reads },
+    () => run(async () => ({ ...builderGuide({ server: service.serverEnabled }) })),
+  );
+  server.registerTool(
+    "slice_app_upload",
+    {
+      description: UPLOAD,
+      inputSchema: z
+        .object({
+          id: z.string().describe("The ID of an app the member runs."),
+          preview: z.boolean().optional().describe("true: publish what is sent as a preview."),
+        })
+        .strict(),
+      annotations: writes,
+    },
+    ({ id, preview }) => run(() => service.upload(identity, id, { preview })),
+  );
   server.registerTool(
     "slice_app_create",
     {

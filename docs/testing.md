@@ -67,8 +67,13 @@ Floors added on November 19, 2026 for [member apps](member-apps.md) and the laun
 | member-apps/front-door   |     95.95% |   89.13% |      100% | 98.75% | 95 / 89 / 100 / 98       |
 | member-apps/info         |       100% |   90.90% |      100% |   100% | 100 / 90 / 100 / 100     |
 | member-apps/cloud        |       100% |   94.44% |      100% |   100% | 100 / 94 / 100 / 100     |
+| member-apps/live         |       100% |     100% |      100% |   100% | 100 / 100 / 100 / 100    |
+| member-apps/uploads      |       100% |     100% |      100% |   100% | 100 / 100 / 100 / 100    |
+| member-apps/upload-route |       100% |     100% |      100% |   100% | 100 / 100 / 100 / 100    |
 
 `member-apps/cloud` holds the launcher's calls to Cloudflare for an app's server code. Its tests check the requests it sends against a recorded stand-in; they do not show that Cloudflare accepts them. An app's server code itself cannot run locally, so the tests stop at what the launcher sends it and what it does with the answer.
+
+The builder's guide is held to the code: a test checks that every limit it states is the launcher's own constant, that its starter app passes the launcher's publish rules as it stands, and runs the starter's server code against a real local database (add, list, and who may remove what).
 
 The member apps tests are written the way someone attacking the launcher through an app would work: a session from another app, a pass replayed or sent to another person's browser, a path that climbs out of the app, a page on one app requesting another, a member suspended between two requests, and two publishes at the same moment. The front door and the pass page were also checked by breaking each access rule in turn and confirming a test failed.
 

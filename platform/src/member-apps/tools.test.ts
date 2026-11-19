@@ -56,6 +56,7 @@ async function setup(options: { memberApps?: boolean; server?: boolean } = {}) {
     repository,
     files,
     origin: "https://slice.example",
+    startUpload: async () => "t".repeat(43),
     ...(options.server
       ? { cloud: { ensureDatabase: async () => "db-1", uploadServer: async () => {} } }
       : {}),
@@ -112,11 +113,16 @@ describe("the tools a builder's AI gets", () => {
     const listed = (await send("ana", "tools/list", {})).body.result!.tools!;
     expect(listed.map((tool) => tool.name).sort()).toEqual([
       "slice_app_create",
+      "slice_app_guide",
       "slice_app_list",
       "slice_app_publish",
       "slice_app_status",
+      "slice_app_upload",
       "slice_apps",
     ]);
+    // The tools that change something send the AI to the guide first.
+    for (const name of ["slice_app_create", "slice_app_publish"])
+      expect(listed.find((tool) => tool.name === name)!.description).toContain("slice_app_guide");
     const publish = listed.find((tool) => tool.name === "slice_app_publish")!.description;
     for (const fact of ["index.html", "1 MB", "50 files", "/__slice/me", "own address"])
       expect(publish).toContain(fact);
@@ -193,6 +199,31 @@ describe("the tools a builder's AI gets", () => {
     expect((await repository.load()).memberApps).toMatchObject([{ live: 1, preview: 2 }]);
     const status = await call("ana", "slice_app_status", { id: "notes" });
     expect(status.structuredContent).toMatchObject({ liveVersion: 1, previewVersion: 2 });
+  });
+
+  it("hands over the builder's guide and a starter app that the launcher would accept", async () => {
+    const { call } = await setup();
+    const given = (await call("ana", "slice_app_guide", {})).structuredContent as {
+      guide: string;
+      starter: { path: string; text: string }[];
+    };
+    expect(given.guide).toContain("Ask what problem");
+    expect(given.starter.map((file) => file.path)).toContain("index.html");
+    await call("ana", "slice_app_create", notes);
+    const published = await call("ana", "slice_app_publish", version({ files: given.starter }));
+    expect(published.isError).toBeFalsy();
+  });
+
+  it("gives an AI that can run commands a one-time address for a larger app", async () => {
+    const { call } = await setup();
+    await call("ana", "slice_app_create", notes);
+    const given = await call("ana", "slice_app_upload", { id: "notes", preview: true });
+    expect(given.structuredContent).toMatchObject({
+      address: `https://slice.example/api/app-upload/${"t".repeat(43)}`,
+      minutes: 10,
+      preview: true,
+    });
+    expect((await call("max", "slice_app_upload", { id: "notes" })).isError).toBe(true);
   });
 
   it("carries a publish far larger than an ordinary tool call", async () => {

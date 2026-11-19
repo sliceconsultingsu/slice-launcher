@@ -20,7 +20,7 @@ export default defineConfig({
         "src/membership/{auth,api,app-access,domain,repository,contracts,session,google}.ts",
         "src/platform/{access,address,dispatch,mcp,mcp-tool}.ts",
         // Member apps: names, the registry, publishing, sign-in across addresses, the front door.
-        "src/member-apps/{rules,registry,publish,service,app-sessions,pass-route,front-door,info,cloud}.ts",
+        "src/member-apps/{rules,registry,publish,service,app-sessions,pass-route,front-door,info,cloud,live,uploads,upload-route}.ts",
         // oauth.ts is left out: its tests run it inside Miniflare, which V8 here cannot measure.
         "src/ai-connections/{activity,connections,consent,status}.ts",
       ],
@@ -85,6 +85,20 @@ export default defineConfig({
         "src/member-apps/info.ts": { statements: 100, branches: 90, functions: 100, lines: 100 },
         // Calls to Cloudflare for an app's server code. Run against a recorded stand-in only.
         "src/member-apps/cloud.ts": { statements: 100, branches: 94, functions: 100, lines: 100 },
+        // The builder's kit: what a version made live is called, and one-time upload addresses.
+        "src/member-apps/live.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
+        "src/member-apps/uploads.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        "src/member-apps/upload-route.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
         // Guarded dispatch for apps and AI tools.
         "src/platform/access.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
         "src/platform/dispatch.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },

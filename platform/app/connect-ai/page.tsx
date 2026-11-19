@@ -1,5 +1,6 @@
 import { SetupNotice } from "../../src/ai-connections/setup-notice";
 import { CopyField } from "../../src/connect-ai/copy-field";
+import { MakeAnApp } from "../../src/connect-ai/make-an-app";
 import { ConnectionStatus } from "../../src/ai-connections/connection-status";
 import {
   agentGuideUrl,
@@ -132,6 +133,7 @@ export default function ConnectAiPage() {
             change; if a menu differs, ask your AI to check its current instructions.
           </p>
         </section>
+        <MakeAnApp />
         <section className="connection-boundary" aria-labelledby="connection-access">
           <h2 id="connection-access">You stay in control</h2>
           <p>
