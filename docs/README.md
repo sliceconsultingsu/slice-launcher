@@ -6,23 +6,24 @@ Start building the alumni app with the [team onboarding guide](team/README.md), 
 
 ## Current guides
 
-| Guide                                 | What it answers                                     |
-| ------------------------------------- | --------------------------------------------------- |
-| [Agent skills](../skills/README.md)   | How do I give my coding agent reusable work guides? |
-| [Repository map](repository-map.md)   | Where do files and settings belong?                 |
-| [Adding an app](adding-an-app.md)     | How do I create an app and grant access?            |
-| [Architecture](architecture.md)       | How do apps share the platform?                     |
-| [Membership](membership.md)           | How do roles, ownership and permissions work?       |
-| [MCP](mcp.md)                         | How do apps expose tools to approved AI clients?    |
-| [Data boundaries](data-boundary.md)   | What must stay private?                             |
-| [Testing](testing.md)                 | What do local and browser tests prove?              |
-| [Deployment](deployment.md)           | How does a release or rollback work?                |
-| [Migrations](migrations.md)           | How are database changes applied safely?            |
-| [Security review](security-review.md) | What does security CI enforce?                      |
-| [Security policy](../SECURITY.md)     | How do I report a vulnerability privately?          |
-| [AI review](ai-review.md)             | Why is AI review switched off, and how did it work? |
-| [Design profile](design-profile.md)   | How should screens look, read and behave?           |
-| [Brand assets](brand-assets.md)       | Where did the visual assets come from?              |
+| Guide                                   | What it answers                                     |
+| --------------------------------------- | --------------------------------------------------- |
+| [Agent skills](../skills/README.md)     | How do I give my coding agent reusable work guides? |
+| [Repository map](repository-map.md)     | Where do files and settings belong?                 |
+| [Adding an app](adding-an-app.md)       | How do I create an app and grant access?            |
+| [Architecture](architecture.md)         | How do apps share the platform?                     |
+| [Membership](membership.md)             | How do roles, ownership and permissions work?       |
+| [MCP](mcp.md)                           | How do apps expose tools to approved AI clients?    |
+| [Data boundaries](data-boundary.md)     | What must stay private?                             |
+| [Testing](testing.md)                   | What do local and browser tests prove?              |
+| [Deployment](deployment.md)             | How does a release or rollback work?                |
+| [Launcher address](launcher-address.md) | How does the launcher move to `sliceos.app`?        |
+| [Migrations](migrations.md)             | How are database changes applied safely?            |
+| [Security review](security-review.md)   | What does security CI enforce?                      |
+| [Security policy](../SECURITY.md)       | How do I report a vulnerability privately?          |
+| [AI review](ai-review.md)               | Why is AI review switched off, and how did it work? |
+| [Design profile](design-profile.md)     | How should screens look, read and behave?           |
+| [Brand assets](brand-assets.md)         | Where did the visual assets come from?              |
 
 For consultants and their agents: [Connect your AI](connect-your-ai.md) walks through account approval, client setup, sign-in and a harmless connection check.
 

@@ -59,6 +59,9 @@ const worker = spawn(
     String(port),
     "--inspector-port",
     "0",
+    // Keep this computer's address. Without it the local Worker is told it is at the first
+    // configured route (the production address) and treats every request as plain HTTP there.
+    "--infer-origin-from-routes=false",
   ],
   {
     cwd: platformDirectory,

@@ -41,7 +41,7 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
-    "start": "wrangler dev --config dist/server/wrangler.json",
+    "start": "wrangler dev --config dist/server/wrangler.json --infer-origin-from-routes=false",
     "deploy": "wrangler deploy --config dist/server/wrangler.json",
     "preview": "pnpm build && pnpm start --",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv ./worker-configuration.d.ts",

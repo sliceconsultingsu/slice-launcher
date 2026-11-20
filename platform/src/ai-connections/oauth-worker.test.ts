@@ -38,6 +38,8 @@ function runtimeFor(script: string) {
       compatibilityDate: "2026-10-01",
       compatibilityFlags: ["nodejs_compat"],
       kvNamespaces: ["OAUTH_KV"],
+      // The launcher's address and one retired address that redirects to it.
+      bindings: { LAUNCHER_ORIGIN: origin, FORMER_HOSTS: "old.slice.example" },
       ratelimits: { OAUTH_LIMITER: { namespace_id: "1001", simple: { limit: 20, period: 60 } } },
     }),
   );
@@ -389,6 +391,37 @@ describe("requests the Worker answers itself", () => {
     expect(api.headers.get("location")).toBe("https://slice.example/mcp");
     const token = await raw("http://slice.example/oauth/token", { method: "POST", body: "" });
     expect(token.status).toBe(308);
+  });
+
+  it("a former address is sent to the launcher's address, keeping method, path and query", async () => {
+    const page = await raw("https://old.slice.example/account?next=%2Fabout%2Falumni");
+    expect(page.status).toBe(308);
+    expect(page.headers.get("location")).toBe(
+      "https://slice.example/account?next=%2Fabout%2Falumni",
+    );
+    expect(page.headers.get("cache-control")).toBe("no-store");
+    expect(page.headers.get("strict-transport-security")).toBeTruthy();
+    const api = await raw("https://old.slice.example/mcp", { method: "POST", body: "{}" });
+    expect(api.status).toBe(308);
+    expect(api.headers.get("location")).toBe("https://slice.example/mcp");
+    // Nothing behind the old address is served, signed in or not.
+    const register = await raw("https://old.slice.example/oauth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    expect(register.status).toBe(308);
+  });
+
+  it("plain HTTP on a former address goes to HTTPS first", async () => {
+    const page = await raw("http://old.slice.example/account");
+    expect(page.status).toBe(308);
+    expect(page.headers.get("location")).toBe("https://old.slice.example/account");
+  });
+
+  it("an address that was never the launcher's is served, not redirected", async () => {
+    expect((await raw("https://other.slice.example/nothing-here")).status).toBe(404);
+    expect((await raw("https://slice.example/nothing-here")).status).toBe(404);
   });
 
   it("a local address keeps working over plain HTTP", async () => {
