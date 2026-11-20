@@ -7,9 +7,11 @@
   "name": "slice-launcher",
   "workers_dev": true,
   "preview_urls": false,
-  // The launcher's own address. Cloudflare creates the DNS record and certificate. The zone
-  // sliceos.app must be on this Cloudflare account. See docs/launcher-address.md.
-  "routes": [{ "pattern": "sliceos.app", "custom_domain": true }],
+  // The launcher's own address, sliceos.app, is not attached yet: the release that added it
+  // (November 20, 2026) was refused by Cloudflare with "The zone sliceos.app does not exist on
+  // your account". Put this line back once the release token can see the zone:
+  //   "routes": [{ "pattern": "sliceos.app", "custom_domain": true }],
+  // See docs/launcher-address.md.
   "compatibility_date": "2026-10-02",
   "main": "./worker/index.ts",
   "assets": {
