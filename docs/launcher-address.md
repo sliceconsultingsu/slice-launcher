@@ -64,4 +64,6 @@ If the same message appears again, check the token before anything else. That me
 
 On November 20, 2026 the address was attached and checked from outside: `https://sliceos.app` serves the released version, its pages, redirects and AI sign-in details all use the new address, the membership API and `/mcp` refuse requests without a sign-in, and sign-in there asks Google to return to `https://sliceos.app/api/auth/google/callback`. The old address still serves.
 
-Not yet checked: a real Google sign-in at the new address (it needs that return address added to the Google sign-in client), and the redirect from the old address, which is tested only on a local Worker with made-up addresses.
+The same day, after the return address was added to the Google sign-in client, the maintainer signed in at the new address, and the release check (`scripts/check-launcher.mjs`) passed against it.
+
+Not yet checked: the redirect from the old address, which is tested only on a local Worker with made-up addresses, and real AI apps reconnecting at the new address.
