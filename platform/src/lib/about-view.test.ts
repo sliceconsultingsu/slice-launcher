@@ -29,6 +29,7 @@ const settings: AppSettings = {
 function view(told: Partial<AppView>, status: View["me"]["status"] = "active"): View {
   return {
     revision: 7,
+    appHost: null,
     organization: "Slice Consulting",
     me: {
       id: "max",

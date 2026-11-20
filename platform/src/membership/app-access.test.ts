@@ -39,7 +39,15 @@ function member(id: string, overrides: Partial<Member> = {}): Member {
   };
 }
 function state(apps: AppSettings[], members: Member[], levels = [basic]): State {
-  return { revision: 0, ownerEmail: null, ownerClaimed: true, members, levels, apps };
+  return {
+    revision: 0,
+    ownerEmail: null,
+    ownerClaimed: true,
+    members,
+    levels,
+    apps,
+    memberApps: [],
+  };
 }
 const basic = { id: "member", name: "Member", permissions: ["members.read"] };
 const settings = (overrides: Partial<AppSettings> = {}): AppSettings => ({

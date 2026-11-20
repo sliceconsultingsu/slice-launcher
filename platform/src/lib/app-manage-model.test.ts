@@ -30,6 +30,7 @@ const members = [
 function view(overrides: Partial<View> = {}): View {
   return {
     revision: 4,
+    appHost: null,
     organization: "Slice Consulting",
     me: {
       id: "max",

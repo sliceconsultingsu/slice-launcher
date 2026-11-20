@@ -9,7 +9,7 @@ import {
   type OAuthProviderOptions,
 } from "@cloudflare/workers-oauth-provider";
 import type { Identity, State } from "../membership/contracts";
-import { movedTo, type AddressEnv } from "../platform/address";
+import { appHost, movedTo, type AddressEnv } from "../platform/address";
 import { withSecurityHeaders } from "../platform/security-headers";
 import { ActivityStore } from "./activity";
 import { returnTarget } from "./supported-apps";
@@ -153,7 +153,8 @@ const privatePath = (path: string) =>
 
 /**
  * The Slice Worker: sends plain HTTP to HTTPS and retired addresses to the launcher's address
- * (docs/launcher-address.md), refuses the unused image endpoint, rate limits
+ * (docs/launcher-address.md), answers member apps' addresses apart from everything else, refuses
+ * the unused image endpoint, rate limits
  * sign-in endpoints, then hands every request to the OAuth provider, which serves /mcp and the
  * OAuth endpoints and passes everything else to the app.
  */
@@ -161,6 +162,11 @@ export function createSliceWorker<Env extends SliceWorkerEnv>(deps: {
   defaultHandler: ExportedHandler<Env>;
   mcp: McpHandler<Env>;
   loadState: (env: Env) => Promise<State>;
+  /**
+   * Answers a member app's address (docs/member-apps.md), or null while member apps are
+   * switched off. Left out, no app address is served.
+   */
+  memberApp?: (request: Request, env: Env, appId: string) => Promise<Response> | null;
 }): ExportedHandler<Env> {
   const providers = new Map<string, OAuthProvider<Env>>();
   return {
@@ -187,6 +193,16 @@ export function createSliceWorker<Env extends SliceWorkerEnv>(deps: {
             headers: { Location: moved, "Cache-Control": "no-store" },
           }),
         );
+      // A name under the launcher's host is a member app's address or nobody's. Either way it
+      // never reaches the launcher's own pages, sign-in or AI sign-in below.
+      const app = appHost(url, env);
+      if (app !== null) {
+        const answered = app && deps.memberApp ? await deps.memberApp(request, env, app) : null;
+        return withSecurityHeaders(
+          answered ??
+            new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } }),
+        );
+      }
       if (imageEndpoint(url.pathname))
         return withSecurityHeaders(
           new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } }),

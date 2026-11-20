@@ -67,6 +67,33 @@ it("upgrades the frozen prior schema without losing existing members or audit hi
     }),
   ).rejects.toMatchObject({ status: 503 });
   expect(await repo.load()).toEqual(before);
+  // The same holds for member apps: none exist, and creating one is refused, until its tables do.
+  expect(before.memberApps).toEqual([]);
+  await expect(
+    repo.commit(before, {
+      state: {
+        ...before,
+        revision: before.revision + 1,
+        memberApps: [
+          {
+            id: "notes",
+            name: "Notes",
+            description: "Shared notes.",
+            powers: [],
+            createdBy: "prior-member",
+            createdAt: "2026-11-19T12:00:00Z",
+            live: null,
+            latest: 0,
+            publicApproved: false,
+            publicRequestedBy: null,
+            deletedAt: null,
+          },
+        ],
+      },
+      audit: { ...audit[0], id: "too-early-app" },
+    }),
+  ).rejects.toMatchObject({ status: 503 });
+  expect(await repo.load()).toEqual(before);
   const files = await migrate(db);
   expect(await repo.load()).toEqual(before);
   expect(await repo.history()).toEqual(audit);
@@ -76,4 +103,33 @@ it("upgrades the frozen prior schema without losing existing members or audit hi
       (row: { name: string }) => row.name,
     ),
   ).toEqual(files);
+});
+it("loads app settings and no member apps while only the member apps tables are missing", async () => {
+  // The state between the release of member apps and its migration: 0010 applied, 0011 not.
+  const partial = await database();
+  try {
+    const { db } = partial;
+    await migrate(db);
+    await db.batch([
+      db.prepare("DROP TABLE member_apps"),
+      db.prepare("DROP TABLE member_app_versions"),
+      db.prepare(
+        `INSERT INTO app_settings(id, document) VALUES ('alumni', '{"id":"alumni","visibility":"public","managers":[],"people":[]}')`,
+      ),
+    ]);
+    const state = await new Repository(db).load();
+    expect(state.memberApps).toEqual([]);
+    expect(state.apps).toEqual([{ id: "alumni", visibility: "public", managers: [], people: [] }]);
+  } finally {
+    await partial.runtime.dispose();
+  }
+});
+it("does not hide a database failure that is not a missing table", async () => {
+  const failing = {
+    prepare: () => ({ bind: () => ({}) }),
+    batch: async () => {
+      throw new Error("D1_ERROR: database is locked");
+    },
+  };
+  await expect(new Repository(failing as never).load()).rejects.toThrow("database is locked");
 });

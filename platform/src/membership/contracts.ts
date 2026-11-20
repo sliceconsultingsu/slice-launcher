@@ -62,6 +62,49 @@ export interface AppSettings {
   /** Member IDs with the extra powers each was given, as the app declares them (e.g. "admin"). */
   people: { memberId: string; powers: string[] }[];
 }
+/**
+ * An app a member made and published through the launcher (docs/member-apps.md). It lives at its
+ * own address, `https://<id>.<launcher host>`, and its settings are an AppSettings like any app's.
+ */
+export interface MemberApp {
+  /** Also its address. Never reused, even after the app is deleted. */
+  id: string;
+  name: string;
+  description: string;
+  /** Extra powers its managers can give to named people, as its latest version declares them. */
+  powers: { id: string; label: string }[];
+  /** The member who created it. Kept after they leave; the app belongs to Slice. */
+  createdBy: string;
+  createdAt: string;
+  /** The version people get, or null before the first publish and while it is offline. */
+  live: number | null;
+  /** How many versions have been published. */
+  latest: number;
+  /** Set once an owner has saved it as Public. After that its managers can switch it freely. */
+  publicApproved: boolean;
+  /** The manager waiting for an owner's OK to make it Public, if any. */
+  publicRequestedBy: string | null;
+  deletedAt: string | null;
+}
+/** One published version of a member app. Its files are in the launcher's file store. */
+export interface VersionRecord {
+  appId: string;
+  version: number;
+  at: string;
+  /** The member who published it. */
+  publishedBy: string;
+  /**
+   * Where this publish's files are in the launcher's file store. Unique to the publish, so two
+   * publishes at the same moment can never write over each other's files.
+   */
+  store: string;
+  name: string;
+  description: string;
+  /** Markdown shown on the app's page in the launcher. */
+  guide: string;
+  powers: { id: string; label: string }[];
+  files: { path: string; type: string; size: number }[];
+}
 export interface State {
   revision: number;
   ownerEmail: string | null;
@@ -69,6 +112,7 @@ export interface State {
   members: Member[];
   levels: Level[];
   apps: AppSettings[];
+  memberApps: MemberApp[];
 }
 export interface Audit {
   id: string;
@@ -109,6 +153,22 @@ export interface AppView {
   managers: string[];
   /** The full settings, only for someone who runs the app. */
   settings?: AppSettings;
+  /** Set for an app a member made (docs/member-apps.md); built-in apps are in the catalog. */
+  member?: {
+    name: string;
+    description: string;
+    /** Whether a version is live. An offline app opens for nobody. */
+    live: boolean;
+    /** Only for someone who runs the app. */
+    manage?: {
+      powers: MemberApp["powers"];
+      liveVersion: number | null;
+      latest: number;
+      publicApproved: boolean;
+      /** The name of the manager waiting for an owner's OK to make it Public, if any. */
+      publicRequestedBy: string | null;
+    };
+  };
 }
 export interface View {
   revision: number;
@@ -119,8 +179,10 @@ export interface View {
   levels: Level[];
   /** The organization permissions a level or member can be given. */
   catalog: typeof organizationPermissions;
-  /** One entry per app in the catalog. */
+  /** One entry per built-in app, then one per member app this person can open or runs. */
   apps: AppView[];
+  /** The host member apps live under ("<id>.<appHost>"), or null while they are switched off. */
+  appHost: string | null;
   /** How many people making an app public would reach; only for someone who runs an app. */
   counts?: { active: number; invited: number };
 }
@@ -147,6 +209,7 @@ const permissions = z
   .transform((values) => [...new Set(values)].sort());
 const id = z.string().min(1).max(80);
 const name = z.string().trim().min(1).max(80);
+const appDescription = z.string().trim().min(1).max(200);
 export const emailSchema = z
   .email()
   .max(254)
@@ -186,5 +249,46 @@ export const commandSchema = z.discriminatedUnion("type", [
       )
       .max(1000),
   }),
+  // Member apps (docs/member-apps.md). The ID's own rules are checked where it is created, so
+  // the refusal can say what is wrong with it.
+  z.strictObject({
+    type: z.literal("memberapp.create"),
+    id: z.string().max(80),
+    name,
+    description: appDescription,
+  }),
+  // One per published version. The version's files are stored before this is saved.
+  z.strictObject({
+    type: z.literal("memberapp.publish"),
+    id,
+    name,
+    description: appDescription,
+    powers: z
+      .array(
+        z.strictObject({
+          id: z
+            .string()
+            .max(40)
+            .regex(
+              /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/,
+              "A power's ID is lower-case, like notes.edit.",
+            )
+            .refine((value) => value !== "open", "A power cannot be called open."),
+          label: name,
+        }),
+      )
+      .max(20)
+      .refine(
+        (values) => new Set(values.map((power) => power.id)).size === values.length,
+        "A power is listed twice.",
+      ),
+  }),
+  // Which version people get. null takes the app offline and keeps everything else.
+  z.strictObject({
+    type: z.literal("memberapp.live"),
+    id,
+    version: z.number().int().positive().nullable(),
+  }),
+  z.strictObject({ type: z.literal("memberapp.delete"), id }),
 ]);
 export type Command = z.infer<typeof commandSchema>;

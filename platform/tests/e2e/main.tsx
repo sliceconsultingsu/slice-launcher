@@ -5,16 +5,20 @@ import Account from "../../app/account/page";
 import ConnectAi from "../../app/connect-ai/page";
 import { AboutView } from "../../src/lib/about-view";
 import { findGuide } from "../../src/lib/guides";
+import { MemberAboutView } from "../../src/lib/member-about-view";
 import "../../app/globals.css";
 
 /** The app page as the real route renders it, without the server-only header parts. */
 function About({ appId }: { appId: string }) {
   const guide = findGuide(appId);
-  if (!guide) return <p>App not found</p>;
   return (
     <div className="workspace-shell">
       <main id="main" className="workspace-main">
-        <AboutView app={guide.app} guide={<Markdown skipHtml>{guide.markdown}</Markdown>} />
+        {guide ? (
+          <AboutView app={guide.app} guide={<Markdown skipHtml>{guide.markdown}</Markdown>} />
+        ) : (
+          <MemberAboutView appId={appId} />
+        )}
       </main>
     </div>
   );

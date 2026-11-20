@@ -420,8 +420,52 @@ describe("requests the Worker answers itself", () => {
   });
 
   it("an address that was never the launcher's is served, not redirected", async () => {
-    expect((await raw("https://other.slice.example/nothing-here")).status).toBe(404);
+    expect((await raw("https://slice-preview.example/nothing-here")).status).toBe(404);
     expect((await raw("https://slice.example/nothing-here")).status).toBe(404);
+  });
+
+  it("a member app's address is answered by the member apps front door, whatever the path", async () => {
+    const page = await raw("https://notes.slice.example/page.html");
+    expect(await page.text()).toBe("app:notes:/page.html");
+    expect(page.headers.get("strict-transport-security")).toBeTruthy();
+    // The launcher's own sign-in and AI sign-in do not exist at an app's address.
+    for (const path of ["/oauth/register", "/oauth/token", "/mcp", "/authorize", "/__test/reset"]) {
+      const response = await raw(`https://notes.slice.example${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ redirect_uris: ["https://claude.ai/api/mcp/auth_callback"] }),
+      });
+      expect(await response.text()).toBe(`app:notes:${path}`);
+    }
+    const metadata = await raw(
+      "https://notes.slice.example/.well-known/oauth-authorization-server",
+    );
+    expect(await metadata.text()).toBe("app:notes:/.well-known/oauth-authorization-server");
+  });
+
+  it("any other name under the launcher's host is nobody's address", async () => {
+    for (const host of ["www", "a.b", "admin", "my--notes", "ab", "paused"]) {
+      for (const path of [
+        "/",
+        "/account",
+        "/oauth/register",
+        "/.well-known/oauth-authorization-server",
+        "/mcp",
+      ]) {
+        const response = await raw(`https://${host}.slice.example${path}`, {
+          method: path === "/oauth/register" || path === "/mcp" ? "POST" : "GET",
+          body: path === "/oauth/register" || path === "/mcp" ? "{}" : undefined,
+        });
+        expect(response.status).toBe(404);
+        expect(response.headers.get("cache-control")).toBe("no-store");
+      }
+    }
+  });
+
+  it("plain HTTP at an app's address goes to HTTPS first", async () => {
+    const page = await raw("http://notes.slice.example/page.html");
+    expect(page.status).toBe(308);
+    expect(page.headers.get("location")).toBe("https://notes.slice.example/page.html");
   });
 
   it("a local address keeps working over plain HTTP", async () => {

@@ -43,6 +43,10 @@ export async function reset(db: Awaited<ReturnType<typeof database>>["db"]) {
     db.prepare("DELETE FROM access_audit"),
     db.prepare("DELETE FROM members"),
     db.prepare("DELETE FROM app_settings"),
+    db.prepare("DELETE FROM member_apps"),
+    db.prepare("DELETE FROM member_app_versions"),
+    db.prepare("DELETE FROM app_passes"),
+    db.prepare("DELETE FROM app_sessions"),
     db.prepare("DELETE FROM access_levels WHERE id != 'member'"),
     db.prepare("DELETE FROM mutation_guard"),
     db.prepare(
