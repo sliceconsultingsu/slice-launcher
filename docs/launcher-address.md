@@ -1,6 +1,6 @@
 # The launcher's address
 
-The launcher is moving from `slice-launcher.ivan27chen.workers.dev` to `https://sliceos.app`. This guide is for the maintainer who makes the move. It happens in two steps so that nothing a member sees changes until the new address has been checked.
+The launcher lives at `https://sliceos.app`. Its first address, `slice-launcher.ivan27chen.workers.dev`, redirects there. This guide records how the move was made, in two steps so that nothing a member saw changed until the new address had been checked, and how to go back.
 
 | Step                | What changes                                                               | What members notice                        |
 | ------------------- | -------------------------------------------------------------------------- | ------------------------------------------ |
@@ -60,6 +60,10 @@ The cause was the release token. The zone was on the right account all along, bu
 
 If the same message appears again, check the token before anything else. That message does not necessarily mean the zone is missing.
 
-## What has not been verified
+## What has and has not been verified
 
-As of November 19, 2026 the move has been tested only on a local Worker with made-up addresses. Not checked against production: that the zone is on the right account, that the release token can add the domain, and a real Google sign-in at the new address.
+On November 20, 2026 the address was attached and checked from outside: `https://sliceos.app` serves the released version, its pages, redirects and AI sign-in details all use the new address, the membership API and `/mcp` refuse requests without a sign-in, and sign-in there asks Google to return to `https://sliceos.app/api/auth/google/callback`. The old address still serves.
+
+The same day, after the return address was added to the Google sign-in client, the maintainer signed in at the new address, and the release check (`scripts/check-launcher.mjs`) passed against it.
+
+Not yet checked: the redirect from the old address, which is tested only on a local Worker with made-up addresses, and real AI apps reconnecting at the new address.
