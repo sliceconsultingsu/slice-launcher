@@ -54,12 +54,11 @@ Set `FORMER_HOSTS` back to `""` through a pull request, or roll back to the rele
 
 ## The first attempt, November 20, 2026
 
-The release that added the address uploaded the new code and then failed to attach the domain: Cloudflare answered "The zone "sliceos.app" does not exist on your account" (code 10084) to the release token. The launcher kept working at its old address on the new code. That message means one of two things, and only the maintainer can tell which:
+The release that first added the address uploaded the new code and then failed to attach the domain: Cloudflare answered "The zone "sliceos.app" does not exist on your account" (code 10084) to the release token, twice. The launcher kept working at its old address, and the `routes` line was taken out again so that other releases were not held up.
 
-- The zone is on the account, but the release token cannot see it. A token's zone permissions apply only to the zones listed in its **Zone Resources**. It needs _Zone → Zone → Read_ and _Zone → Workers Routes → Edit_ with `sliceos.app` included.
-- The zone is on a different Cloudflare account from the Worker. In the dashboard, the account whose **Workers & Pages** lists `slice-launcher` must also list `sliceos.app` under its domains, as Active.
+The cause was the release token. The zone was on the right account all along, but the token stored in GitHub's `production` environment dated from October 4 and could not see it. A token's zone permissions apply only to the zones in its **Zone Resources**; it needs _Zone → Zone → Read_ and _Zone → Workers Routes → Edit_ with `sliceos.app` included. A replacement token was checked with read-only calls before it was stored: it could see the zone (active, on the Worker's account), the Worker and the membership database.
 
-Until one of those is fixed, the `routes` line stays out of `platform/wrangler.jsonc`, because with it every release fails at the same step, before the release checks run.
+If the same message appears again, check the token before anything else. That message does not necessarily mean the zone is missing.
 
 ## What has not been verified
 
