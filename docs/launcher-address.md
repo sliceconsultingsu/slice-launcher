@@ -66,4 +66,13 @@ On November 20, 2026 the address was attached and checked from outside: `https:/
 
 The same day, after the return address was added to the Google sign-in client, the maintainer signed in at the new address, and the release check (`scripts/check-launcher.mjs`) passed against it.
 
-Not yet checked: the redirect from the old address, which is tested only on a local Worker with made-up addresses, and real AI apps reconnecting at the new address.
+The move itself was made later that day. `SLICE_LAUNCHER_URL` was set to `https://sliceos.app`, the move pull request was merged, and its release passed. Checked from outside afterwards:
+
+- The old address answers `308` to the same path and query at `https://sliceos.app`, with `Cache-Control: no-store`, for pages, for a `POST` to `/mcp`, and for the AI sign-in details.
+- `https://sliceos.app` serves the launcher, refuses `/mcp` and the membership API without a sign-in, and names itself in the AI sign-in details.
+- The **Connect your AI** page gives `https://sliceos.app/mcp` and no longer mentions the old address.
+- The release check passes against `https://sliceos.app`.
+
+A plain `http://` request to the old address is first sent to `https://` at the old address by Cloudflare, and that hop may be cached for a day. It does not point at the new address, so turning the redirect off still takes effect at once.
+
+Not yet checked: a member signing in after following the redirect, and real AI apps reconnecting at the new address.
