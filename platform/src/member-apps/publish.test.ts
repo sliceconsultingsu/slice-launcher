@@ -9,9 +9,9 @@ const bundle = (overrides: Record<string, unknown> = {}) => ({
   files: [{ path: "index.html", text: page }],
   ...overrides,
 });
-function refusal(input: unknown): string {
+function refusal(input: unknown, options?: { server?: boolean }): string {
   try {
-    readBundle(input);
+    readBundle(input, options);
   } catch (error) {
     expect((error as { status?: number }).status).toBe(400);
     return (error as Error).message;
@@ -49,6 +49,61 @@ describe("reading what a builder's AI publishes", () => {
     ]);
     expect(text(read.files[0].body)).toBe(page);
     expect([...read.files[3].body.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+  });
+
+  it("takes worker.js as the app's server code when server code is switched on", () => {
+    const code = "export default { fetch() { return new Response('hi') } }";
+    const read = readBundle(
+      bundle({
+        files: [
+          { path: "index.html", text: page },
+          { path: "worker.js", text: code },
+        ],
+      }),
+      { server: true },
+    );
+    expect(read.server).toBe(code);
+    // It is not one of the app's screens, so it is never among the files served.
+    expect(read.files.map((file) => file.path)).toEqual(["index.html"]);
+    expect(readBundle(bundle(), { server: true }).server).toBeNull();
+    expect(readBundle(bundle()).server).toBeNull();
+  });
+
+  it("counts server code toward the size limits and still keeps api/ for it", () => {
+    const big = "x".repeat(512 * 1024 + 1);
+    expect(
+      refusal(
+        bundle({
+          files: [
+            { path: "index.html", text: page },
+            { path: "worker.js", text: big },
+          ],
+        }),
+        { server: true },
+      ),
+    ).toMatch(/512 KB/);
+    expect(
+      refusal(
+        bundle({
+          files: [
+            { path: "index.html", text: page },
+            { path: "api/x.json", text: "{}" },
+          ],
+        }),
+        { server: true },
+      ),
+    ).toMatch(/api\//);
+    expect(
+      refusal(
+        bundle({
+          files: [
+            { path: "index.html", text: page },
+            { path: "Worker.js", text: "x" },
+          ],
+        }),
+        { server: true },
+      ),
+    ).toMatch(/worker\.js/);
   });
 
   it("treats powers as optional", () => {

@@ -106,6 +106,7 @@ describe("creating and publishing through the launcher", () => {
       address: "https://notes.slice.example",
       live: true,
       files: 2,
+      server: false,
     });
     const first = await repository.version("notes", 1);
     expect(first!.store).toMatch(/^[0-9a-f-]{36}$/);
@@ -221,6 +222,140 @@ describe("creating and publishing through the launcher", () => {
     expect(await status(() => apps.list({ subject: "ana-sub", email: "other@example.test" }))).toBe(
       403,
     );
+  });
+});
+
+describe("publishing server code", () => {
+  const code = "export default { fetch() { return new Response('hi') } }";
+  const withServer = (extra: Record<string, unknown> = {}) =>
+    bundle({
+      files: [
+        { path: "index.html", text: page },
+        { path: "worker.js", text: code },
+      ],
+      ...extra,
+    });
+  /** A stand-in for Cloudflare that records what the launcher asked of it. */
+  function cloud(options: { failUpload?: boolean } = {}) {
+    const calls: string[] = [];
+    return {
+      calls,
+      ensureDatabase: async (appId: string) => {
+        calls.push(`database ${appId}`);
+        return `db-for-${appId}`;
+      },
+      uploadServer: async (script: string, source: string, databaseId: string, appId: string) => {
+        calls.push(`upload ${script} ${databaseId} ${appId} ${source === code}`);
+        if (options.failUpload)
+          throw Object.assign(new Error("The app's server code could not be uploaded."), {
+            status: 502,
+          });
+      },
+    };
+  }
+
+  it("uploads the code as its own Worker with the app's own database, and records both", async () => {
+    const { repository, files } = await setup();
+    const fake = cloud();
+    const apps = new MemberApps({
+      repository,
+      files,
+      origin: "https://slice.example",
+      cloud: fake,
+    });
+    await apps.create(who("ana"), notes);
+    expect(await apps.publish(who("ana"), "notes", withServer())).toMatchObject({
+      version: 1,
+      live: true,
+      files: 1,
+      server: true,
+    });
+    const record = await repository.version("notes", 1);
+    expect(record!.server!.script).toMatch(/^notes-[0-9a-f]{16}$/);
+    expect(record!.files.map((file) => file.path)).toEqual(["index.html"]);
+    expect(fake.calls).toEqual([
+      "database notes",
+      `upload ${record!.server!.script} db-for-notes notes true`,
+    ]);
+    expect((await repository.load()).memberApps).toMatchObject([{ database: "db-for-notes" }]);
+    // The code is kept with the version, under a key the launcher never serves.
+    const kept = await files.get("notes", record!.store, "__server/worker.js");
+    expect(new TextDecoder().decode(kept!.body)).toBe(code);
+  });
+
+  it("reuses the app's database and gives every publish its own Worker", async () => {
+    const { repository, files } = await setup();
+    const fake = cloud();
+    const apps = new MemberApps({
+      repository,
+      files,
+      origin: "https://slice.example",
+      cloud: fake,
+    });
+    await apps.create(who("ana"), notes);
+    await apps.publish(who("ana"), "notes", withServer());
+    await apps.publish(who("ana"), "notes", withServer());
+    expect(fake.calls.filter((call) => call.startsWith("database"))).toHaveLength(1);
+    const scripts = [1, 2].map(async (n) => (await repository.version("notes", n))!.server!.script);
+    const [first, second] = await Promise.all(scripts);
+    expect(first).not.toBe(second);
+  });
+
+  it("records no server for a version published without worker.js", async () => {
+    const { repository, files } = await setup();
+    const apps = new MemberApps({
+      repository,
+      files,
+      origin: "https://slice.example",
+      cloud: cloud(),
+    });
+    await apps.create(who("ana"), notes);
+    await apps.publish(who("ana"), "notes", withServer());
+    expect(await apps.publish(who("ana"), "notes", bundle())).toMatchObject({ server: false });
+    expect((await repository.version("notes", 2))!.server).toBeNull();
+    expect((await repository.load()).memberApps).toMatchObject([{ database: "db-for-notes" }]);
+  });
+
+  it("refuses server code while it is switched off, saying so", async () => {
+    const { apps, files, repository } = await setup();
+    await apps.create(who("ana"), notes);
+    await expect(apps.publish(who("ana"), "notes", withServer())).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringMatching(/not switched on/),
+    });
+    expect(files.keys()).toEqual([]);
+    expect((await repository.load()).memberApps).toMatchObject([{ latest: 0 }]);
+  });
+
+  it("asks nothing of Cloudflare for someone who does not run the app", async () => {
+    const { repository, files } = await setup();
+    const fake = cloud();
+    const apps = new MemberApps({
+      repository,
+      files,
+      origin: "https://slice.example",
+      cloud: fake,
+    });
+    await apps.create(who("ana"), notes);
+    expect(await status(() => apps.publish(who("max"), "notes", withServer()))).toBe(403);
+    expect(fake.calls).toEqual([]);
+  });
+
+  it("saves nothing when Cloudflare refuses the code, and keeps the database for next time", async () => {
+    const { repository, files } = await setup();
+    const fake = cloud({ failUpload: true });
+    const apps = new MemberApps({
+      repository,
+      files,
+      origin: "https://slice.example",
+      cloud: fake,
+    });
+    await apps.create(who("ana"), notes);
+    await expect(apps.publish(who("ana"), "notes", withServer())).rejects.toThrow(
+      "could not be uploaded",
+    );
+    expect((await repository.load()).memberApps).toMatchObject([{ latest: 0, live: null }]);
+    expect(files.keys()).toEqual([]);
   });
 });
 

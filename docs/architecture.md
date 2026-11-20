@@ -6,7 +6,7 @@ Apps are modules in `platform/apps/<id>`, bundled into one platform Worker. They
 
 Common components and design tokens belong in `packages/ui`. Follow the [design profile](design-profile.md) for Slice's logo, typography, colors and accessible form conventions. App libraries belong in the host manifest; reusable libraries can become workspace packages. Avoid copy-pasting a design system into new apps.
 
-Apps members make themselves are a separate kind: they are not modules in this repository, run no code on the platform, and are served by the platform from its own file store at `https://<id>.sliceos.app`. They share the same membership, settings and history. See [member apps](member-apps.md).
+Apps members make themselves are a separate kind: they are not modules in this repository, run no code inside the platform's Worker, and are served by the platform from its own file store at `https://<id>.sliceos.app`. When server code is switched on, an app's `worker.js` runs as its own sandboxed Worker with only that app's database attached, behind the platform's checks. They share the same membership, settings and history. See [member apps](member-apps.md).
 
 ## Server and data contracts
 

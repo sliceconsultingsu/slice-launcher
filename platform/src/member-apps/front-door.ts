@@ -19,7 +19,15 @@ export type FrontDoorDeps = {
   files: AppFiles;
   /** The launcher's own address. */
   origin: string;
+  /**
+   * The Worker a version's server code was uploaded as, by name, or null if there is none by
+   * that name. Left out while server code is switched off.
+   */
+  server?: (script: string) => { fetch(request: Request): Promise<Response> } | null;
 };
+
+/** The largest body the launcher passes on to an app's server code. */
+const MAX_API_BODY_BYTES = 1024 * 1024;
 
 /**
  * What an app's pages may do in the browser: load, call and post only to the app's own address,
@@ -40,6 +48,9 @@ export const APP_POLICY = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+/** The launcher's own answers that set a cookie: the two steps of signing in at an app. */
+const allowedCookies = new WeakSet<Response>();
+
 /** The headers every answer from an app's address carries, whatever else it says. */
 function guarded(response: Response): Response {
   const headers = new Headers(response.headers);
@@ -47,6 +58,8 @@ function guarded(response: Response): Response {
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("X-Frame-Options", "DENY");
   headers.set("Cross-Origin-Resource-Policy", "same-origin");
+  // Nothing at an app's address sets a cookie except the launcher's own sign-in redirects.
+  if (!allowedCookies.has(response)) headers.delete("Set-Cookie");
   if (!headers.has("Referrer-Policy")) headers.set("Referrer-Policy", "same-origin");
   if (!headers.has("Cache-Control")) headers.set("Cache-Control", "private, no-store");
   return new Response(response.body, { status: response.status, headers });
@@ -68,7 +81,38 @@ function redirect(location: string, status = 302, cookies: string[] = []) {
     "Referrer-Policy": "no-referrer",
   });
   for (const value of cookies) headers.append("Set-Cookie", value);
-  return new Response(null, { status, headers });
+  const response = new Response(null, { status, headers });
+  if (cookies.length) allowedCookies.add(response);
+  return response;
+}
+
+/**
+ * A request's body, or null once it is larger than `most`. It stops reading at the limit, so a
+ * body that does not say how long it is, or goes on for ever, is never held in full.
+ */
+export async function readUpTo(request: Request, most: number): Promise<ArrayBuffer | null> {
+  if (Number(request.headers.get("Content-Length") ?? 0) > most) return null;
+  if (!request.body) return new ArrayBuffer(0);
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > most) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const whole = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    whole.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return whole.buffer;
 }
 
 /** Whether the browser is opening a page (a link, the address bar), not loading something into one. */
@@ -169,8 +213,50 @@ export function createFrontDoor(deps: FrontDoorDeps) {
       });
     }
     if (url.pathname.startsWith("/__slice/")) return text(404, "Not found");
-    if (url.pathname === "/api" || url.pathname.startsWith("/api/"))
-      return json(404, { error: "This app has no server code." });
+    if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
+      // The live version's own Worker, if that version was published with server code.
+      const version = await record(appId, app.live);
+      if (!version?.server) return json(404, { error: "This app has no server code." });
+      const worker = deps.server?.(version.server.script) ?? null;
+      if (!worker) return json(503, { error: "This app's server code is switched off." });
+      // What the app's code is told comes from the launcher, never from the browser: no cookie,
+      // no credentials, and none of the identity headers as the browser sent them.
+      const headers = new Headers(request.headers);
+      for (const name of [...headers.keys()])
+        if (
+          name === "cookie" ||
+          name === "authorization" ||
+          name.startsWith("x-slice-") ||
+          name.startsWith("cf-access-")
+        )
+          headers.delete(name);
+      const prefix = `app.${appId}.`;
+      headers.set("X-Slice-Member-Id", member.id);
+      headers.set("X-Slice-Member-Name", encodeURIComponent(member.name));
+      headers.set("X-Slice-Manager", String(managesApp(state, member, appId)));
+      headers.set(
+        "X-Slice-Powers",
+        permissions
+          .filter((p) => p.startsWith(prefix) && p !== `${prefix}open`)
+          .map((p) => p.slice(prefix.length))
+          .join(","),
+      );
+      let body: ArrayBuffer | undefined;
+      if (!reading) {
+        const read = await readUpTo(request, MAX_API_BODY_BYTES);
+        if (read === null) return json(413, { error: "That is too much to send in one request." });
+        body = read;
+      }
+      try {
+        const answered = await worker.fetch(
+          new Request(request.url, { method: request.method, headers, body, redirect: "manual" }),
+        );
+        return new Response(answered.body, { status: answered.status, headers: answered.headers });
+      } catch {
+        // What went wrong inside the app's code is the app's; it is not passed on.
+        return json(502, { error: "This app's server code failed." });
+      }
+    }
 
     if (!reading) return text(405, "Method not allowed", { Allow: "GET, HEAD" });
     let path: string;

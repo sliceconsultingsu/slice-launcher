@@ -93,6 +93,7 @@ describe("creating an app", () => {
       publicApproved: false,
       publicRequestedBy: null,
       deletedAt: null,
+      database: null,
     });
     expect(result.state.apps.find((item) => item.id === "notes")).toEqual({
       id: "notes",
@@ -172,6 +173,18 @@ describe("publishing", () => {
     expect(first.audit).toMatchObject({ action: "memberapp.publish", targetId: "notes" });
     s = act(first.state, publish(), "ana");
     expect(app(s)).toMatchObject({ name: "Team notes", latest: 2, live: 2, powers: [] });
+  });
+
+  it("remembers the app's database from the first publish that has server code", () => {
+    const { state } = organization();
+    let s = act(state, create(), "ana");
+    s = act(s, publish(), "ana");
+    expect(app(s).database).toBeNull();
+    s = act(s, publish("notes", { database: "db-1" }), "ana");
+    expect(app(s).database).toBe("db-1");
+    // A later version without server code does not forget it: the data is still the app's.
+    s = act(s, publish(), "ana");
+    expect(app(s).database).toBe("db-1");
   });
 
   it("lets only the people who run the app publish it", () => {
