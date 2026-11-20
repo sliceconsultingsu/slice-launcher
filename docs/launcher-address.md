@@ -52,6 +52,15 @@ Keep `workers_dev` switched on in `platform/wrangler.jsonc`: the old address has
 
 Set `FORMER_HOSTS` back to `""` through a pull request, or roll back to the release before the move ([releases and recovery](deployment.md#explicit-rollback)). The redirect is not cached, so the old address serves again as soon as that release is live. Set `SLICE_LAUNCHER_URL` back to the old address first if rolling back. Sessions and AI connections made at the old address before the move still exist there until they expire.
 
+## The first attempt, November 20, 2026
+
+The release that added the address uploaded the new code and then failed to attach the domain: Cloudflare answered "The zone "sliceos.app" does not exist on your account" (code 10084) to the release token. The launcher kept working at its old address on the new code. That message means one of two things, and only the maintainer can tell which:
+
+- The zone is on the account, but the release token cannot see it. A token's zone permissions apply only to the zones listed in its **Zone Resources**. It needs _Zone → Zone → Read_ and _Zone → Workers Routes → Edit_ with `sliceos.app` included.
+- The zone is on a different Cloudflare account from the Worker. In the dashboard, the account whose **Workers & Pages** lists `slice-launcher` must also list `sliceos.app` under its domains, as Active.
+
+Until one of those is fixed, the `routes` line stays out of `platform/wrangler.jsonc`, because with it every release fails at the same step, before the release checks run.
+
 ## What has not been verified
 
 As of November 19, 2026 the move has been tested only on a local Worker with made-up addresses. Not checked against production: that the zone is on the right account, that the release token can add the domain, and a real Google sign-in at the new address.
