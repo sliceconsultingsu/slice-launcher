@@ -148,6 +148,31 @@ test("a member's app appears in the launcher, goes Public with the owner's OK, a
     await saved(riley.page);
     await expect(riley.page.getByText("Version 1 is live")).toBeVisible();
 
+    // A preview is shown only to the people who run the app, and can be discarded.
+    const preview = await riley.context.request.post("/__e2e/member-app", {
+      headers: { origin: origin() },
+      data: {
+        id: "team-notes",
+        preview: true,
+        name: "Team notes",
+        description: "Notes the team shares.",
+        guide: "The next version of the guide.",
+        files: [{ path: "index.html", text: "<!doctype html><title>Team notes, next</title>" }],
+      },
+    });
+    expect(preview.status()).toBe(200);
+    await riley.page.reload();
+    await expect(riley.page.getByText(/Version 2 is a preview/)).toBeVisible();
+    await expect(riley.page.getByText("The next version of the guide.")).toBeVisible();
+    await accessible(riley.page);
+    await noor.page.goto("/about/team-notes");
+    await expect(
+      noor.page.getByText("Write a note, and everyone on the app sees it."),
+    ).toBeVisible();
+    await riley.page.getByRole("button", { name: "Discard preview" }).click();
+    await saved(riley.page);
+    await expect(riley.page.getByText(/Version 2 is a preview/)).toHaveCount(0);
+
     // Deleting asks first, then the app is gone for everyone.
     await riley.page.getByRole("button", { name: "Delete this app" }).click();
     await expect(riley.page.getByRole("alert")).toContainText("its ID can never be used again");

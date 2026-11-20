@@ -212,6 +212,7 @@ describe("serving a member app to someone who may open it", () => {
       id: "max-member",
       name: "Max",
       manager: false,
+      preview: false,
       powers: ["edit"],
     });
     const ana = await door(
@@ -222,6 +223,7 @@ describe("serving a member app to someone who may open it", () => {
       id: "ana-member",
       name: "Ana",
       manager: true,
+      preview: false,
       powers: ["edit"],
     });
   });
@@ -405,6 +407,116 @@ describe("keeping everyone else out", () => {
     expect(where(offline)).toBe(`${launcher}/about/notes`);
     await save("ana-sub", { type: "memberapp.delete", id: "notes" });
     expect((await door(request("notes", "/", { cookie }), "notes")).status).toBe(404);
+  });
+});
+
+describe("a preview", () => {
+  const next = "<!doctype html><title>Notes, next</title>";
+  /** Version 2 of "notes" is a preview; version 1 is live. */
+  async function previewing() {
+    const context = await setup();
+    await context.apps.publish(
+      who("ana"),
+      "notes",
+      publishNotes({ files: [{ path: "index.html", text: next }] }),
+      { preview: true },
+    );
+    return context;
+  }
+  const text = async (response: Response) => response.text();
+
+  it("is served to the people who run the app, and the live version to everyone else", async () => {
+    const { door, enter } = await previewing();
+    const ana = await enter("ana");
+    const max = await enter("max");
+    const owner = await enter("owner");
+    expect(await text(await door(request("notes", "/", { cookie: ana.cookie }), "notes"))).toBe(
+      next,
+    );
+    expect(await text(await door(request("notes", "/", { cookie: owner.cookie }), "notes"))).toBe(
+      next,
+    );
+    expect(await text(await door(request("notes", "/", { cookie: max.cookie }), "notes"))).toBe(
+      page,
+    );
+    // A file only the live version has is not in the preview, and the other way round.
+    expect(
+      (await door(request("notes", "/js/app.js", { cookie: ana.cookie }), "notes")).status,
+    ).toBe(404);
+    expect(
+      (await door(request("notes", "/js/app.js", { cookie: max.cookie }), "notes")).status,
+    ).toBe(200);
+  });
+
+  it("tells the app's page whether it is being shown as a preview", async () => {
+    const { door, enter } = await previewing();
+    const me = async (name: string) =>
+      (await (
+        await door(request("notes", "/__slice/me", { cookie: (await enter(name)).cookie }), "notes")
+      ).json()) as { preview: boolean };
+    expect((await me("ana")).preview).toBe(true);
+    expect((await me("max")).preview).toBe(false);
+  });
+
+  it("stops being shown to someone the moment they no longer run the app", async () => {
+    const { door, enter, save } = await previewing();
+    const { cookie } = await enter("ana");
+    expect(await text(await door(request("notes", "/", { cookie }), "notes"))).toBe(next);
+    // The owner takes Ana off the managers and leaves her on the app.
+    await save("owner-sub", {
+      type: "app.update",
+      id: "notes",
+      visibility: "private",
+      managers: [],
+      people: [
+        { memberId: "ana-member", powers: [] },
+        { memberId: "max-member", powers: [] },
+      ],
+    });
+    expect(await text(await door(request("notes", "/", { cookie }), "notes"))).toBe(page);
+  });
+
+  it("of an app that has never been live opens for the people who run it and nobody else", async () => {
+    const { door, enter, apps, save } = await setup();
+    await apps.create(who("ana"), { id: "draft", name: "Draft", description: "Not ready." });
+    await apps.publish(
+      who("ana"),
+      "draft",
+      publishNotes({ name: "Draft", powers: [], files: [{ path: "index.html", text: next }] }),
+      { preview: true },
+    );
+    await save("ana-sub", {
+      type: "app.update",
+      id: "draft",
+      visibility: "private",
+      managers: ["ana-member"],
+      people: [{ memberId: "max-member", powers: [] }],
+    });
+    const ana = await enter("ana", "draft").catch(() => null);
+    expect(ana).not.toBeNull();
+    expect(await text(await door(request("draft", "/", { cookie: ana!.cookie }), "draft"))).toBe(
+      next,
+    );
+    // Max is on the app, but there is nothing live for him.
+    const session = await createSession(fixture.db, who("max"), "test browser");
+    const atLauncher = new Request(`${launcher}/`, { headers: { Cookie: session.split(";")[0] } });
+    const pass = await issuePass(fixture.db, atLauncher, "draft", STATE);
+    const maxCookie = (await redeemPass(
+      fixture.db,
+      "draft",
+      pass!,
+      new Request("https://draft.slice.example/", { headers: { Cookie: stateCookie } }),
+    ))!.split(";")[0];
+    const refused = await door(request("draft", "/", { cookie: maxCookie }), "draft");
+    expect(refused.status).toBe(302);
+    expect(where(refused)).toBe(`${launcher}/about/draft`);
+  });
+
+  it("is gone for everyone once it is discarded", async () => {
+    const { door, enter, save } = await previewing();
+    const { cookie } = await enter("ana");
+    await save("ana-sub", { type: "memberapp.preview", id: "notes", version: null });
+    expect(await text(await door(request("notes", "/", { cookie }), "notes"))).toBe(page);
   });
 });
 

@@ -4,6 +4,7 @@ import { applyCommand, auditView, effectivePermissions, enroll, memberView } fro
 import { MembershipError } from "./contracts";
 import type { Mutation, SignedInIdentity, State } from "./contracts";
 import type { HistoryCursor, Repository } from "./repository";
+import { describedFromRecord } from "../member-apps/live";
 
 /** Profile edits one person may save in a day. Each one adds an entry to access history. */
 export const PROFILE_EDITS_PER_DAY = 20;
@@ -131,7 +132,9 @@ export async function membershipRequest(
   const kind = (body.data.command as { type?: unknown } | null)?.type;
   if (kind === "memberapp.create" || kind === "memberapp.publish")
     throw new MembershipError(400, "Create and publish apps through your connected AI.");
-  const result = applyCommand(state, identity.subject, body.data.command, {
+  // Making a version of a member app live describes the app as that version did.
+  const command = await describedFromRecord(repository, body.data.command);
+  const result = applyCommand(state, identity.subject, command, {
     id: crypto.randomUUID(),
     now: new Date().toISOString(),
   });

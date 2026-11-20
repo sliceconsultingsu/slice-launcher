@@ -181,6 +181,22 @@ describe("carrying a signed-in person to a member app", () => {
     expect(where(await ask("max", "?app=notes"))).toBe("/about/notes");
   });
 
+  it("gives the people who run an app a pass to its preview while nothing is live", async () => {
+    const { save } = await setup();
+    await save("ana-sub", { type: "memberapp.live", id: "notes", version: null });
+    await save("ana-sub", {
+      type: "memberapp.publish",
+      id: "notes",
+      name: "Notes",
+      description: "Shared notes.",
+      powers: [],
+      preview: true,
+    });
+    expect(where(await ask("ana", "?app=notes"))).toContain("https://notes.slice.example/");
+    expect(where(await ask("owner", "?app=notes"))).toContain("https://notes.slice.example/");
+    expect(where(await ask("max", "?app=notes"))).toBe("/about/notes");
+  });
+
   it.each(["?app=nowhere", "?app=alumni", "?app=Notes", "?app=", "?", "?app=../notes"])(
     "answers 404 for %j",
     async (query) => {

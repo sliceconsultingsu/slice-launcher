@@ -17,6 +17,15 @@ export function memberAppDescriptor(app: MemberApp): AppDescriptor {
 /** The member apps that exist: created and not deleted. */
 export const memberApps = (state: State) => state.memberApps.filter((app) => !app.deletedAt);
 
+/**
+ * The version of an app this person is shown. The people who run it get its preview when there
+ * is one; everyone else gets what is live. Null: nothing for them to open.
+ */
+export function shownVersion(app: MemberApp, runs: boolean): number | null {
+  const preview = app.preview ?? null;
+  return runs && preview !== null ? preview : app.live;
+}
+
 /** Every app there is: the built-in ones, then member apps. */
 export function catalogFor(state: State): AppDescriptor[] {
   return [...apps, ...memberApps(state).map(memberAppDescriptor)];

@@ -112,6 +112,20 @@ describe("what the app's page in the launcher shows", () => {
     });
   });
 
+  it("shows the people who run the app the preview's guide, and everyone else the live one", async () => {
+    const { repository } = await setup();
+    const apps = new MemberApps({
+      repository,
+      files: memoryFiles(),
+      origin: "https://slice.example",
+    });
+    await apps.publish(who("ana"), "notes", bundle("# Preview guide"), { preview: true });
+    expect(await appInfo(who("ana"), repository, "notes")).toMatchObject({
+      guide: "# Preview guide",
+    });
+    expect(await appInfo(who("max"), repository, "notes")).toEqual({ guide: "# Second guide" });
+  });
+
   it("answers the same for an app someone is not on as for one that does not exist", async () => {
     const { repository, save } = await setup();
     expect(await status(() => appInfo(who("sam"), repository, "notes"))).toBe(404);

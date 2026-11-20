@@ -11,6 +11,7 @@ import { confirmsPublic } from "./app-manage-model";
 const manage = {
   powers: [{ id: "edit", label: "Edit notes" }],
   liveVersion: 2 as number | null,
+  preview: null as number | null,
   latest: 2,
   publicApproved: false,
   publicRequestedBy: null as string | null,
@@ -211,6 +212,32 @@ describe("a member app's page", () => {
     expect(html).toContain("Make version 2 live");
     expect(html).not.toContain("Take offline");
     expect(html).not.toContain(">Open<");
+  });
+
+  it("shows a preview with the ways to make it live or discard it", () => {
+    const html = shown(notes({}, { liveVersion: 1, preview: 2 }));
+    expect(html).toContain("Version 1 is live");
+    expect(html).toContain("Version 2 is a preview");
+    expect(html).toContain("Only the people who run this app see it");
+    expect(html).toContain("Make version 2 live");
+    expect(html).toContain("Discard preview");
+    expect(html).toContain("· Preview");
+  });
+
+  it("lets a manager open a draft that has never been live", () => {
+    const html = shown(
+      notes({
+        member: {
+          name: "Team notes",
+          description: "",
+          live: false,
+          manage: { ...manage, liveVersion: null, preview: 1, latest: 1 },
+        },
+      }),
+    );
+    expect(html).toContain("Version 1 is a preview");
+    expect(html).toContain('href="https://notes.slice.example"');
+    expect(html).not.toContain("Take offline");
   });
 
   it("tells a manager who has never published what to do next", () => {

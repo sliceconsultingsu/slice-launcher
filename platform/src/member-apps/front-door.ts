@@ -10,7 +10,7 @@ import { appIdentity, redeemPass, startState, STATE_COOKIE } from "./app-session
 import type { AppFiles } from "./files";
 import { safeAppPath } from "./pass-route";
 import { pathPattern } from "./publish";
-import { memberAppDescriptor, memberApps } from "./registry";
+import { memberAppDescriptor, memberApps, shownVersion } from "./registry";
 
 export type FrontDoorDeps = {
   db: Pick<D1Database, "prepare" | "batch">;
@@ -196,7 +196,11 @@ export function createFrontDoor(deps: FrontDoorDeps) {
         ? redirect(`${deps.origin}/account`)
         : json(403, { error: "An active Slice membership is required." });
     const permissions = effectivePermissions(state, member, [memberAppDescriptor(app)]);
-    if (app.live === null || !permissions.includes(`app.${appId}.open`))
+    // The people who run the app are shown its preview when there is one; everyone else gets
+    // what is live. Worked out on every request, like everything else here.
+    const runs = managesApp(state, member, appId);
+    const shown = shownVersion(app, runs);
+    if (shown === null || !permissions.includes(`app.${appId}.open`))
       return opening(request)
         ? redirect(`${deps.origin}/about/${appId}`)
         : json(403, { error: "You do not have access to this app." });
@@ -206,7 +210,8 @@ export function createFrontDoor(deps: FrontDoorDeps) {
       return json(200, {
         id: member.id,
         name: member.name,
-        manager: managesApp(state, member, appId),
+        manager: runs,
+        preview: shown !== app.live,
         powers: permissions
           .filter((p) => p.startsWith(prefix) && p !== `${prefix}open`)
           .map((p) => p.slice(prefix.length)),
@@ -215,7 +220,7 @@ export function createFrontDoor(deps: FrontDoorDeps) {
     if (url.pathname.startsWith("/__slice/")) return text(404, "Not found");
     if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
       // The live version's own Worker, if that version was published with server code.
-      const version = await record(appId, app.live);
+      const version = await record(appId, shown);
       if (!version?.server) return json(404, { error: "This app has no server code." });
       const worker = deps.server?.(version.server.script) ?? null;
       if (!worker) return json(503, { error: "This app's server code is switched off." });
@@ -233,7 +238,7 @@ export function createFrontDoor(deps: FrontDoorDeps) {
       const prefix = `app.${appId}.`;
       headers.set("X-Slice-Member-Id", member.id);
       headers.set("X-Slice-Member-Name", encodeURIComponent(member.name));
-      headers.set("X-Slice-Manager", String(managesApp(state, member, appId)));
+      headers.set("X-Slice-Manager", String(runs));
       headers.set(
         "X-Slice-Powers",
         permissions
@@ -268,7 +273,7 @@ export function createFrontDoor(deps: FrontDoorDeps) {
     if (path === "" || path.endsWith("/")) path += "index.html";
     if (!pathPattern.test(path)) return text(404, "Not found");
     // Only what the live version's saved record lists is served, from that publish's own files.
-    const live = await record(appId, app.live);
+    const live = await record(appId, shown);
     const listed = live?.files.find((file) => file.path === path);
     const stored = live && listed ? await deps.files.get(appId, live.store, path) : null;
     if (!listed || !stored) return text(404, "Not found");

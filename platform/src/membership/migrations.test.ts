@@ -88,6 +88,7 @@ it("upgrades the frozen prior schema without losing existing members or audit hi
             publicRequestedBy: null,
             deletedAt: null,
             database: null,
+            preview: null,
           },
         ],
       },

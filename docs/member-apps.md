@@ -2,18 +2,24 @@
 
 A member app is an app a Slice member makes with their own AI and publishes through the launcher. There is no Git, pull request, build tool or Cloudflare account involved. Each app lives at its own address, `https://<id>.sliceos.app`, and is private to the person who made it until they share it.
 
-Design: [member apps](superpowers/specs/2026-11-19-member-apps-design.md). Built-in apps (the alumni directory) are a different thing: they live in this repository under `platform/apps/` and are reviewed like any code. See [adding an app](adding-an-app.md).
+Design: [member apps](superpowers/specs/2026-11-19-member-apps-design.md) and [the builder's kit](superpowers/specs/2026-11-19-app-builder-kit-design.md). Built-in apps (the alumni directory) are a different thing: they live in this repository under `platform/apps/` and are reviewed like any code. See [adding an app](adding-an-app.md).
 
 **Status on November 19, 2026: the code is released switched off.** Nothing here is available to members until the maintainer [switches it on](#switching-member-apps-on). There are two switches. The first turns on apps made of screens and needs no purchase. The second lets an app include [server code and a database of its own](#server-code-and-a-database), and needs Cloudflare's Workers for Platforms.
 
 ## What a member does
 
 1. **Connect their AI** to Slice ([Connect your AI](connect-your-ai.md)).
-2. **Ask it for an app.** The AI calls `slice_app_create`, which reserves the app's ID and records the member as the person who runs it, then `slice_app_publish` with the app's files. It is live at once, for the member alone.
+2. **Ask it for an app.** The **Connect your AI** page has a message to paste. The AI reads the builder's guide (`slice_app_guide`), asks what the member is trying to solve, calls `slice_app_create`, which reserves the app's ID and records the member as the person who runs it, then `slice_app_publish` with the app's files. Published as a preview, only the member sees it; published for real, it is live at once, still for the member alone.
 3. **Share it** from the app's page in the launcher (**Details** on its tile): add people by name, give them extra powers, add another manager.
 4. **Ask for Public** by choosing Public and saving. The app stays Private and the Slice owner is asked. When an owner saves it as Public, every active member gets it, and its managers can switch it either way from then on.
 
 The same page shows every published version. The people who run the app can put an earlier version live, take the app offline (it keeps everything and opens for nobody), or delete it.
+
+### Preview
+
+A preview is a published version that only the people who run the app are shown, at the app's usual address. Everyone else keeps the live version, or sees nothing if nothing is live yet, so a first publish as a preview is a private draft. There is one preview at a time. The app's page shows it with **Make version N live** and **Discard preview**; publishing for real also replaces it. Until it is made live the app keeps the name, description and powers of the live version.
+
+A preview's server code works on the app's real database. There is one database per app, not one per version.
 
 ## What an app can be
 
@@ -58,6 +64,14 @@ Offered to every active member's connected AI while member apps are on:
 | `slice_app_publish` | Stores a version's files and guide and puts it live.                                   |
 | `slice_app_status`  | For the people who run an app: whether it is live, its versions, who it is shared with |
 | `slice_app_list`    | The apps the caller runs, and how many more they can create.                           |
+| `slice_app_guide`   | The builder's guide and a starter app. Changes nothing.                                |
+| `slice_app_upload`  | A one-time address to send a larger app's files to from a terminal.                    |
+
+`slice_app_publish` takes `"preview": true`.
+
+**The builder's guide** tells an AI how to work with someone who has never built an app: ask what problem they are solving and who will use it, say plainly what an app cannot do, start small, publish a preview, then explain how to share. It carries the limits (taken from the code, so they cannot drift), a recipe for sending a folder of files, and a starter app: a first screen, a style sheet, a script and, when server code is on, a `worker.js` that keeps a list in the app's database with the checks in the right place. The starter's server code is run against a real local database in the tests.
+
+**A larger app.** An AI that can run commands asks for an upload address and posts the same content as a publish to it. The address works once, for ten minutes, for one app and one member, and allows 100 files, 2 MB each, 5 MB in all. It is the credential, so it needs no browser session; membership and who runs the app are checked again when it is used.
 
 The tools' descriptions carry the rules above, so an AI that has never seen this page can follow them. An AI cannot share an app, make it Public, take it offline or delete it: those are done by a person, on the app's page. Creating and publishing happen only through these tools; the membership API refuses both.
 
@@ -78,16 +92,18 @@ A page can always send its viewer to another address, and a browser policy canno
 
 ## Where things are
 
-| What                                  | Where                                                             |
-| ------------------------------------- | ----------------------------------------------------------------- |
-| Rules for IDs, limits                 | `platform/src/member-apps/rules.ts`, `publish.ts`                 |
-| Create, publish, status, list         | `platform/src/member-apps/service.ts`, `tools.ts`                 |
-| Sign-in across addresses              | `platform/src/member-apps/app-sessions.ts`, `pass-route.ts`       |
-| Answering an app's address            | `platform/src/member-apps/front-door.ts`                          |
-| Which requests are for an app address | `platform/src/platform/address.ts`, `src/ai-connections/oauth.ts` |
-| The registry, in the membership state | `platform/src/membership/domain.ts` (`memberapp.*` commands)      |
-| Tables                                | `platform/migrations/0011_member_apps.sql`                        |
-| The app's page and the tiles          | `platform/src/lib/member-about-view.tsx`, `member-app-model.ts`   |
+| What                                  | Where                                                                                                |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Rules for IDs, limits                 | `platform/src/member-apps/rules.ts`, `publish.ts`                                                    |
+| Create, publish, status, list         | `platform/src/member-apps/service.ts`, `tools.ts`                                                    |
+| Sign-in across addresses              | `platform/src/member-apps/app-sessions.ts`, `pass-route.ts`                                          |
+| Answering an app's address            | `platform/src/member-apps/front-door.ts`                                                             |
+| Which requests are for an app address | `platform/src/platform/address.ts`, `src/ai-connections/oauth.ts`                                    |
+| The registry, in the membership state | `platform/src/membership/domain.ts` (`memberapp.*` commands)                                         |
+| Tables                                | `platform/migrations/0011_member_apps.sql`                                                           |
+| The builder's guide and starter app   | `platform/src/member-apps/guide.ts`                                                                  |
+| Upload addresses                      | `platform/src/member-apps/uploads.ts`, `upload-route.ts`, `platform/migrations/0012_app_uploads.sql` |
+| The app's page and the tiles          | `platform/src/lib/member-about-view.tsx`, `member-app-model.ts`                                      |
 
 A member app's settings are an ordinary app settings record, so [app access](membership.md#app-access) applies unchanged: Public or Private, people, extra powers, managers.
 
@@ -96,7 +112,7 @@ A member app's settings are an ordinary app settings record, so [app access](mem
 These steps change production and need the maintainer. None has been done.
 
 1. **The launcher is at `https://sliceos.app`** ([the launcher's address](launcher-address.md), both steps).
-2. **Apply migration `0011_member_apps.sql`** through the [approved process](migrations.md). Until then the code behaves as if there were no member apps, and creating one answers 503.
+2. **Apply migrations `0011_member_apps.sql` and `0012_app_uploads.sql`** through the [approved process](migrations.md). Until then the code behaves as if there were no member apps, and creating one answers 503.
 3. **Create the file store.** `pnpm --filter @slice/launcher exec wrangler kv namespace create slice-app-files`, then add it to `platform/wrangler.jsonc` as the `APP_FILES` binding. Never share it with another app.
 4. **Add the wildcard address.** In the `sliceos.app` zone add a proxied DNS record for `*` (an `AAAA` record to `100::` is the usual placeholder). Add the route `{ "pattern": "*.sliceos.app/*", "zone_name": "sliceos.app" }` to `platform/wrangler.jsonc`. The release token needs _Zone → Workers Routes → Edit_ for the zone, as it did for the launcher's own address.
 5. **Set `MEMBER_APPS_ENABLED` to `"true"`** in `platform/wrangler.jsonc`. Steps 3 to 5 are one pull request.
@@ -125,4 +141,4 @@ Without all of the binding and both secrets, a publish that includes `worker.js`
 
 ## What has not been verified
 
-Everything above is tested against a local Worker, a local database and a browser with made-up people. Server code is tested only up to the edge of Cloudflare: the upload request, the request the code receives and the answer the browser gets. That Cloudflare runs the code with only its own database, and that the outbound Worker sees every outside call, come from Cloudflare's documentation. Not checked against production: the wildcard address and its certificate, the file store at production size, and a real AI app completing a publish (a publish is a far larger tool call than any other; clients may have limits of their own). Publishing makes one store write per file; Cloudflare's per-request limits on the account's plan were not checked against a 50-file publish.
+Everything above is tested against a local Worker, a local database and a browser with made-up people. Server code is tested only up to the edge of Cloudflare: the upload request, the request the code receives and the answer the browser gets. That Cloudflare runs the code with only its own database, and that the outbound Worker sees every outside call, come from Cloudflare's documentation. Not checked against production: the wildcard address and its certificate, the file store at production size, and a real AI app completing a publish (a publish is a far larger tool call than any other; clients may have limits of their own). Nor has a real AI been watched following the builder's guide with a real member, or an upload address been used from a terminal against production. Publishing makes one store write per file; Cloudflare's per-request limits on the account's plan were not checked against a 50-file publish.
