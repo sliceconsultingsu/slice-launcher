@@ -60,6 +60,8 @@ The cause was the release token. The zone was on the right account all along, bu
 
 If the same message appears again, check the token before anything else. That message does not necessarily mean the zone is missing.
 
-## What has not been verified
+## What has and has not been verified
 
-As of November 19, 2026 the move has been tested only on a local Worker with made-up addresses. Not checked against production: that the zone is on the right account, that the release token can add the domain, and a real Google sign-in at the new address.
+On November 20, 2026 the address was attached and checked from outside: `https://sliceos.app` serves the released version, its pages, redirects and AI sign-in details all use the new address, the membership API and `/mcp` refuse requests without a sign-in, and sign-in there asks Google to return to `https://sliceos.app/api/auth/google/callback`. The old address still serves.
+
+Not yet checked: a real Google sign-in at the new address (it needs that return address added to the Google sign-in client), and the redirect from the old address, which is tested only on a local Worker with made-up addresses.
