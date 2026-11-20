@@ -13,6 +13,20 @@
       { "id": "admin", "label": "Manage alumni data and review proposed changes" },
       { "id": "refresh.run", "label": "Run the alumni refresh and file proposed changes" }
     ],
-    "icon": "/app-icons/alumni.svg?v=f1583294c7ec"
+    "icon": "/app-icons/alumni.svg?v=2b02f2f76d75"
+  },
+  {
+    "id": "status-reports",
+    "name": "Status reports",
+    "description": "Helps project managers draft client status reports with their own AI assistant, using a ready prompt, the template and an example.",
+    "workInProgress": true,
+    "permissions": [
+      {
+        "id": "use",
+        "label": "Use the status report prompt, template and example",
+        "withAccess": true
+      }
+    ],
+    "icon": "/app-icons/status-reports.svg?v=aa7e5dc82d9c"
   }
 ]
