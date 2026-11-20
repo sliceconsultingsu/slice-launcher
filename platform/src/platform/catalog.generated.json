@@ -13,7 +13,7 @@
       { "id": "admin", "label": "Manage alumni data and review proposed changes" },
       { "id": "refresh.run", "label": "Run the alumni refresh and file proposed changes" }
     ],
-    "icon": "/app-icons/alumni.svg?v=2b02f2f76d75"
+    "icon": "/app-icons/alumni.svg?v=f1583294c7ec"
   },
   {
     "id": "status-reports",
