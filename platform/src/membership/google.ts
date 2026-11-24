@@ -70,11 +70,12 @@ const callbackUrl = (request: Request) => `${new URL(request.url).origin}/api/au
 const configured = (env: GoogleEnv) => Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
 
 /**
- * Where sign-in may return to besides the account page: only the AI approval page, so the
- * parameter cannot become an open redirect.
+ * Where sign-in may return to besides the account page: only the AI approval page and the page
+ * that carries a person on to a member app, so the parameter cannot become an open redirect.
  */
 export function safeNext(value: string | null): string | null {
-  if (!value || !value.startsWith("/authorize?") || value.includes("\\")) return null;
+  if (!value || value.includes("\\")) return null;
+  if (!value.startsWith("/authorize?") && !value.startsWith("/api/app-pass?")) return null;
   try {
     return new URL(value, "https://x").origin === "https://x" ? value : null;
   } catch {

@@ -20,6 +20,8 @@ export type MembershipDeps = {
    * (suspended, returned to pending, or removed). Production disconnects their AI apps here.
    */
   onAccessLoss?: (subject: string) => Promise<void>;
+  /** The host member apps live under, or null while they are switched off. */
+  appHost?: string | null;
 };
 
 /**
@@ -88,6 +90,7 @@ export async function membershipRequest(
   deps: MembershipDeps = {},
 ): Promise<Response> {
   const state = await repository.load();
+  const view = { appHost: deps.appHost ?? null };
   if (request.method === "GET") {
     const member = state.members.find((m) => m.subject === identity.subject);
     if (!member) return json({ needsEnrollment: true });
@@ -103,7 +106,7 @@ export async function membershipRequest(
       });
       return json({ history: page.items.map(auditView), next: writeCursor(page.next) });
     }
-    return json(memberView(state, identity.subject));
+    return json(memberView(state, identity.subject, view));
   }
   if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
   const body = envelope.safeParse(await readCommand(request));
@@ -116,13 +119,18 @@ export async function membershipRequest(
       now: new Date().toISOString(),
     });
     if (result.audit) await repository.commit(state, { ...result, audit: result.audit });
-    return json(memberView(result.state, identity.subject));
+    return json(memberView(result.state, identity.subject, view));
   }
   const member = state.members.find((m) => m.subject === identity.subject);
   if (!member || member.email !== identity.email)
     throw new MembershipError(403, "Complete sign-in before making changes.");
   if (body.data.revision !== state.revision)
     throw new MembershipError(409, "Membership changed. Reload before saving.");
+  // A member app is created and published by the AI tools (src/member-apps/service.ts), which
+  // store its files and version record with the change. Here an app can only be managed.
+  const kind = (body.data.command as { type?: unknown } | null)?.type;
+  if (kind === "memberapp.create" || kind === "memberapp.publish")
+    throw new MembershipError(400, "Create and publish apps through your connected AI.");
   const result = applyCommand(state, identity.subject, body.data.command, {
     id: crypto.randomUUID(),
     now: new Date().toISOString(),
@@ -130,7 +138,7 @@ export async function membershipRequest(
   if (result.audit.action === "profile.update") {
     // Saving an unchanged profile is not a change: no new revision and no history entry.
     if (JSON.stringify(result.audit.before) === JSON.stringify(result.audit.after))
-      return json(memberView(state, identity.subject));
+      return json(memberView(state, identity.subject, view));
     // Anyone signed in can edit their own profile, so a daily cap keeps one person from
     // filling access history.
     const since = new Date(Date.now() - DAY_MS).toISOString();
@@ -175,5 +183,5 @@ export async function membershipRequest(
       ? null
       : "The change was saved, but this person's AI apps could not be disconnected. Reload, then save the member again to retry.",
   );
-  return json(memberView(result.state, identity.subject));
+  return json(memberView(result.state, identity.subject, view));
 }

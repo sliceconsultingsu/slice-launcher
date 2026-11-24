@@ -3,7 +3,14 @@ import { AppCard } from "@slice/ui";
 import type { AppView } from "../membership/contracts";
 import { getAboutUrl, getAppUrl, type LauncherApp } from "./apps";
 
-export type VisibleApp = { app: LauncherApp; isPrivate: boolean };
+export type VisibleApp = {
+  app: LauncherApp;
+  isPrivate: boolean;
+  /** Where Open goes when it is not the built-in route; null when the app cannot be opened. */
+  href?: string | null;
+  /** Shown in place of Open when the app cannot be opened, e.g. "Offline". */
+  unavailable?: string;
+};
 
 /** Catalog apps this person can open or run, in catalog order. Anything unmentioned is hidden. */
 export function visibleApps(catalog: readonly LauncherApp[], told: readonly AppView[]) {
@@ -21,7 +28,34 @@ export type AppGridState =
   | { kind: "error" }
   /** Signed in, but no member profile yet. */
   | { kind: "join" }
-  | { kind: "ready"; apps: VisibleApp[] };
+  | {
+      kind: "ready";
+      apps: VisibleApp[];
+      /** Apps members made that this person can open or runs (docs/member-apps.md). */
+      made?: VisibleApp[];
+      /** For an owner: member apps whose managers asked to make them Public. */
+      waiting?: { id: string; name: string; by: string }[];
+    };
+
+function Tiles({ apps }: { apps: VisibleApp[] }) {
+  return (
+    <div className="app-grid">
+      {apps.map(({ app, isPrivate, href, unavailable }) => (
+        <AppCard
+          key={app.id}
+          name={app.name}
+          description={app.description}
+          icon={app.icon}
+          href={href === undefined ? getAppUrl(app) : href}
+          detailsHref={getAboutUrl(app)}
+          workInProgress={app.workInProgress}
+          isPrivate={isPrivate}
+          unavailableLabel={unavailable}
+        />
+      ))}
+    </div>
+  );
+}
 
 export function AppGridView({ state }: { state: AppGridState }) {
   if (state.kind === "loading") return <div className="app-grid" aria-busy="true" />;
@@ -41,26 +75,37 @@ export function AppGridView({ state }: { state: AppGridState }) {
         </p>
       </div>
     );
-  if (state.apps.length === 0)
+  const made = state.made ?? [];
+  const waiting = state.waiting ?? [];
+  if (state.apps.length === 0 && made.length === 0)
     return (
       <div className="empty-catalog">
         <h2>No apps have been shared with you yet.</h2>
       </div>
     );
   return (
-    <div className="app-grid">
-      {state.apps.map(({ app, isPrivate }) => (
-        <AppCard
-          key={app.id}
-          name={app.name}
-          description={app.description}
-          icon={app.icon}
-          href={getAppUrl(app)}
-          detailsHref={getAboutUrl(app)}
-          workInProgress={app.workInProgress}
-          isPrivate={isPrivate}
-        />
-      ))}
-    </div>
+    <>
+      {waiting.length > 0 && (
+        <div className="notice" role="status">
+          <p>Waiting for your OK to be Public:</p>
+          <ul>
+            {waiting.map((item) => (
+              <li key={item.id}>
+                <a href={getAboutUrl(item)}>{item.name}</a>, asked by {item.by}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {state.apps.length > 0 && <Tiles apps={state.apps} />}
+      {made.length > 0 && (
+        <section aria-labelledby="made-by-members">
+          <h2 id="made-by-members" className="grid-heading">
+            Made by members
+          </h2>
+          <Tiles apps={made} />
+        </section>
+      )}
+    </>
   );
 }

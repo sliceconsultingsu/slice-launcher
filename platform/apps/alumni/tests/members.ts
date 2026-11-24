@@ -47,6 +47,7 @@ export const membership: State = {
   ownerEmail: null,
   ownerClaimed: true,
   levels: [],
+  memberApps: [],
   members: Object.entries(people).map(([id, person]) => ({
     id,
     subject: `test|${id}`,

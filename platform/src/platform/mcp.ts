@@ -4,6 +4,7 @@ import { z } from "zod";
 import { MembershipError } from "../membership/contracts";
 import type { State, Identity } from "../membership/contracts";
 import { errorResponse } from "../membership/api";
+import { MAX_PUBLISH_REQUEST_BYTES, registerMemberAppTools } from "../member-apps/tools";
 import { authorizeApp, authorizeMember } from "./access";
 import type { AppDescriptor, AppTool } from "./contracts";
 import type { PlatformDependencies } from "./dispatch";
@@ -112,6 +113,9 @@ export function createMcpAdapter(dependencies: PlatformDependencies) {
           }
         },
       );
+      // The tools a builder's AI uses to create and publish the member's own apps.
+      if (dependencies.memberApps)
+        registerMemberAppTools(server, dependencies.memberApps, identity);
       for (const { app, tool, name } of registeredTools(dependencies)) {
         if (!canUse(state, identity, app, tool)) continue;
         server.registerTool(
@@ -152,7 +156,8 @@ export function createMcpAdapter(dependencies: PlatformDependencies) {
       const transport = new WebStandardStreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
         enableJsonResponse: true,
-        maxRequestBodySize: MAX_REQUEST_BYTES,
+        // A publish carries an app's files, so it is far larger than any other call.
+        maxRequestBodySize: dependencies.memberApps ? MAX_PUBLISH_REQUEST_BYTES : MAX_REQUEST_BYTES,
       });
       await server.connect(transport);
       return privateResponse(await transport.handleRequest(request));

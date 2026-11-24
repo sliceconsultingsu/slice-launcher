@@ -53,6 +53,22 @@ Floors added on November 16, 2026, measured the same way:
 | ai-connections/status      |       100% |     100% |      100% |   100% | 100 / 100 / 100 / 100    |
 | ai-connections/activity    |     95.23% |   90.90% |    87.50% |   100% | 95 / 90 / 87 / 100       |
 
+Floors added on November 19, 2026 for [member apps](member-apps.md) and the launcher's address, measured the same way:
+
+| Module                   | Statements | Branches | Functions |  Lines | Gate floors (same order) |
+| ------------------------ | ---------: | -------: | --------: | -----: | ------------------------ |
+| platform/address         |       100% |     100% |      100% |   100% | 100 / 100 / 100 / 100    |
+| member-apps/rules        |       100% |     100% |      100% |   100% | 100 / 100 / 100 / 100    |
+| member-apps/registry     |       100% |     100% |      100% |   100% | 100 / 100 / 100 / 100    |
+| member-apps/service      |       100% |     100% |      100% |   100% | 100 / 100 / 100 / 100    |
+| member-apps/app-sessions |       100% |     100% |      100% |   100% | 100 / 100 / 100 / 100    |
+| member-apps/publish      |       100% |   97.61% |      100% |   100% | 100 / 97 / 100 / 100     |
+| member-apps/pass-route   |     95.12% |   95.00% |      100% |   100% | 95 / 95 / 100 / 100      |
+| member-apps/front-door   |     95.95% |   89.13% |      100% | 98.75% | 95 / 89 / 100 / 98       |
+| member-apps/info         |       100% |   90.90% |      100% |   100% | 100 / 90 / 100 / 100     |
+
+The member apps tests are written the way someone attacking the launcher through an app would work: a session from another app, a pass replayed or sent to another person's browser, a path that climbs out of the app, a page on one app requesting another, a member suspended between two requests, and two publishes at the same moment. The front door and the pass page were also checked by breaking each access rule in turn and confirming a test failed.
+
 `auth.ts` is the retired Cloudflare Access verifier. Production no longer calls `verifyIdentity`; it remains because the browser and team test servers sign their synthetic identities with it, and its `readCommand` still guards every write. `ai-connections/oauth.ts` has no floor because its tests run it inside Miniflare, which this measurement cannot see; `oauth-worker.test.ts` and `mcp-worker.test.ts` exercise it.
 
 These floors preserve measured coverage for the specific authorization/persistence modules, rounded down to whole percentages. There is no arbitrary repository-wide percentage. The tests exercise rejection behavior and unchanged state, not implementation strings. Auth's uncovered path is remote JWKS retrieval/cache; the synthetic key resolver deliberately cannot validate live Cloudflare availability. Empty app catalog mapping is measured in contracts but not gated. Coverage does not prove all attacks or state combinations are handled. New sensitive behavior needs scenario review even when these floors pass; do not lower gates just to accommodate an uncovered branch.

@@ -13,6 +13,7 @@ Start building the alumni app with the [team onboarding guide](team/README.md), 
 | [Adding an app](adding-an-app.md)       | How do I create an app and grant access?            |
 | [Architecture](architecture.md)         | How do apps share the platform?                     |
 | [Membership](membership.md)             | How do roles, ownership and permissions work?       |
+| [Member apps](member-apps.md)           | How do members make and publish their own apps?     |
 | [MCP](mcp.md)                           | How do apps expose tools to approved AI clients?    |
 | [Data boundaries](data-boundary.md)     | What must stay private?                             |
 | [Testing](testing.md)                   | What do local and browser tests prove?              |

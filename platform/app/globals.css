@@ -1089,3 +1089,39 @@ button.member-row:hover,
 .manage-confirm {
   margin: 0;
 }
+
+/* Apps members made (docs/member-apps.md): their own heading in the grid and, on an app's page,
+   the versions and actions for the people who run it. */
+.grid-heading {
+  margin: 40px 0 16px;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+.member-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  margin-top: 32px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+  font-size: 15px;
+}
+.member-panel h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 14px 0 0;
+}
+.member-panel h3:first-child {
+  margin-top: 0;
+}
+.member-panel p {
+  margin: 0;
+}
+.member-panel .manage-list,
+.member-panel .manage-confirm {
+  align-self: stretch;
+}
+.member-panel .manage-list li {
+  justify-content: space-between;
+}

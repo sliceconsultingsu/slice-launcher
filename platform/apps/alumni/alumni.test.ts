@@ -22,6 +22,7 @@ function host(powers: string[] | null = ["records.read"], catalog: AppDescriptor
     ownerEmail: null,
     ownerClaimed: true,
     levels: [],
+    memberApps: [],
     members: [
       {
         id: "learner",

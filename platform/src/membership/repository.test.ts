@@ -344,3 +344,93 @@ it("refuses the second of two saves made from the same starting point", async ()
     { id: "alumni", visibility: "public", managers: [], people: [] },
   ]);
 });
+
+// Member apps (docs/member-apps.md).
+const version = (overrides: Record<string, unknown> = {}) => ({
+  appId: "notes",
+  version: 1,
+  at: "2026-11-19T12:00:00Z",
+  publishedBy: "owner-member",
+  store: "11111111-1111-4111-8111-111111111111",
+  name: "Notes",
+  description: "Shared notes.",
+  guide: "# Notes",
+  powers: [],
+  files: [{ path: "index.html", type: "text/html; charset=utf-8", size: 12 }],
+  ...overrides,
+});
+const createNotes = {
+  type: "memberapp.create",
+  id: "notes",
+  name: "Notes",
+  description: "Shared notes.",
+};
+const publishNotes = {
+  type: "memberapp.publish",
+  id: "notes",
+  name: "Notes",
+  description: "Shared notes.",
+  powers: [],
+};
+it("keeps a member app, its settings and its published versions across a reload", async () => {
+  const { repo } = await setup();
+  let state = await repo.load();
+  expect(state.memberApps).toEqual([]);
+  await repo.commit(state, applyCommand(state, "owner", createNotes, { id: "c", now: "now" }));
+  state = await repo.load();
+  expect(state.memberApps).toMatchObject([{ id: "notes", live: null, latest: 0 }]);
+  expect(state.apps).toMatchObject([{ id: "notes", managers: ["owner-member"] }]);
+  expect(await repo.versions("notes")).toEqual([]);
+  await repo.commit(state, applyCommand(state, "owner", publishNotes, { id: "p1", now: "now" }), {
+    version: version(),
+  });
+  state = await repo.load();
+  await repo.commit(state, applyCommand(state, "owner", publishNotes, { id: "p2", now: "now" }), {
+    version: version({ version: 2, guide: "# Notes, again" }),
+  });
+  expect((await repo.load()).memberApps).toMatchObject([{ id: "notes", live: 2, latest: 2 }]);
+  expect(await repo.version("notes", 1)).toEqual(version());
+  expect(await repo.version("notes", 3)).toBeNull();
+  expect(await repo.version("other", 1)).toBeNull();
+  expect((await repo.versions("notes")).map((item) => item.version)).toEqual([2, 1]);
+});
+it("saves no version when the publish loses to another change", async () => {
+  const { repo } = await setup();
+  let state = await repo.load();
+  await repo.commit(state, applyCommand(state, "owner", createNotes, { id: "c", now: "now" }));
+  state = await repo.load();
+  const publish = applyCommand(state, "owner", publishNotes, { id: "p1", now: "now" });
+  await repo.commit(
+    state,
+    applyCommand(
+      state,
+      "owner",
+      { type: "level.save", name: "Other", permissions: [] },
+      { id: "l", now: "now" },
+    ),
+  );
+  await expect(repo.commit(state, publish, { version: version() })).rejects.toMatchObject({
+    status: 409,
+  });
+  expect(await repo.versions("notes")).toEqual([]);
+  expect((await repo.load()).memberApps).toMatchObject([{ latest: 0, live: null }]);
+});
+it("removes a deleted app's settings and keeps its record", async () => {
+  const { repo, db } = await setup();
+  let state = await repo.load();
+  await repo.commit(state, applyCommand(state, "owner", createNotes, { id: "c", now: "now" }));
+  state = await repo.load();
+  await repo.commit(
+    state,
+    applyCommand(
+      state,
+      "owner",
+      { type: "memberapp.delete", id: "notes" },
+      { id: "d", now: "then" },
+    ),
+  );
+  state = await repo.load();
+  expect(state.apps).toEqual([]);
+  expect(state.memberApps).toMatchObject([{ id: "notes", deletedAt: "then" }]);
+  expect(await db.prepare("SELECT COUNT(*) AS n FROM app_settings").first()).toEqual({ n: 0 });
+});

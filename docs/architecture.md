@@ -6,6 +6,8 @@ Apps are modules in `platform/apps/<id>`, bundled into one platform Worker. They
 
 Common components and design tokens belong in `packages/ui`. Follow the [design profile](design-profile.md) for Slice's logo, typography, colors and accessible form conventions. App libraries belong in the host manifest; reusable libraries can become workspace packages. Avoid copy-pasting a design system into new apps.
 
+Apps members make themselves are a separate kind: they are not modules in this repository, run no code on the platform, and are served by the platform from its own file store at `https://<id>.sliceos.app`. They share the same membership, settings and history. See [member apps](member-apps.md).
+
 ## Server and data contracts
 
 Validate external input at the boundary with explicit schemas and bounded payloads. Verify issuer, audience, signature, expiry, and human identity before resolving membership. Use the current database membership state on every protected request. A valid Syracuse identity alone is insufficient authorization. Never trust permissions from a client or stale session. Enforce same-origin writes and return private/no-store member responses. Parameterize database queries and atomically persist changes with audit history.

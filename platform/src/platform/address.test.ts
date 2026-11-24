@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { movedTo } from "./address";
+import { appAddress, appHost, movedTo } from "./address";
 
 const env = { LAUNCHER_ORIGIN: "https://slice.example", FORMER_HOSTS: "old.slice.example" };
 const at = (address: string, config: Parameters<typeof movedTo>[1] = env) =>
@@ -64,5 +64,45 @@ describe("leaving the old address serving when the setting is off or wrong", () 
     ],
   ])("serves here with %s", (_name, config) => {
     expect(at("https://old.slice.example/account", config)).toBeNull();
+  });
+});
+
+describe("telling a member app's address from the launcher's", () => {
+  const name = (address: string, config: Parameters<typeof appHost>[1] = env) =>
+    appHost(new URL(address), config);
+
+  it("reads the app's ID from a name directly under the launcher's host", () => {
+    expect(name("https://notes.slice.example/page.html")).toBe("notes");
+    expect(name("https://team-tracker.slice.example/")).toBe("team-tracker");
+    expect(name("https://NOTES.slice.example./")).toBe("notes");
+  });
+
+  it("is not an app address at the launcher's own host, or anywhere else", () => {
+    expect(name("https://slice.example/")).toBeNull();
+    expect(name("https://old.slice.example.evil.test/")).toBeNull();
+    expect(name("https://notslice.example/")).toBeNull();
+    expect(name("https://localhost:8787/")).toBeNull();
+  });
+
+  it.each([
+    "https://a.b.slice.example/",
+    "https://www.slice.example/",
+    "https://admin.slice.example/",
+    "https://ab.slice.example/",
+    "https://my--notes.slice.example/",
+    "https://1notes.slice.example/",
+    "https://xn--nots-9ra.slice.example/",
+  ])("is under the launcher's host but no app's address: %s", (address) => {
+    expect(name(address)).toBe("");
+  });
+
+  it("knows no app addresses while the launcher's address is missing or wrong", () => {
+    expect(name("https://notes.slice.example/", {})).toBeNull();
+    expect(name("https://notes.slice.example/", { LAUNCHER_ORIGIN: "slice.example" })).toBeNull();
+  });
+
+  it("builds an app's address from the launcher's", () => {
+    expect(appAddress("https://slice.example", "notes")).toBe("https://notes.slice.example");
+    expect(appAddress("https://localhost:8787", "notes")).toBe("https://notes.localhost:8787");
   });
 });

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { database, migrate, reset } from "../../tests/database";
 import { Repository } from "./repository";
 import { membershipRequest, errorResponse, PROFILE_EDITS_PER_DAY } from "./api";
+import { applyCommand } from "./domain";
 import type { View, MemberRecord } from "./contracts";
 let fixture: Awaited<ReturnType<typeof database>>;
 beforeAll(async () => {
@@ -507,4 +508,54 @@ it("saves an app's settings through the membership API, refusing a stale save", 
   const stale = await post({ revision: joined.revision, command: { ...command, managers: [] } });
   expect(stale.status).toBe(409);
   expect((await repo.load()).apps[0].managers).toEqual([joined.me.id]);
+});
+
+it("takes a member app offline and deletes it through the membership API, but does not create or publish one", async () => {
+  const { repo, owner, call } = await ownerAndPending();
+  const revision = async () => ((await (await call(owner)).json()) as View).revision;
+  const app = { id: "notes", name: "Notes", description: "Shared notes." };
+  // Creating and publishing belong to the AI tools, which store the app's files with the change.
+  for (const command of [
+    { type: "memberapp.create", ...app },
+    { type: "memberapp.publish", ...app, powers: [] },
+  ]) {
+    const refused = await call(owner, { revision: await revision(), command });
+    expect(refused.status).toBe(400);
+    expect(((await refused.json()) as { error: string }).error).toMatch(/connected AI/);
+  }
+  expect((await repo.load()).memberApps).toEqual([]);
+  // An app that exists (made here the way the tools make one) is managed from its page.
+  let state = await repo.load();
+  await repo.commit(
+    state,
+    applyCommand(state, "owner", { type: "memberapp.create", ...app }, { id: "c", now: "now" }),
+  );
+  state = await repo.load();
+  await repo.commit(
+    state,
+    applyCommand(
+      state,
+      "owner",
+      { type: "memberapp.publish", ...app, powers: [] },
+      { id: "p", now: "now" },
+    ),
+  );
+  const offline = await call(
+    owner,
+    { revision: await revision(), command: { type: "memberapp.live", id: "notes", version: null } },
+    "",
+    { appHost: "slice.example" },
+  );
+  expect(offline.status).toBe(200);
+  const view = (await offline.json()) as View;
+  expect(view.appHost).toBe("slice.example");
+  expect(view.apps.find((item) => item.id === "notes")?.member).toMatchObject({ live: false });
+  const deleted = await call(owner, {
+    revision: await revision(),
+    command: { type: "memberapp.delete", id: "notes" },
+  });
+  expect(deleted.status).toBe(200);
+  expect((await repo.load()).memberApps).toMatchObject([
+    { id: "notes", deletedAt: expect.any(String) },
+  ]);
 });

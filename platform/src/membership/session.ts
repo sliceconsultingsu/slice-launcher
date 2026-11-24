@@ -33,7 +33,8 @@ export function cookie(name: string, value: string, maxAgeSeconds: number): stri
   return `${name}=${value}; Max-Age=${maxAgeSeconds}; HttpOnly; Secure; SameSite=Lax; Path=/`;
 }
 
-async function digest(token: string): Promise<string> {
+/** What is stored in place of a token: its SHA-256, in hex. */
+export async function digest(token: string): Promise<string> {
   const bytes = new Uint8Array(
     await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)),
   );

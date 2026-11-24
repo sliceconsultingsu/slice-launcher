@@ -326,14 +326,18 @@ describe("Google sign-in", () => {
 });
 
 describe("safeNext", () => {
-  it("only allows the AI approval page", () => {
+  it("only allows the AI approval page and the pass to a member app", () => {
     expect(safeNext("/authorize?client_id=x")).toBe("/authorize?client_id=x");
+    expect(safeNext("/api/app-pass?app=notes&next=%2F")).toBe("/api/app-pass?app=notes&next=%2F");
     for (const value of [
       null,
       "/",
       "/account",
       "//evil.example/authorize?x",
       "/authorize\\@evil",
+      "/api/app-pass",
+      "/api/app-passes?app=notes",
+      "//evil.example/api/app-pass?app=notes",
       "https://evil.example/authorize?x",
     ])
       expect(safeNext(value)).toBeNull();
