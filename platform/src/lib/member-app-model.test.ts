@@ -12,6 +12,7 @@ import {
 const manage = {
   powers: [{ id: "edit", label: "Edit notes" }],
   liveVersion: 1,
+  preview: null as number | null,
   latest: 1,
   publicApproved: false,
   publicRequestedBy: null as string | null,
@@ -51,6 +52,22 @@ describe("tiles for apps members made", () => {
       "slice.example",
     );
     expect(tile).toMatchObject({ href: null, unavailable: "Offline" });
+  });
+
+  it("lets the people who run an app open its preview before anything is live", () => {
+    const draft = told("notes", {
+      canManage: true,
+      member: {
+        name: "Notes",
+        description: "",
+        live: false,
+        manage: { ...manage, liveVersion: null, preview: 1 },
+      },
+    });
+    expect(memberTiles([draft], "slice.example")[0]).toMatchObject({
+      href: "https://notes.slice.example",
+    });
+    expect(memberTiles([draft], "slice.example")[0]).not.toHaveProperty("unavailable");
   });
 
   it("shows nothing while member apps are switched off", () => {

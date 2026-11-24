@@ -56,9 +56,35 @@ function MemberAppPanel({
         </p>
       ) : (
         <>
+          {manage.preview !== null && (
+            <div className="notice">
+              <p>
+                Version {manage.preview} is a preview. Only the people who run this app see it
+                {address && (
+                  <>
+                    {" at "}
+                    <a href={address}>{address}</a>
+                  </>
+                )}
+                ; everyone else sees{" "}
+                {manage.liveVersion === null ? "nothing yet" : "the live version"}. Its server code,
+                if it has any, works on the app&apos;s real data.
+              </p>
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={busy}
+                onClick={() => save({ type: "memberapp.preview", id: told.id, version: null })}
+              >
+                Discard preview
+              </button>
+            </div>
+          )}
           <p>
             {manage.liveVersion === null
-              ? "Offline. Nobody can open it."
+              ? manage.preview === null
+                ? "Offline. Nobody can open it."
+                : "Nothing is live yet."
               : `Version ${manage.liveVersion} is live`}
             {manage.liveVersion !== null && address && (
               <>
@@ -74,6 +100,7 @@ function MemberAppPanel({
                 <span>
                   Version {item.version} · {day(item.at)} · {item.by}
                   {item.version === manage.liveVersion && " · Live"}
+                  {item.version === manage.preview && " · Preview"}
                 </span>
                 {item.version !== manage.liveVersion && (
                   <button
@@ -206,6 +233,8 @@ export function MemberAboutContent({
       </>
     );
   const offline = !told.member?.live;
+  // The people who run the app can open its preview even while nothing is live.
+  const openable = !offline || (told.member?.manage?.preview ?? null) !== null;
   const address = memberAppUrl(appId, view.appHost);
   return (
     <AboutContent
@@ -216,7 +245,7 @@ export function MemberAboutContent({
       busy={busy}
       notice={notice}
       error={error}
-      openHref={offline ? null : address}
+      openHref={openable ? address : null}
       publicRule={publicRule(told, view.me.owner)}
       publicRequestedBy={told.member?.manage?.publicRequestedBy ?? null}
       guide={

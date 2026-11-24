@@ -9,7 +9,7 @@ const bundle = (overrides: Record<string, unknown> = {}) => ({
   files: [{ path: "index.html", text: page }],
   ...overrides,
 });
-function refusal(input: unknown, options?: { server?: boolean }): string {
+function refusal(input: unknown, options?: { server?: boolean; large?: boolean }): string {
   try {
     readBundle(input, options);
   } catch (error) {
@@ -313,6 +313,57 @@ describe("reading what a builder's AI publishes", () => {
         }),
       ),
     ).toMatch(/1 MB/);
+  });
+
+  it("allows more through an upload address: 100 files, 2 MB each, 5 MB in all", () => {
+    const files = Array.from({ length: 100 }, (_, n) => ({ path: `p${n}.html`, text: page }));
+    files[0].path = "index.html";
+    expect(readBundle(bundle({ files }), { large: true }).files).toHaveLength(100);
+    expect(
+      refusal(bundle({ files: [...files, { path: "one-more.html", text: page }] }), {
+        large: true,
+      }),
+    ).toMatch(/100 files/);
+    const two = "x".repeat(2 * 1024 * 1024);
+    expect(
+      readBundle(
+        bundle({
+          files: [
+            { path: "index.html", text: page },
+            { path: "big.js", text: two },
+          ],
+        }),
+        {
+          large: true,
+        },
+      ).files,
+    ).toHaveLength(2);
+    expect(
+      refusal(
+        bundle({
+          files: [
+            { path: "index.html", text: page },
+            { path: "big.js", text: `${two}x` },
+          ],
+        }),
+        {
+          large: true,
+        },
+      ),
+    ).toMatch(/2 MB/);
+    expect(
+      refusal(
+        bundle({
+          files: [
+            { path: "index.html", text: page },
+            { path: "a.js", text: two },
+            { path: "b.js", text: two },
+            { path: "c.js", text: two },
+          ],
+        }),
+        { large: true },
+      ),
+    ).toMatch(/5 MB/);
   });
 
   it("counts a file's size in bytes, not characters", () => {

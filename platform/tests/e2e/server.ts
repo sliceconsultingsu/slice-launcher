@@ -75,13 +75,15 @@ const server = createServer(async (req, res) => {
         if (info) response = Response.json(await appInfo(identity, repo, info[1]));
         else if (req.url === "/__e2e/member-app") {
           // slice-e2e-only: stands in for a member's AI creating and publishing an app.
-          const { id, ...bundle } = JSON.parse(body ?? "{}");
-          await memberApps.create(identity, {
-            id,
-            name: bundle.name,
-            description: bundle.description,
-          });
-          response = Response.json(await memberApps.publish(identity, id, bundle));
+          const { id, preview, ...bundle } = JSON.parse(body ?? "{}");
+          // A preview is a further version of an app that exists; anything else creates it.
+          if (!preview)
+            await memberApps.create(identity, {
+              id,
+              name: bundle.name,
+              description: bundle.description,
+            });
+          response = Response.json(await memberApps.publish(identity, id, bundle, { preview }));
         } else response = await membershipRequest(request, identity, repo, { appHost: APP_HOST });
       } catch (error) {
         response = errorResponse(error);

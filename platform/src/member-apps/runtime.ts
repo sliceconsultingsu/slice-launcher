@@ -6,6 +6,7 @@ import { kvFiles, type AppFiles } from "./files";
 import { createFrontDoor } from "./front-door";
 import type { PassDeps } from "./pass-route";
 import { MemberApps } from "./service";
+import { startUpload } from "./uploads";
 
 type MemberAppsEnv = {
   MEMBER_APPS_ENABLED?: string;
@@ -109,5 +110,7 @@ export function memberAppsService(request: Request, source: MemberAppsEnv): Memb
     files,
     origin: launcherOrigin(request, source),
     cloud: appCloud(source),
+    startUpload: (identity, appId, preview) =>
+      startUpload(source.MEMBERSHIP_DB, identity, appId, preview),
   });
 }

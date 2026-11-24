@@ -305,6 +305,7 @@ export function applyCommand(
       publicRequestedBy: null,
       deletedAt: null,
       database: null,
+      preview: null,
     };
     state.memberApps.push(created);
     // Private, run by the person who created it.
@@ -314,6 +315,7 @@ export function applyCommand(
   if (
     command.type === "memberapp.publish" ||
     command.type === "memberapp.live" ||
+    command.type === "memberapp.preview" ||
     command.type === "memberapp.delete"
   ) {
     const made =
@@ -323,20 +325,38 @@ export function applyCommand(
       fail(403, "Only the people who run this app can change it.");
     const before = structuredClone(made);
     if (command.type === "memberapp.publish") {
-      made.name = command.name;
-      made.description = command.description;
-      made.powers = command.powers;
       // Once an app has a database it keeps it, whatever later versions contain.
       if (command.database) made.database = command.database;
       made.latest += 1;
-      made.live = made.latest;
+      if (command.preview) {
+        // Only the people who run the app are shown it. The app is still described by what is
+        // live, so its name and powers wait until the preview is made live.
+        made.preview = made.latest;
+      } else {
+        made.name = command.name;
+        made.description = command.description;
+        made.powers = command.powers;
+        made.live = made.latest;
+        made.preview = null;
+      }
     } else if (command.type === "memberapp.live") {
       if (command.version !== null && command.version > made.latest)
         fail(400, "That version was never published.");
       made.live = command.version;
+      if (command.version !== null && command.version === made.preview) made.preview = null;
+      if (command.version !== null && command.as) {
+        made.name = command.as.name;
+        made.description = command.as.description;
+        made.powers = command.as.powers;
+      }
+    } else if (command.type === "memberapp.preview") {
+      if (command.version !== null && command.version > made.latest)
+        fail(400, "That version was never published.");
+      made.preview = command.version;
     } else {
       made.deletedAt = meta.now;
       made.live = null;
+      made.preview = null;
       made.publicRequestedBy = null;
       state.apps = state.apps.filter((item) => item.id !== made.id);
     }
@@ -473,6 +493,7 @@ export function memberView(
               manage: {
                 powers: made.powers,
                 liveVersion: made.live,
+                preview: made.preview ?? null,
                 latest: made.latest,
                 publicApproved: made.publicApproved,
                 publicRequestedBy: made.publicRequestedBy

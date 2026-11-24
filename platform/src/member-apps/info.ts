@@ -7,7 +7,7 @@ import type { Identity } from "../membership/contracts";
 import { effectivePermissions } from "../membership/domain";
 import type { Repository } from "../membership/repository";
 import { authorizeMember } from "../platform/access";
-import { memberAppDescriptor, memberApps } from "./registry";
+import { memberAppDescriptor, memberApps, shownVersion } from "./registry";
 
 export interface AppInfo {
   /** Markdown from the live version, or from the latest for the people who run an offline app. */
@@ -32,7 +32,9 @@ export async function appInfo(
     )
   )
     throw new MembershipError(404, "App not found.");
-  const shown = app.live ?? (runs && app.latest ? app.latest : null);
+  // The guide of the version this person is shown; for the people who run an offline app, the
+  // latest one.
+  const shown = shownVersion(app, runs) ?? (runs && app.latest ? app.latest : null);
   const guide = shown === null ? "" : ((await repository.version(appId, shown))?.guide ?? "");
   if (!runs) return { guide };
   const name = (memberId: string) =>
