@@ -4,7 +4,7 @@ A member app is an app a Slice member makes with their own AI and publishes thro
 
 Design: [member apps](superpowers/specs/2026-11-19-member-apps-design.md) and [the builder's kit](superpowers/specs/2026-11-19-app-builder-kit-design.md). Built-in apps (the alumni directory) are a different thing: they live in this repository under `platform/apps/` and are reviewed like any code. See [adding an app](adding-an-app.md).
 
-**Status on November 19, 2026: the code is released switched off.** Nothing here is available to members until the maintainer [switches it on](#switching-member-apps-on). There are two switches. The first turns on apps made of screens and needs no purchase. The second lets an app include [server code and a database of its own](#server-code-and-a-database), and needs Cloudflare's Workers for Platforms.
+**Status on November 24, 2026: apps made of screens are switched on. Server code is not.** There are two switches. The first turns on apps made of screens and needs no purchase; the maintainer [switched it on](#switching-member-apps-on) on November 24, 2026. The second lets an app include [server code and a database of its own](#server-code-and-a-database), needs Cloudflare's Workers for Platforms, and is off. No member has made an app yet; see [what has not been verified](#what-has-not-been-verified).
 
 ## What a member does
 
@@ -109,16 +109,18 @@ A member app's settings are an ordinary app settings record, so [app access](mem
 
 ## Switching member apps on
 
-These steps change production and need the maintainer. None has been done.
+These steps change production and need the maintainer. Steps 1 to 5 were done on November 24, 2026, on the maintainer's instruction. Step 6 has not been done.
 
 1. **The launcher is at `https://sliceos.app`** ([the launcher's address](launcher-address.md), both steps).
-2. **Apply migrations `0011_member_apps.sql` and `0012_app_uploads.sql`** through the [approved process](migrations.md). Until then the code behaves as if there were no member apps, and creating one answers 503.
-3. **Create the file store.** `pnpm --filter @slice/launcher exec wrangler kv namespace create slice-app-files`, then add it to `platform/wrangler.jsonc` as the `APP_FILES` binding. Never share it with another app.
-4. **Add the wildcard address.** In the `sliceos.app` zone add a proxied DNS record for `*` (an `AAAA` record to `100::` is the usual placeholder). Add the route `{ "pattern": "*.sliceos.app/*", "zone_name": "sliceos.app" }` to `platform/wrangler.jsonc`. The release token needs _Zone → Workers Routes → Edit_ for the zone, as it did for the launcher's own address.
-5. **Set `MEMBER_APPS_ENABLED` to `"true"`** in `platform/wrangler.jsonc`. Steps 3 to 5 are one pull request.
+2. **Apply migrations `0011_member_apps.sql` and `0012_app_uploads.sql`** through the [approved process](migrations.md). Until then the code behaves as if there were no member apps, and creating one answers 503. _Done: both applied, five new empty tables, nothing else changed._
+3. **Create the file store.** `pnpm --filter @slice/launcher exec wrangler kv namespace create slice-app-files`, then add it to `platform/wrangler.jsonc` as the `APP_FILES` binding. Never share it with another app. _Done._
+4. **Add the wildcard address.** In the `sliceos.app` zone add a proxied DNS record for `*` (an `AAAA` record to `100::` is the usual placeholder). Add the route `{ "pattern": "*.sliceos.app/*", "zone_name": "sliceos.app" }` to `platform/wrangler.jsonc`. The release token needs _Zone → Workers Routes → Edit_ for the zone, as it did for the launcher's own address. _Done. The DNS record is not in Git: it was added in the zone by hand, and the route does nothing without it. The zone's certificate already covered `*.sliceos.app`._
+5. **Set `MEMBER_APPS_ENABLED` to `"true"`** in `platform/wrangler.jsonc`. Steps 3 to 5 are one pull request. _Done._
 6. **Check with a real account.** Connect an AI, create and publish an app, open it, share it with a second member, ask for Public, approve as the owner, take it offline, delete it. Then try the refusals: a member who is not on the app, a suspended member, and the app's address in a private window.
 
 To switch off again, set `MEMBER_APPS_ENABLED` back to `"false"`: app addresses answer 404 and the tools disappear. Apps, versions and files are kept.
+
+The switch is for everyone at once. While it is on, every active member with a connected AI app is offered the app tools, within the limits above.
 
 ### Switching server code on
 
@@ -141,4 +143,6 @@ Without all of the binding and both secrets, a publish that includes `worker.js`
 
 ## What has not been verified
 
-Everything above is tested against a local Worker, a local database and a browser with made-up people. Server code is tested only up to the edge of Cloudflare: the upload request, the request the code receives and the answer the browser gets. That Cloudflare runs the code with only its own database, and that the outbound Worker sees every outside call, come from Cloudflare's documentation. Not checked against production: the wildcard address and its certificate, the file store at production size, and a real AI app completing a publish (a publish is a far larger tool call than any other; clients may have limits of their own). Nor has a real AI been watched following the builder's guide with a real member, or an upload address been used from a terminal against production. Publishing makes one store write per file; Cloudflare's per-request limits on the account's plan were not checked against a 50-file publish.
+Everything above is tested against a local Worker, a local database and a browser with made-up people. Server code is tested only up to the edge of Cloudflare: the upload request, the request the code receives and the answer the browser gets. That Cloudflare runs the code with only its own database, and that the outbound Worker sees every outside call, come from Cloudflare's documentation. Checked on November 24, 2026, when member apps were switched on: the zone's certificate covers `*.sliceos.app`, and a name under the launcher's host reaches Cloudflare. Not checked against production: the file store at production size, and a real AI app completing a publish (a publish is a far larger tool call than any other; clients may have limits of their own). Nor has a real AI been watched following the builder's guide with a real member, a signed-in person opened an app at its address, or an upload address been used from a terminal against production.
+
+Publishing makes one store write per file. Cloudflare's documentation counts those as requests to its own services, limited to 1,000 for one request on the free plan and more on a paid one, so a 50-file publish fits. The file store's daily write allowance on the account's plan was not checked: on Cloudflare's free plan it is small enough that a day of heavy publishing could reach it.
