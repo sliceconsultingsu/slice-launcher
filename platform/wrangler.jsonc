@@ -9,7 +9,12 @@
   "preview_urls": false,
   // The launcher's own address. Cloudflare creates the DNS record and certificate. The release
   // token must be able to see the sliceos.app zone. See docs/launcher-address.md.
-  "routes": [{ "pattern": "sliceos.app", "custom_domain": true }],
+  // The second route is every member app's address (docs/member-apps.md). It relies on the
+  // proxied wildcard DNS record in the zone, which was added by hand on November 24, 2026.
+  "routes": [
+    { "pattern": "sliceos.app", "custom_domain": true },
+    { "pattern": "*.sliceos.app/*", "zone_name": "sliceos.app" },
+  ],
   "compatibility_date": "2026-10-02",
   "main": "./worker/index.ts",
   "assets": {
@@ -39,17 +44,24 @@
     // (comma-separated). An empty FORMER_HOSTS redirects nothing: both addresses serve.
     // The workers.dev address must stay switched on (workers_dev above) for its redirect to work.
     "LAUNCHER_ORIGIN": "https://sliceos.app",
-    // Member apps (docs/member-apps.md) stay off until this is exactly "true" and the APP_FILES
-    // store is bound. Off: no app address is served and the app tools are not offered.
-    "MEMBER_APPS_ENABLED": "false",
+    // Member apps (docs/member-apps.md) are on only while this is exactly "true" and the
+    // APP_FILES store is bound. Off: no app address is served and the app tools are not offered.
+    // Switched on November 24, 2026. Set it back to "false" to switch off; apps are kept.
+    "MEMBER_APPS_ENABLED": "true",
     "FORMER_HOSTS": "slice-launcher.ivan27chen.workers.dev",
   },
   // Grants, passes and AI activity records for Slice's own AI sign-in (namespace
   // "slice-launcher-oauth", created November 5, 2026). Never share it with another app.
+  // APP_FILES holds the files of every published member app version (namespace
+  // "slice-app-files", created November 24, 2026). Never share it with another app either.
   "kv_namespaces": [
     {
       "binding": "OAUTH_KV",
       "id": "8a8e78a4b2184dca965ed1fea05e680d",
+    },
+    {
+      "binding": "APP_FILES",
+      "id": "95d7078b2a19466d966d443cae4ce250",
     },
   ],
   // Per-address limits: AI app registration and passes (OAUTH_LIMITER), 20 a minute, and
