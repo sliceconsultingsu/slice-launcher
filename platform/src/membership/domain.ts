@@ -304,6 +304,7 @@ export function applyCommand(
       publicApproved: false,
       publicRequestedBy: null,
       deletedAt: null,
+      database: null,
     };
     state.memberApps.push(created);
     // Private, run by the person who created it.
@@ -325,6 +326,8 @@ export function applyCommand(
       made.name = command.name;
       made.description = command.description;
       made.powers = command.powers;
+      // Once an app has a database it keeps it, whatever later versions contain.
+      if (command.database) made.database = command.database;
       made.latest += 1;
       made.live = made.latest;
     } else if (command.type === "memberapp.live") {

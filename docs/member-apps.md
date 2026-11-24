@@ -4,7 +4,7 @@ A member app is an app a Slice member makes with their own AI and publishes thro
 
 Design: [member apps](superpowers/specs/2026-11-19-member-apps-design.md). Built-in apps (the alumni directory) are a different thing: they live in this repository under `platform/apps/` and are reviewed like any code. See [adding an app](adding-an-app.md).
 
-**Status on November 19, 2026: the code is released switched off.** Nothing here is available to members until the maintainer [switches it on](#switching-member-apps-on). This release covers apps made of screens only. Server code and a private database per app are the next release, and need Cloudflare's Workers for Platforms.
+**Status on November 19, 2026: the code is released switched off.** Nothing here is available to members until the maintainer [switches it on](#switching-member-apps-on). There are two switches. The first turns on apps made of screens and needs no purchase. The second lets an app include [server code and a database of its own](#server-code-and-a-database), and needs Cloudflare's Workers for Platforms.
 
 ## What a member does
 
@@ -29,9 +29,24 @@ The same page shows every published version. The people who run the app can put 
 | Extra powers    | Up to 20, named by the app, given to people on the app's page                      |
 | Guide           | Markdown, up to 20,000 characters, shown on the app's page                         |
 
-**What it cannot do yet.** An app has no server code and no database, so it cannot save anything between visits or share data between the people using it. It cannot load from, call or post to any other site: no CDN scripts, web fonts, outside images or outside APIs. That makes this release good for calculators, checklists, reference pages and guides, and not yet for trackers or sign-up sheets. Those need the next release.
+**What it cannot do.** It cannot load from, call or post to any other site: no CDN scripts, web fonts, outside images or outside APIs. Until server code is switched on it also cannot save anything between visits or share data between the people using it, which makes screens-only apps good for calculators, checklists, reference pages and guides, and not for trackers or sign-up sheets.
 
 **What an app knows about its user.** A page can fetch `/__slice/me` and gets `{ id, name, manager, powers }` for the signed-in member. It never gets an email address.
+
+## Server code and a database
+
+With the second switch on, an app can include one more file, `worker.js`: an ES module that answers every address under `/api/`. The launcher still answers everything else from the app's files.
+
+- **Its own database.** `env.DB` is a SQLite database (Cloudflare D1) that belongs to that app alone and is the only thing its code can reach. It is made by the app's first version with server code and shared by every later version.
+- **Who is asking.** The launcher adds `X-Slice-Member-Id`, `X-Slice-Member-Name` (percent-encoded), `X-Slice-Manager` and `X-Slice-Powers` to each request, after removing any the browser sent, along with every cookie and credential. The app's code decides who may read or change what.
+- **No reaching out.** Every call the code makes to another address is refused by a separate outbound Worker. It holds no secrets.
+- **Limits.** 50 ms of processing and 50 subrequests per request, and at most 1 MB in a request.
+- **One Worker per publish.** Each version's code is uploaded under a name of its own, so putting an earlier version live runs exactly what was published then. The database is not versioned: an earlier version runs against today's data.
+- **The answer is cleaned.** The launcher removes any cookie the code tries to set and applies the same browser rules as on every other response.
+
+An app's code cannot be run on a developer's computer: Cloudflare's local runtime does not run dispatch namespaces. What the launcher does around the code is tested; what Cloudflare isolates is taken from its documentation until checked on the real account.
+
+**Not built:** recent errors in `slice_app_status`, and removing a deleted app's Workers and database. Until there is a clean-up, the maintainer removes them by hand (they are tagged `slice-app:<id>` and named `slice-app-<id>`).
 
 ## The tools a builder's AI gets
 
@@ -89,6 +104,25 @@ These steps change production and need the maintainer. None has been done.
 
 To switch off again, set `MEMBER_APPS_ENABLED` back to `"false"`: app addresses answer 404 and the tools disappear. Apps, versions and files are kept.
 
+### Switching server code on
+
+After the steps above, and only once Workers for Platforms is bought on the Cloudflare account ($25 a month at the time of writing):
+
+1. **Create the dispatch namespace:** `pnpm --filter @slice/launcher exec wrangler dispatch-namespace create slice-apps`.
+2. **Deploy the outbound Worker:** `pnpm --filter @slice/launcher exec wrangler deploy --config outbound/wrangler.jsonc`. It refuses every request and holds nothing.
+3. **Create an API token** limited to this account with _Workers Scripts: Edit_ and _D1: Edit_, and store it and the account ID as secrets of the launcher: `wrangler secret put APPS_API_TOKEN` and `wrangler secret put APPS_ACCOUNT_ID`. Neither goes in Git.
+4. **Bind the namespace** in `platform/wrangler.jsonc` through a pull request:
+
+   ```jsonc
+   "dispatch_namespaces": [
+     { "binding": "APPS", "namespace": "slice-apps", "outbound": { "service": "slice-apps-outbound" } },
+   ],
+   ```
+
+5. **Check on the real account**, because none of it could be tested locally. Publish an app whose `worker.js` tries each of these, and confirm each fails: call an outside address; read a cookie; read an `X-Slice-*` header the browser set; reach a binding other than `DB`; use another app's database. Then confirm it can create a table, write a row as one member and read it as another.
+
+Without all of the binding and both secrets, a publish that includes `worker.js` is refused with "Server code is not switched on yet", and screens-only apps are unaffected.
+
 ## What has not been verified
 
-Everything above is tested against a local Worker, a local database and a browser with made-up people. Not checked against production: the wildcard address and its certificate, the file store at production size, and a real AI app completing a publish (a publish is a far larger tool call than any other; clients may have limits of their own). Publishing makes one store write per file; Cloudflare's per-request limits on the account's plan were not checked against a 50-file publish.
+Everything above is tested against a local Worker, a local database and a browser with made-up people. Server code is tested only up to the edge of Cloudflare: the upload request, the request the code receives and the answer the browser gets. That Cloudflare runs the code with only its own database, and that the outbound Worker sees every outside call, come from Cloudflare's documentation. Not checked against production: the wildcard address and its certificate, the file store at production size, and a real AI app completing a publish (a publish is a far larger tool call than any other; clients may have limits of their own). Publishing makes one store write per file; Cloudflare's per-request limits on the account's plan were not checked against a 50-file publish.

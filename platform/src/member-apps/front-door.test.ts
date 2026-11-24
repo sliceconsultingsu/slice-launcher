@@ -583,3 +583,286 @@ describe("arriving with a pass", () => {
     expect(appCookie(posted)).toBeUndefined();
   });
 });
+
+describe("an app's server code", () => {
+  const code = "export default { fetch() { return new Response('hi') } }";
+  /**
+   * The same people and apps, with a third version of "notes" that has server code. The Worker is
+   * a stand-in: it records what the launcher sent it and answers as `reply` says.
+   */
+  async function withServer(
+    reply: () => Response | Promise<Response> = () => Response.json({ ok: true }),
+  ) {
+    const context = await setup();
+    const publisher = new MemberApps({
+      repository: context.repository,
+      files: context.files,
+      origin: launcher,
+      cloud: { ensureDatabase: async () => "db-notes", uploadServer: async () => {} },
+    });
+    await publisher.publish(
+      who("ana"),
+      "notes",
+      publishNotes({
+        files: [
+          { path: "index.html", text: page },
+          { path: "worker.js", text: code },
+        ],
+      }),
+    );
+    const script = (await context.repository.version("notes", 2))!.server!.script;
+    const seen: { script: string; request: Request; body: string }[] = [];
+    const door = (server = true) =>
+      createFrontDoor({
+        db: fixture.db,
+        loadState: () => context.repository.load(),
+        version: (appId, version) => context.repository.version(appId, version),
+        files: context.files,
+        origin: launcher,
+        ...(server
+          ? {
+              server: (name: string) =>
+                name === script
+                  ? {
+                      fetch: async (request: Request) => {
+                        seen.push({ script: name, request, body: await request.clone().text() });
+                        return reply();
+                      },
+                    }
+                  : null,
+            }
+          : {}),
+      });
+    return { ...context, door: door(), doorWithoutServer: door(false), seen, script };
+  }
+  const called = {
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+    Accept: "application/json",
+  };
+
+  it("gets requests under /api/ with who is asking, as the launcher knows them", async () => {
+    const { door, enter, seen, script } = await withServer();
+    const { cookie } = await enter("max");
+    const response = await door(
+      request("notes", "/api/items?tab=2", {
+        cookie,
+        headers: {
+          ...called,
+          Authorization: "Bearer from-the-browser",
+          "x-slice-member-id": "owner-member",
+          "X-SLICE-MANAGER": "true",
+          "X-Slice-Anything": "made up",
+          "X-Requested-With": "the app's own page",
+        },
+      }),
+      "notes",
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(seen).toHaveLength(1);
+    const sent = seen[0].request;
+    expect(seen[0].script).toBe(script);
+    expect(sent.url).toBe("https://notes.slice.example/api/items?tab=2");
+    expect(sent.method).toBe("GET");
+    expect(sent.headers.get("X-Slice-Member-Id")).toBe("max-member");
+    expect(sent.headers.get("X-Slice-Member-Name")).toBe("Max");
+    expect(sent.headers.get("X-Slice-Manager")).toBe("false");
+    expect(sent.headers.get("X-Slice-Powers")).toBe("edit");
+    expect(sent.headers.get("X-Slice-Anything")).toBeNull();
+    expect(sent.headers.get("Cookie")).toBeNull();
+    expect(sent.headers.get("Authorization")).toBeNull();
+    expect(sent.headers.get("X-Requested-With")).toBe("the app's own page");
+  });
+
+  it("tells the code when the person runs the app, and encodes a name that is not plain text", async () => {
+    const { door, enter, seen, save } = await withServer();
+    await save("ana-sub", { type: "profile.update", name: "Ana Núñez, PhD", title: "" });
+    const { cookie } = await enter("ana");
+    await door(request("notes", "/api/items", { cookie, headers: called }), "notes");
+    const sent = seen[0].request;
+    expect(sent.headers.get("X-Slice-Manager")).toBe("true");
+    expect(decodeURIComponent(sent.headers.get("X-Slice-Member-Name")!)).toBe("Ana Núñez, PhD");
+    expect(sent.headers.get("X-Slice-Member-Name")).toMatch(/^[\x20-\x7e]+$/);
+  });
+
+  it("passes on a change from the app's own page, with its body", async () => {
+    const { door, enter, seen } = await withServer(() => new Response(null, { status: 201 }));
+    const { cookie } = await enter("max");
+    const response = await door(
+      request("notes", "/api/items", {
+        cookie,
+        method: "POST",
+        headers: { Origin: "https://notes.slice.example", "Content-Type": "application/json" },
+        body: '{"title":"Buy milk"}',
+      }),
+      "notes",
+    );
+    expect(response.status).toBe(201);
+    expect(seen[0].request.method).toBe("POST");
+    expect(seen[0].request.headers.get("Content-Type")).toBe("application/json");
+    expect(seen[0].body).toBe('{"title":"Buy milk"}');
+  });
+
+  it("cleans the answer: no cookie can be set, and the browser rules still apply", async () => {
+    const { door, enter } = await withServer(
+      () =>
+        new Response("<p>hi</p>", {
+          status: 200,
+          headers: [
+            ["Content-Type", "text/html"],
+            ["Set-Cookie", "__Host-slice_app=stolen; Path=/; Secure"],
+            ["Set-Cookie", "other=1; Domain=slice.example"],
+            ["Content-Security-Policy", "default-src *"],
+            ["X-From-The-App", "kept"],
+          ],
+        }),
+    );
+    const { cookie } = await enter("max");
+    const response = await door(
+      request("notes", "/api/page", { cookie, headers: called }),
+      "notes",
+    );
+    expect(response.headers.getSetCookie()).toEqual([]);
+    expect(response.headers.get("Content-Security-Policy")).toContain("connect-src 'self'");
+    expect(response.headers.get("Content-Security-Policy")).not.toContain("*");
+    expect(response.headers.get("X-Frame-Options")).toBe("DENY");
+    expect(response.headers.get("X-From-The-App")).toBe("kept");
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(await response.text()).toBe("<p>hi</p>");
+  });
+
+  it("does not let the code set a cookie by answering with a redirect", async () => {
+    const { door, enter } = await withServer(
+      () =>
+        new Response(null, {
+          status: 302,
+          headers: [
+            ["Location", "/"],
+            ["Set-Cookie", "__Host-slice_app=stolen; Path=/; Secure"],
+          ],
+        }),
+    );
+    const { cookie } = await enter("max");
+    const response = await door(request("notes", "/api/go", { cookie, headers: called }), "notes");
+    expect(response.status).toBe(302);
+    expect(response.headers.getSetCookie()).toEqual([]);
+  });
+
+  it("never reaches the code for someone who may not open the app", async () => {
+    const { door, enter, seen, save } = await withServer();
+    const stranger = await enter("sam", "ledger");
+    await door(
+      request("notes", "/api/items", { cookie: stranger.cookie, headers: called }),
+      "notes",
+    );
+    await door(request("notes", "/api/items", { headers: called }), "notes");
+    const { cookie } = await enter("max");
+    // Another app's page calling it, a change without the app's own Origin, and an offline app.
+    await door(
+      request("notes", "/api/items", {
+        cookie,
+        headers: { ...called, "Sec-Fetch-Site": "same-site" },
+      }),
+      "notes",
+    );
+    await door(
+      request("notes", "/api/items", {
+        cookie,
+        method: "POST",
+        headers: { Origin: "https://ledger.slice.example" },
+        body: "{}",
+      }),
+      "notes",
+    );
+    await save("ana-sub", { type: "memberapp.live", id: "notes", version: null });
+    await door(request("notes", "/api/items", { cookie, headers: called }), "notes");
+    expect(seen).toEqual([]);
+  });
+
+  it("answers that there is no server code when the live version has none", async () => {
+    const { door, enter, seen, save } = await withServer();
+    const { cookie } = await enter("max");
+    await save("ana-sub", { type: "memberapp.live", id: "notes", version: 1 });
+    const response = await door(
+      request("notes", "/api/items", { cookie, headers: called }),
+      "notes",
+    );
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "This app has no server code." });
+    expect(seen).toEqual([]);
+  });
+
+  it("says so when the code fails, without passing on what went wrong", async () => {
+    const { door, enter } = await withServer(() => {
+      throw new Error("D1_ERROR: no such table: secrets");
+    });
+    const { cookie } = await enter("max");
+    const response = await door(
+      request("notes", "/api/items", { cookie, headers: called }),
+      "notes",
+    );
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "This app's server code failed." });
+  });
+
+  it("says so while server code is switched off", async () => {
+    const { doorWithoutServer, enter } = await withServer();
+    const { cookie } = await enter("max");
+    const response = await doorWithoutServer(
+      request("notes", "/api/items", { cookie, headers: called }),
+      "notes",
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "This app's server code is switched off." });
+  });
+
+  it("refuses a request body over 1 MB before the code sees it", async () => {
+    const { door, enter, seen } = await withServer();
+    const { cookie } = await enter("max");
+    const response = await door(
+      request("notes", "/api/items", {
+        cookie,
+        method: "POST",
+        headers: { Origin: "https://notes.slice.example" },
+        body: "x".repeat(1024 * 1024 + 1),
+      }),
+      "notes",
+    );
+    expect(response.status).toBe(413);
+    expect(seen).toEqual([]);
+  });
+
+  it("stops reading a body that does not say how long it is once it passes 1 MB", async () => {
+    const { door, enter, seen } = await withServer();
+    const { cookie } = await enter("max");
+    let sent = 0;
+    const chunk = new Uint8Array(64 * 1024);
+    // An endless body: the launcher must give up, not wait for the end.
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        sent += chunk.byteLength;
+        controller.enqueue(chunk);
+      },
+    });
+    const response = await door(
+      new Request("https://notes.slice.example/api/items", {
+        method: "POST",
+        headers: { Cookie: cookie, Origin: "https://notes.slice.example" },
+        body: endless,
+        duplex: "half",
+      } as RequestInit),
+      "notes",
+    );
+    expect(response.status).toBe(413);
+    expect(seen).toEqual([]);
+    expect(sent).toBeLessThan(4 * 1024 * 1024);
+  });
+
+  it("never serves the code itself as a file", async () => {
+    const { door, enter } = await withServer();
+    const { cookie } = await enter("max");
+    for (const path of ["/worker.js", "/__server/worker.js", "/%5F%5Fserver/worker.js"])
+      expect((await door(request("notes", path, { cookie }), "notes")).status).toBe(404);
+  });
+});

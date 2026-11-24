@@ -8,6 +8,7 @@ import { applyCommand } from "../membership/domain";
 import type { Repository } from "../membership/repository";
 import { authorizeMember } from "../platform/access";
 import { appAddress } from "../platform/address";
+import type { AppCloud } from "./cloud";
 import type { AppFiles } from "./files";
 import { readBundle } from "./publish";
 import { memberApps } from "./registry";
@@ -18,6 +19,8 @@ export type MemberAppsDeps = {
   files: AppFiles;
   /** The launcher's own address, e.g. "https://sliceos.app". */
   origin: string;
+  /** Cloudflare, for an app's server code. Left out while server code is switched off. */
+  cloud?: AppCloud;
 };
 
 /** How often one member can publish, and create apps. Every one adds a history entry. */
@@ -28,6 +31,11 @@ const meta = () => ({ id: crypto.randomUUID(), now: new Date().toISOString() });
 
 export class MemberApps {
   constructor(private deps: MemberAppsDeps) {}
+
+  /** Whether an app can include server code (worker.js) and a database of its own. */
+  get serverEnabled(): boolean {
+    return Boolean(this.deps.cloud);
+  }
 
   /** Current membership, for someone who is an active member right now. */
   private async load(identity: Identity): Promise<State> {
@@ -88,22 +96,37 @@ export class MemberApps {
    * if the save is refused (someone else published first), these files are simply never served.
    */
   async publish(identity: Identity, id: string, value: unknown) {
-    const bundle = readBundle(value);
+    const bundle = readBundle(value, { server: this.serverEnabled });
     const state = await this.load(identity);
     await this.pace(state, identity, "memberapp.publish", PUBLISHES_PER_HOUR, 3600_000);
     const stamp = meta();
-    const mutation = applyCommand(
-      state,
-      identity.subject,
-      {
-        type: "memberapp.publish",
-        id,
-        name: bundle.name,
-        description: bundle.description,
-        powers: bundle.powers,
-      },
-      stamp,
-    );
+    const apply = (database: string | null) =>
+      applyCommand(
+        state,
+        identity.subject,
+        {
+          type: "memberapp.publish",
+          id,
+          name: bundle.name,
+          description: bundle.description,
+          powers: bundle.powers,
+          database,
+        },
+        stamp,
+      );
+    // Refuses anyone who does not run the app, and anything invalid, before Cloudflare is asked
+    // for anything.
+    apply(null);
+    let database = this.find(state, id).database;
+    let server: VersionRecord["server"] = null;
+    if (bundle.server !== null && this.deps.cloud) {
+      // One database per app, made by its first version with server code. One Worker per
+      // publish, under a name unique to it, so an earlier version can be put live as it was.
+      database ??= await this.deps.cloud.ensureDatabase(id);
+      server = { script: `${id}-${stamp.id.replaceAll("-", "").slice(0, 16)}` };
+      await this.deps.cloud.uploadServer(server.script, bundle.server, database, id);
+    }
+    const mutation = apply(server ? database : null);
     const app = this.find(mutation.state, id);
     const version: VersionRecord = {
       appId: id,
@@ -111,6 +134,7 @@ export class MemberApps {
       at: stamp.now,
       publishedBy: mutation.audit.actorId,
       store: stamp.id,
+      server,
       name: app.name,
       description: app.description,
       guide: bundle.guide,
@@ -121,7 +145,19 @@ export class MemberApps {
         size: file.body.byteLength,
       })),
     };
-    await this.deps.files.put(id, version.store, bundle.files);
+    await this.deps.files.put(id, version.store, [
+      ...bundle.files,
+      // Kept with the version for the record, under a key the launcher never serves.
+      ...(bundle.server === null
+        ? []
+        : [
+            {
+              path: "__server/worker.js",
+              type: "text/javascript; charset=utf-8",
+              body: new TextEncoder().encode(bundle.server),
+            },
+          ]),
+    ]);
     await this.deps.repository.commit(state, mutation, { version });
     return {
       id,
@@ -129,6 +165,7 @@ export class MemberApps {
       address: appAddress(this.deps.origin, id),
       live: true,
       files: bundle.files.length,
+      server: server !== null,
     };
   }
 

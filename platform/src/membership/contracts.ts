@@ -85,6 +85,11 @@ export interface MemberApp {
   /** The manager waiting for an owner's OK to make it Public, if any. */
   publicRequestedBy: string | null;
   deletedAt: string | null;
+  /**
+   * Cloudflare's ID for the app's own database, set by the first version published with server
+   * code and kept from then on. Null for an app that has only ever had screens.
+   */
+  database: string | null;
 }
 /** One published version of a member app. Its files are in the launcher's file store. */
 export interface VersionRecord {
@@ -98,6 +103,8 @@ export interface VersionRecord {
    * publishes at the same moment can never write over each other's files.
    */
   store: string;
+  /** The Worker this version's server code was uploaded as, or null for screens only. */
+  server: { script: string } | null;
   name: string;
   description: string;
   /** Markdown shown on the app's page in the launcher. */
@@ -282,6 +289,8 @@ export const commandSchema = z.discriminatedUnion("type", [
         (values) => new Set(values.map((power) => power.id)).size === values.length,
         "A power is listed twice.",
       ),
+    /** The app's own database, when this version has server code. */
+    database: z.string().min(1).max(80).nullable().default(null),
   }),
   // Which version people get. null takes the app offline and keeps everything else.
   z.strictObject({

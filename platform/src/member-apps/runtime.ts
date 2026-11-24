@@ -1,6 +1,7 @@
 // Production wiring for member apps: whether they are switched on, and where things live.
 import { env } from "cloudflare:workers";
 import { Repository } from "../membership/repository";
+import { cloudflareApps, type AppCloud } from "./cloud";
 import { kvFiles, type AppFiles } from "./files";
 import { createFrontDoor } from "./front-door";
 import type { PassDeps } from "./pass-route";
@@ -12,7 +13,30 @@ type MemberAppsEnv = {
   /** The launcher's file store. Bound when member apps are switched on. */
   APP_FILES?: KVNamespace;
   MEMBERSHIP_DB: D1Database;
+  /**
+   * Server code for member apps: the dispatch namespace their Workers live in, and the two
+   * secrets the launcher uses to upload them (wrangler secret put; never in wrangler.jsonc).
+   * All three are set when server code is switched on.
+   */
+  APPS?: DispatchNamespace;
+  APPS_ACCOUNT_ID?: string;
+  APPS_API_TOKEN?: string;
 };
+
+/** The dispatch namespace's name. It must match the APPS binding in platform/wrangler.jsonc. */
+const APPS_NAMESPACE = "slice-apps";
+/** What one request to an app's server code may use. */
+const SERVER_LIMITS = { cpuMs: 50, subRequests: 50 };
+
+/** Cloudflare, for uploading an app's server code, or undefined while that is switched off. */
+function appCloud(source: MemberAppsEnv): AppCloud | undefined {
+  if (!source.APPS || !source.APPS_ACCOUNT_ID || !source.APPS_API_TOKEN) return undefined;
+  return cloudflareApps({
+    accountId: source.APPS_ACCOUNT_ID,
+    token: source.APPS_API_TOKEN,
+    namespace: APPS_NAMESPACE,
+  });
+}
 
 /** On only when the setting is exactly "true" and the file store is bound. */
 export function memberAppsEnabled(source: MemberAppsEnv = env as unknown as MemberAppsEnv) {
@@ -67,6 +91,11 @@ export function memberAppRequest(
     version: (id, version) => repository.version(id, version),
     files,
     origin: launcherOrigin(request, source),
+    // Each version's server code is its own Worker in the dispatch namespace. Every call it
+    // makes to anywhere else goes to the outbound Worker bound to the namespace, which refuses.
+    ...(source.APPS
+      ? { server: (script: string) => source.APPS!.get(script, {}, { limits: SERVER_LIMITS }) }
+      : {}),
   });
   return door(request, appId);
 }
@@ -79,5 +108,6 @@ export function memberAppsService(request: Request, source: MemberAppsEnv): Memb
     repository: new Repository(source.MEMBERSHIP_DB),
     files,
     origin: launcherOrigin(request, source),
+    cloud: appCloud(source),
   });
 }

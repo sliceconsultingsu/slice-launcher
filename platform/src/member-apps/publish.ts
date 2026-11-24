@@ -60,7 +60,10 @@ export interface Bundle {
   description: string;
   guide: string;
   powers: { id: string; label: string }[];
+  /** The app's screens. Server code is never among them. */
   files: StoredFile[];
+  /** The contents of worker.js, when the bundle has server code and it is switched on. */
+  server: string | null;
 }
 
 function refuse(message: string): never {
@@ -74,7 +77,7 @@ function decode(path: string, base64: string): Uint8Array {
   return Uint8Array.from(atob(compact), (character) => character.charCodeAt(0));
 }
 
-export function readBundle(value: unknown): Bundle {
+export function readBundle(value: unknown, options: { server?: boolean } = {}): Bundle {
   const parsed = input.safeParse(value);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
@@ -87,6 +90,7 @@ export function readBundle(value: unknown): Bundle {
     refuse(`An app can have up to ${MAX_FILES} files in one publish.`);
   const seen = new Set<string>();
   const files: StoredFile[] = [];
+  let server: string | null = null;
   let total = 0;
   for (const file of parsed.data.files) {
     const { path } = file;
@@ -96,8 +100,10 @@ export function readBundle(value: unknown): Bundle {
       );
     if (/^api(\/|$)/i.test(path))
       refuse(`"${path}": addresses under api/ are kept for an app's server code.`);
-    if (path.toLowerCase() === "worker.js")
+    const isServer = path.toLowerCase() === "worker.js";
+    if (isServer && !options.server)
       refuse("Server code (worker.js) is not switched on yet. Publish screens only.");
+    if (isServer && path !== "worker.js") refuse('Name the server code exactly "worker.js".');
     if (seen.has(path.toLowerCase())) refuse(`"${path}" is listed twice.`);
     seen.add(path.toLowerCase());
     const extension = /\.([A-Za-z0-9]+)$/.exec(path)?.[1].toLowerCase() ?? "";
@@ -111,10 +117,12 @@ export function readBundle(value: unknown): Bundle {
       file.base64 === undefined ? new TextEncoder().encode(file.text) : decode(path, file.base64);
     if (body.byteLength > MAX_FILE_BYTES) refuse(`"${path}" is larger than 512 KB.`);
     total += body.byteLength;
-    files.push({ path, type, body });
+    // Server code is uploaded as the app's Worker. It is not a screen and is never served.
+    if (isServer) server = new TextDecoder().decode(body);
+    else files.push({ path, type, body });
   }
   if (total > MAX_BUNDLE_BYTES) refuse("The files add up to more than 1 MB.");
   if (!files.some((file) => file.path === "index.html"))
     refuse("An app needs an index.html: it is the first screen.");
-  return { name, description, guide, powers, files };
+  return { name, description, guide, powers, files, server };
 }
