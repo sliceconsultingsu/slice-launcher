@@ -1,0 +1,13 @@
+{
+  "id": "status-reports",
+  "name": "Status reports",
+  "description": "Helps project managers draft client status reports with their own AI assistant, using a ready prompt, the template and an example.",
+  "workInProgress": true,
+  "permissions": [
+    {
+      "id": "use",
+      "label": "Use the status report prompt, template and example",
+      "withAccess": true
+    }
+  ]
+}
