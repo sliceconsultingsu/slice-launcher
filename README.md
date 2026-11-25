@@ -8,19 +8,20 @@ One home for Slice Consulting's internal tools. Consultants sign in once; each t
 
 **Joining the alumni team? Start with [the beginner team guide](docs/team/README.md).** It includes your workspace, first task and review routine.
 
-**Building an app? Start in [platform/apps/](platform/apps/README.md).** Each app gets its own folder there. The shared login, launcher and administration live elsewhere in `platform/`.
+**Making an app? Start with [making an app](docs/building-an-app.md).** A new app is a member app: you make it with your own AI, it gets its own address under `sliceos.app`, and it never enters this repository. The folder [platform/apps/](platform/apps/README.md) is for built-in apps the maintainer has agreed to.
 
 ## Start here
 
-| I want to…                             | Go to…                                                                    |
-| -------------------------------------- | ------------------------------------------------------------------------- |
-| Use the platform                       | [Open Slice](https://sliceos.app) and sign in with your approved account  |
-| Understand the folders                 | [Repository map](docs/repository-map.md)                                  |
-| Build or change an app                 | [Contributing](CONTRIBUTING.md), then [add an app](docs/adding-an-app.md) |
-| Work with an AI coding agent           | Ask it to read [AGENTS.md](AGENTS.md) first                               |
-| Understand roles and access            | [Membership guide](docs/membership.md)                                    |
-| Connect an approved AI client          | [Connect your AI](docs/connect-your-ai.md)                                |
-| Find technical or operational guidance | [Documentation index](docs/README.md)                                     |
+| I want to…                             | Go to…                                                                               |
+| -------------------------------------- | ------------------------------------------------------------------------------------ |
+| Use the platform                       | [Open Slice](https://sliceos.app) and sign in with your approved account             |
+| Understand the folders                 | [Repository map](docs/repository-map.md)                                             |
+| Make a new app                         | [Making an app](docs/building-an-app.md)                                             |
+| Change the platform or a built-in app  | [Contributing](CONTRIBUTING.md), then [adding a built-in app](docs/adding-an-app.md) |
+| Work with an AI coding agent           | Ask it to read [AGENTS.md](AGENTS.md) first                                          |
+| Understand roles and access            | [Membership guide](docs/membership.md)                                               |
+| Connect an approved AI client          | [Connect your AI](docs/connect-your-ai.md)                                           |
+| Find technical or operational guidance | [Documentation index](docs/README.md)                                                |
 
 ## Recommended AI models
 
@@ -34,7 +35,7 @@ Your agent should explain work in clear business language and help you learn as 
 
 The launcher, member approval, access levels, per-app settings (each app Public or Private, run by its own managers), activity history, shared app routes, shared MCP adapter and CI/deployment pipeline are implemented. **The alumni app is a read-only learning starter with fictional records.** Persistent alumni data, matching, alumni MCP tools and refresh jobs remain to be built.
 
-Members making their own apps with their AI, each at its own address under `sliceos.app`, has been **switched on since November 24, 2026**, for apps made of screens: see [member apps](docs/member-apps.md) for what it covers, what is still off (server code and a database per app) and what has not been tried with a real member yet.
+**Member apps are the main way to make an app on Slice.** Members making their own apps with their AI, each at its own address under `sliceos.app`, has been **switched on since November 24, 2026**, for apps made of screens: see [member apps](docs/member-apps.md) for what it covers, what is still off (server code and a database per app) and what has not been tried with a real member yet.
 
 An ordinary Member can view the member directory by default. Admin permissions come from ownership or explicitly assigned permissions. Owners have full admin access even if their **base access level** is called Member. The account screen distinguishes the effective organization role from that base level. See [how access works](docs/membership.md).
 
@@ -44,7 +45,7 @@ Remote MCP clients (AI apps) sign in through Slice's own OAuth and act with cons
 
 ```text
 platform/
-  apps/             Your apps: one folder per tool, with app.json, server.tsx and README.md
+  apps/             Built-in apps: one folder each, with app.json, server.tsx and README.md
   app/              Shared web routes; maintained by the platform team
   src/              Shared login, permissions, launcher and MCP code
   migrations/       Database changes reviewed by a maintainer
@@ -57,7 +58,7 @@ docs/               Current guides, plus clearly marked historical reports
 .github/            Automated checks and deployment workflows
 ```
 
-`platform/app/` (singular) is the framework's routing folder. **Your app belongs in `platform/apps/` (plural).** App metadata and permissions live in each app's `app.json`; imports and the launcher catalog are generated for you.
+`platform/app/` (singular) is the framework's routing folder. **A built-in app belongs in `platform/apps/` (plural).** Its metadata and permissions live in its `app.json`; imports and the launcher catalog are generated for you. A member app has no folder here: its files stay with the person who made it.
 
 ## Run locally
 
@@ -70,13 +71,13 @@ pnpm dev
 
 Open the local address printed in the terminal. This starts the launcher; local development does not bypass sign-in or give you production member data. Automated browser tests use disposable accounts. See [testing](docs/testing.md) and [membership configuration](docs/membership.md) when working on protected screens.
 
-To create an app:
+You do not need any of this to make a member app; see [making an app](docs/building-an-app.md). To create a built-in app, once the maintainer has agreed to one:
 
 ```sh
 pnpm app:create my-tool "My tool"
 ```
 
-This creates `platform/apps/my-tool/` and registers `/apps/my-tool`. It creates a starter, not a finished directory. Follow [the app guide](docs/adding-an-app.md) to add features. A new app is private until its managers open it to people on the app's page.
+This creates `platform/apps/my-tool/` and registers `/apps/my-tool`. It creates a starter, not a finished directory. Follow [the built-in app guide](docs/adding-an-app.md) to add features. A new app is private until its managers open it to people on the app's page.
 
 ## Before submitting work
 
