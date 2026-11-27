@@ -46,7 +46,7 @@ If your app needs one of these, do not build it in this repository as a way roun
 
 An app is built into the launcher only when the maintainer has agreed to it before the work starts. The pull request says what the app needs that a member app cannot do, and links to that agreement. Then follow [adding a built-in app](adding-an-app.md).
 
-The alumni directory is the only built-in app. It keeps shared records and offers tools to members' AI, and a member app can do neither yet. The maintainer intends to move it to a member app. That waits on server code being switched on and checked, and on a decision about its AI tools. No date is set. Until then, work on it continues here through the [team guide](team/README.md).
+The alumni directory is the only built-in app. It keeps shared records and offers tools to members' AI, and a member app can do neither yet. The maintainer intends to move it to a member app, and decided on November 26, 2026 that it keeps its AI tools when it moves. So the move waits on two things: server code being switched on and checked, and member apps being able to offer tools, which is not built. No date is set. Until then, work on it continues here through the [team guide](team/README.md).
 
 ## If you are an AI agent
 
