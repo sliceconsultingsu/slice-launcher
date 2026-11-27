@@ -153,6 +153,24 @@ describe("reading the tools an app declares", () => {
     refusal([{ ...find, input: { type: "object", properties: { query: schema } } }]);
   });
 
+  it("keeps a field named like something every object has as a plain field of its own", () => {
+    const names = ["constructor", "toString", "hasOwnProperty", "valueOf"];
+    const properties = Object.fromEntries(names.map((name) => [name, { type: "string" }]));
+    const [tool] = readTools(
+      [{ ...find, input: { type: "object", properties, required: ["constructor"] } }],
+      powers,
+    );
+    const kept = tool.input.properties as Record<string, unknown>;
+    expect(Object.keys(kept)).toEqual(names);
+    for (const name of names) expect(Object.hasOwn(kept, name)).toBe(true);
+    expect(JSON.parse(JSON.stringify(tool.input)).properties.constructor).toEqual({
+      type: "string",
+    });
+    // Nothing every other object shares was touched.
+    expect({}.constructor).toBe(Object);
+    expect(typeof {}.toString).toBe("function");
+  });
+
   it("refuses a field literally named __proto__, however it was sent", () => {
     const input = JSON.parse('{"type":"object","properties":{"__proto__":{"type":"string"}}}');
     expect(refusal([{ ...find, input }])).toContain("not a usable field name");

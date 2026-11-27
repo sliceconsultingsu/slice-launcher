@@ -126,19 +126,17 @@ function cleanSchema(value: unknown, where: string, depth: number): { [key: stri
     const names = Object.keys(properties);
     if (names.length > MAX_PROPERTIES)
       refuse(`${where}: an object can have up to ${MAX_PROPERTIES} fields.`);
-    const fields: { [key: string]: Json } = {};
-    for (const name of names) {
-      if (!propertyPattern.test(name))
-        refuse(
-          `${where}: "${name.slice(0, 40)}" is not a usable field name. Start with a letter and use letters, digits and underscores.`,
-        );
-      fields[name] = cleanSchema(
-        (properties as Record<string, unknown>)[name],
-        `${where}.${name}`,
-        depth + 1,
-      );
-    }
-    out.properties = fields;
+    // Built from pairs, never by assigning to a name the app chose: a field may be called
+    // "constructor" or "toString" and must become a plain field of its own, nothing else.
+    out.properties = Object.fromEntries(
+      Object.entries(properties).map(([name, described]): [string, Json] => {
+        if (!propertyPattern.test(name))
+          refuse(
+            `${where}: "${name.slice(0, 40)}" is not a usable field name. Start with a letter and use letters, digits and underscores.`,
+          );
+        return [name, cleanSchema(described, `${where}.${name}`, depth + 1)];
+      }),
+    );
     const required = source.required ?? [];
     if (
       !Array.isArray(required) ||
