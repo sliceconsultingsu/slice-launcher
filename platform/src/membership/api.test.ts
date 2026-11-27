@@ -510,19 +510,87 @@ it("saves an app's settings through the membership API, refusing a stale save", 
   expect((await repo.load()).apps[0].managers).toEqual([joined.me.id]);
 });
 
-it("takes a member app offline and deletes it through the membership API, but does not create or publish one", async () => {
+it("lets a person start a member app from the Build page, under the same limits as their AI", async () => {
+  const { repo, owner, person, call } = await ownerAndPending();
+  const on = { appHost: "slice.example" };
+  const revision = async () => ((await (await call(owner)).json()) as View).revision;
+  const create = async (id: string, deps: Parameters<typeof membershipRequest>[3] = on) =>
+    call(
+      owner,
+      {
+        revision: await revision(),
+        command: {
+          type: "memberapp.create",
+          id,
+          name: "Kickoff checklist",
+          description: "A checklist for kicking off a client project.",
+          brief: { audience: "team", saves: true },
+        },
+      },
+      "",
+      deps,
+    );
+  // While member apps are switched off there is nowhere for an app to live.
+  const refused = await create("too-early", {});
+  expect(refused.status).toBe(400);
+  expect(((await refused.json()) as { error: string }).error).toBe("Making apps is switched off.");
+  expect((await repo.load()).memberApps).toEqual([]);
+  const made = await create("kickoff");
+  expect(made.status).toBe(200);
+  const view = (await made.json()) as View;
+  expect(view.making).toEqual({ used: 1, most: null, saves: false });
+  expect(view.apps.find((item) => item.id === "kickoff")).toMatchObject({
+    canManage: true,
+    visibility: "private",
+    member: {
+      name: "Kickoff checklist",
+      live: false,
+      manage: { latest: 0, liveVersion: null, brief: { audience: "team", saves: true } },
+    },
+  });
+  expect((await repo.load()).memberApps).toMatchObject([
+    { id: "kickoff", latest: 0, live: null, brief: { audience: "team", saves: true } },
+  ]);
+  // The view says when an app can save data, so the page does not have to guess.
+  const saving = (await (
+    await call(owner, undefined, "", { ...on, appServer: true })
+  ).json()) as View;
+  expect(saving.making).toMatchObject({ saves: true });
+  // Someone whose membership is not active yet cannot start one, and is told nothing of making.
+  const pending = (await (await call(person, undefined, "", on)).json()) as View;
+  expect(pending.making).toBeUndefined();
+  const early = await call(
+    person,
+    {
+      revision: pending.revision,
+      command: { type: "memberapp.create", id: "mine", name: "Mine", description: "Mine." },
+    },
+    "",
+    on,
+  );
+  expect(early.status).toBe(403);
+  // The same refusals as when an AI creates it: a name in use, and one that cannot be an address.
+  expect((await create("kickoff")).status).toBe(409);
+  expect((await create("No Spaces")).status).toBe(400);
+  // And the same pace: ten new apps in a day, however they were created.
+  for (let n = 2; n <= 10; n += 1) expect((await create(`kickoff-${n}`)).status).toBe(200);
+  const eleventh = await create("kickoff-11");
+  expect(eleventh.status).toBe(429);
+  expect(((await eleventh.json()) as { error: string }).error).toMatch(/Try again tomorrow/);
+  expect((await repo.load()).memberApps).toHaveLength(10);
+});
+
+it("takes a member app offline and deletes it through the membership API, but does not publish one", async () => {
   const { repo, owner, call } = await ownerAndPending();
   const revision = async () => ((await (await call(owner)).json()) as View).revision;
   const app = { id: "notes", name: "Notes", description: "Shared notes." };
-  // Creating and publishing belong to the AI tools, which store the app's files with the change.
-  for (const command of [
-    { type: "memberapp.create", ...app },
-    { type: "memberapp.publish", ...app, powers: [] },
-  ]) {
-    const refused = await call(owner, { revision: await revision(), command });
-    expect(refused.status).toBe(400);
-    expect(((await refused.json()) as { error: string }).error).toMatch(/connected AI/);
-  }
+  // Publishing belongs to the AI tools, which store the app's files with the change.
+  const refused = await call(owner, {
+    revision: await revision(),
+    command: { type: "memberapp.publish", ...app, powers: [] },
+  });
+  expect(refused.status).toBe(400);
+  expect(((await refused.json()) as { error: string }).error).toMatch(/connected AI/);
   expect((await repo.load()).memberApps).toEqual([]);
   // An app that exists (made here the way the tools make one) is managed from its page.
   let state = await repo.load();

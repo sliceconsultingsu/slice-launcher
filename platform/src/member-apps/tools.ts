@@ -16,7 +16,7 @@ const GUIDE = `Read this first when a member asks for an app. It returns the bui
 
 const UPLOAD = `For an AI that can run commands: a one-time address to send an app's files to from a terminal, for an app too large to type into slice_app_publish (up to ${LARGE.files} files and ${LARGE.bundleBytes / (1024 * 1024)} MB). POST the same JSON as slice_app_publish, without "id", to the address within ten minutes. It works once. slice_app_guide has a recipe that builds the JSON from a folder. If you cannot run commands, use slice_app_publish.`;
 
-const CREATE = `Create a new Slice app for the signed-in member, who becomes the person who runs it. Call this once, before publishing. The app is private to them until they share it from its page in the launcher; you cannot share it for them.
+const CREATE = `Create a new Slice app for the signed-in member, who becomes the person who runs it. Call this once, before publishing, unless the member gives you the ID of an app they already started on Slice's Build page: that app exists, so publish to it instead. The app is private to them until they share it from its page in the launcher; you cannot share it for them.
 
 The ID is permanent and becomes the app's address (https://<id>.<Slice's host>): 3 to 32 lower-case letters, digits and single hyphens, starting with a letter. Ask the member what to call the app if they have not said. Then call slice_app_publish.
 

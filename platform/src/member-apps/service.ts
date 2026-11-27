@@ -13,7 +13,9 @@ import type { AppFiles } from "./files";
 import { liveCommand } from "./live";
 import { LARGE, readBundle } from "./publish";
 import { memberApps } from "./registry";
-import { APP_LIMIT } from "./rules";
+import { APP_LIMIT, CREATES_PER_DAY } from "./rules";
+
+export { CREATES_PER_DAY };
 
 export type MemberAppsDeps = {
   repository: Repository;
@@ -28,7 +30,6 @@ export type MemberAppsDeps = {
 
 /** How often one member can publish, and create apps. Every one adds a history entry. */
 export const PUBLISHES_PER_HOUR = 30;
-export const CREATES_PER_DAY = 10;
 
 const meta = () => ({ id: crypto.randomUUID(), now: new Date().toISOString() });
 

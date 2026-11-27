@@ -5,6 +5,7 @@ import { MembershipError } from "./contracts";
 import type { Mutation, SignedInIdentity, State } from "./contracts";
 import type { HistoryCursor, Repository } from "./repository";
 import { describedFromRecord } from "../member-apps/live";
+import { CREATES_PER_DAY } from "../member-apps/rules";
 
 /** Profile edits one person may save in a day. Each one adds an entry to access history. */
 export const PROFILE_EDITS_PER_DAY = 20;
@@ -23,6 +24,8 @@ export type MembershipDeps = {
   onAccessLoss?: (subject: string) => Promise<void>;
   /** The host member apps live under, or null while they are switched off. */
   appHost?: string | null;
+  /** Whether a member app can include server code and a database of its own. */
+  appServer?: boolean;
 };
 
 /**
@@ -91,7 +94,7 @@ export async function membershipRequest(
   deps: MembershipDeps = {},
 ): Promise<Response> {
   const state = await repository.load();
-  const view = { appHost: deps.appHost ?? null };
+  const view = { appHost: deps.appHost ?? null, appServer: deps.appServer === true };
   if (request.method === "GET") {
     const member = state.members.find((m) => m.subject === identity.subject);
     if (!member) return json({ needsEnrollment: true });
@@ -127,11 +130,18 @@ export async function membershipRequest(
     throw new MembershipError(403, "Complete sign-in before making changes.");
   if (body.data.revision !== state.revision)
     throw new MembershipError(409, "Membership changed. Reload before saving.");
-  // A member app is created and published by the AI tools (src/member-apps/service.ts), which
-  // store its files and version record with the change. Here an app can only be managed.
+  // A member app is published by the AI tools (src/member-apps/service.ts), which store its
+  // files and version record with the change. A person can start one here, from the Build page:
+  // that reserves its ID and nothing more, under the same limits as when an AI creates it.
   const kind = (body.data.command as { type?: unknown } | null)?.type;
-  if (kind === "memberapp.create" || kind === "memberapp.publish")
-    throw new MembershipError(400, "Create and publish apps through your connected AI.");
+  if (kind === "memberapp.publish")
+    throw new MembershipError(400, "Publish apps through your connected AI.");
+  if (kind === "memberapp.create") {
+    if (!view.appHost) throw new MembershipError(400, "Making apps is switched off.");
+    const since = new Date(Date.now() - DAY_MS).toISOString();
+    if ((await repository.actionsSince(member.id, "memberapp.create", since)) >= CREATES_PER_DAY)
+      throw new MembershipError(429, "You have created many apps today. Try again tomorrow.");
+  }
   // Making a version of a member app live describes the app as that version did.
   const command = await describedFromRecord(repository, body.data.command);
   const result = applyCommand(state, identity.subject, command, {

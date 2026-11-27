@@ -92,8 +92,10 @@ test("a member's app appears in the launcher, goes Public with the owner's OK, a
       fullPage: true,
     });
     await noor.page.getByRole("link", { name: "Make an app with your AI" }).click();
-    await expect(noor.page).toHaveURL(/\/connect-ai#make-an-app$/);
-    await expect(noor.page.getByRole("heading", { name: "Make an app" })).toBeInViewport();
+    await expect(noor.page).toHaveURL(/\/build$/);
+    await expect(noor.page.getByRole("heading", { name: "Build", level: 1 })).toBeVisible();
+    await noor.page.goto("/connect-ai");
+    await expect(noor.page.getByRole("heading", { name: "Make an app" })).toBeVisible();
     await expect(noor.page.getByText(/such as the Alumni directory/)).toBeVisible();
     await expect(noor.page.getByText(/no business apps/)).toHaveCount(0);
     await accessible(noor.page);
@@ -197,6 +199,140 @@ test("a member's app appears in the launcher, goes Public with the owner's OK, a
     await noor.page.goto("/");
     await expect(noor.page.getByText("Team notes")).toHaveCount(0);
   } finally {
+    await owner.context.close();
+    await riley.context.close();
+    await noor.context.close();
+  }
+});
+
+test("a member starts an app on the Build page, hands it to their AI, and brings it live", async ({
+  browser,
+}) => {
+  const owner = await signIn(browser, "owner@example.test");
+  const riley = await signIn(browser, "riley@example.test");
+  const noor = await signIn(browser, "noor@example.test");
+  const page = riley.page;
+  const address = "https://kickoff-checklist.apps.slice-e2e-only.test";
+  try {
+    await riley.context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await send(owner.context, { type: "join" });
+    await member(owner.context, riley.context, "Riley Example");
+    await member(owner.context, noor.context, "Noor Example");
+
+    // From the launcher, Build is one step away, and says how making an app goes.
+    await page.goto("/");
+    await page
+      .getByRole("navigation", { name: "Sections" })
+      .getByRole("link", { name: "Build" })
+      .click();
+    await expect(page).toHaveURL(/\/build$/);
+    await expect(page.getByRole("heading", { name: "Build", level: 1 })).toBeVisible();
+    await expect(page.getByText("Hand it to your AI.")).toBeVisible();
+    await expect(page.getByText("You have not started an app yet.")).toBeVisible();
+    await accessible(page);
+
+    // Nothing to send yet: the page says what is missing.
+    await page.getByRole("button", { name: "Create draft" }).click();
+    await expect(page.getByRole("alert")).toHaveText("Say what the app should help with.");
+
+    // Describing it: the address follows the name, and the page says what cannot work yet.
+    await page
+      .getByLabel("What should it help with?")
+      .fill("A checklist for kicking off a new client project.");
+    await page.getByLabel("Name").fill("Kickoff checklist");
+    await expect(page.getByLabel("Address")).toHaveValue("kickoff-checklist");
+    await expect(
+      page.getByText("kickoff-checklist.apps.slice-e2e-only.test. It cannot be changed later."),
+    ).toBeVisible();
+    await page.getByLabel(/It needs to remember what people enter/).check();
+    await expect(page.getByText(/Apps cannot save or share data yet/)).toBeVisible();
+    await accessible(page);
+    await page.screenshot({
+      path: test.info().outputPath("build-start-desktop.png"),
+      fullPage: true,
+    });
+    await page.getByLabel(/It needs to remember what people enter/).uncheck();
+    await expect(page.getByText(/Apps cannot save or share data yet/)).toHaveCount(0);
+
+    // Creating the draft: it is listed at once, with the brief for Riley's AI ready to copy.
+    await page.getByRole("button", { name: "Create draft" }).click();
+    await expect(page.getByRole("status").first()).toContainText("Draft created.");
+    const row = page.getByRole("listitem").filter({ hasText: "Kickoff checklist" });
+    await expect(row.getByText("Draft", { exact: true })).toBeVisible();
+    await expect(row.getByText("Waiting for your AI to publish a first preview.")).toBeVisible();
+    await expect(page.getByText("1 of 5 apps used")).toBeVisible();
+    await expect(page.getByLabel("Name")).toHaveValue("");
+    await row.getByRole("button", { name: "Copy the brief for Kickoff checklist" }).click();
+    const brief = await page.evaluate(() => navigator.clipboard.readText());
+    expect(brief).toContain("App ID: kickoff-checklist");
+    expect(brief).toContain("Who it is for: my project team");
+    expect(brief).toContain("Do not call slice_app_create");
+    await accessible(page);
+    await page.screenshot({
+      path: test.info().outputPath("build-draft-desktop.png"),
+      fullPage: true,
+    });
+
+    // The same address cannot be taken twice; the launcher's own words are shown.
+    await page.getByLabel("What should it help with?").fill("Another one.");
+    await page.getByLabel("Name").fill("Kickoff checklist");
+    await page.getByRole("button", { name: "Create draft" }).click();
+    await expect(page.getByRole("alert")).toHaveText("That ID is already in use. Choose another.");
+
+    // Riley's AI publishes a preview (the harness stands in for it). The page shows it on request.
+    const published = await riley.context.request.post("/__e2e/member-app", {
+      headers: { origin: origin() },
+      data: {
+        id: "kickoff-checklist",
+        preview: true,
+        name: "Kickoff checklist",
+        description: "A checklist for kicking off a new client project.",
+        guide: "Tick each step as you go.",
+        files: [{ path: "index.html", text: "<!doctype html><title>Kickoff checklist</title>" }],
+      },
+    });
+    expect(published.status()).toBe(200);
+    await page.getByRole("button", { name: "Check again" }).click();
+    await expect(row.getByText("Preview", { exact: true })).toBeVisible();
+    await expect(row.getByRole("link", { name: /Open preview/ })).toHaveAttribute("href", address);
+    await expect(row.getByText("The brief for your AI")).toHaveCount(0);
+    await accessible(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await accessible(page);
+    await page.screenshot({
+      path: test.info().outputPath("build-preview-mobile.png"),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 1280, height: 720 });
+
+    // Riley makes it live from here, and shares it from its own page.
+    await row.getByRole("button", { name: /Make it live/ }).click();
+    await expect(page.getByRole("status").first()).toContainText("It is live.");
+    await expect(row.getByText("Live", { exact: true })).toBeVisible();
+    await expect(
+      row.getByText("Version 1 is live, and private to the people who run it."),
+    ).toBeVisible();
+    await expect(row.getByRole("link", { name: /^Open/ })).toHaveAttribute("href", address);
+    await expect(row.getByRole("link", { name: /^Share/ })).toHaveAttribute(
+      "href",
+      "/about/kickoff-checklist",
+    );
+    await accessible(page);
+
+    // The list is each person's own: Noor sees none of Riley's, and the owner is not shown
+    // every member's apps here either.
+    await noor.page.goto("/build");
+    await expect(noor.page.getByText("You have not started an app yet.")).toBeVisible();
+    await owner.page.goto("/build");
+    await expect(owner.page.getByRole("heading", { name: "Your apps" })).toBeVisible();
+    await expect(owner.page.getByText("Kickoff checklist")).toHaveCount(0);
+  } finally {
+    await send(riley.context, { type: "memberapp.delete", id: "kickoff-checklist" }).catch(
+      () => {},
+    );
     await owner.context.close();
     await riley.context.close();
     await noor.context.close();

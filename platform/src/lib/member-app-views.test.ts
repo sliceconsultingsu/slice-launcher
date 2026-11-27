@@ -15,6 +15,7 @@ const manage = {
   latest: 2,
   publicApproved: false,
   publicRequestedBy: null as string | null,
+  brief: null as { audience: "me" | "team" | "everyone"; saves: boolean } | null,
 };
 const settings = {
   id: "notes",

@@ -309,14 +309,23 @@ h1 {
   margin: 0 0 28px;
   overflow-x: auto;
 }
-.account-tabs button {
+.account-tabs button,
+.account-tabs a {
   padding: 0 0 15px;
   color: var(--muted);
   border-bottom: 2px solid transparent;
   font-size: 14px;
   white-space: nowrap;
 }
-.account-tabs button[aria-current] {
+/* A link between pages (Applications, Build) is a tab too; give it the height of a control. */
+.account-tabs a {
+  display: inline-flex;
+  align-items: flex-end;
+  min-height: 44px;
+  text-decoration: none;
+}
+.account-tabs button[aria-current],
+.account-tabs a[aria-current] {
   border-color: var(--accent);
   color: var(--ink);
   font-weight: 600;
@@ -1141,4 +1150,131 @@ button.member-row:hover,
 }
 .member-panel .manage-list li {
   justify-content: space-between;
+}
+
+/* The Build page (src/build/build-view.tsx). Everything here uses the profile's tokens. */
+.build-page h1 {
+  margin-bottom: 12px;
+}
+.build-intro {
+  max-width: 62ch;
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.build-steps {
+  list-style: none;
+  counter-reset: build-step;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+  margin: 0 0 28px;
+  padding: 0;
+}
+.build-steps li {
+  counter-increment: build-step;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.build-steps li::before {
+  content: counter(build-step);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.build-page .account-card {
+  margin-bottom: 24px;
+}
+.build-page .account-card h2 {
+  margin-bottom: 4px;
+}
+.build-page .section-toolbar {
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.build-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 20px;
+  max-width: 720px;
+}
+.build-form textarea {
+  width: 100%;
+  background: white;
+  border: 1px solid #cfcec6;
+  border-radius: 7px;
+  padding: 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.6;
+  resize: vertical;
+}
+.build-form .field-note {
+  font-weight: 400;
+}
+.build-form .notice {
+  margin: 0;
+}
+.build-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 20px;
+}
+.build-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+.build-app {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+.build-app-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.build-app-head h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+.build-app-head p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+.build-app-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.build-app-actions a {
+  text-decoration: none;
+}
+.build-brief summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.build-brief .connection-copy textarea {
+  min-height: 260px;
 }

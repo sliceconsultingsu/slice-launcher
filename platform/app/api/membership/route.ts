@@ -3,7 +3,11 @@ import { disconnectAll } from "../../../src/ai-connections/connections";
 import { connectionDeps } from "../../../src/ai-connections/runtime";
 import { identify } from "../../../src/membership/current";
 import { errorResponse, membershipRequest } from "../../../src/membership/api";
-import { launcherOrigin, memberAppsEnabled } from "../../../src/member-apps/runtime";
+import {
+  launcherOrigin,
+  memberAppServerEnabled,
+  memberAppsEnabled,
+} from "../../../src/member-apps/runtime";
 import { Repository } from "../../../src/membership/repository";
 
 export async function GET(request: Request) {
@@ -18,6 +22,7 @@ export async function GET(request: Request) {
         await disconnectAll(subject, connectionDeps(request));
       },
       appHost: memberAppsEnabled() ? new URL(launcherOrigin(request)).host : null,
+      appServer: memberAppServerEnabled(),
     });
   } catch (error) {
     return errorResponse(error);

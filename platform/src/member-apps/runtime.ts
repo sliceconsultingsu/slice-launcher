@@ -39,6 +39,11 @@ function appCloud(source: MemberAppsEnv): AppCloud | undefined {
   });
 }
 
+/** Whether an app can include server code and a database of its own: the second switch. */
+export function memberAppServerEnabled(source: MemberAppsEnv = env as unknown as MemberAppsEnv) {
+  return memberAppsEnabled(source) && appCloud(source) !== undefined;
+}
+
 /** On only when the setting is exactly "true" and the file store is bound. */
 export function memberAppsEnabled(source: MemberAppsEnv = env as unknown as MemberAppsEnv) {
   return String(source.MEMBER_APPS_ENABLED) === "true" && Boolean(source.APP_FILES);
