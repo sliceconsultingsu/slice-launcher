@@ -9,9 +9,11 @@ Design: [member apps](superpowers/specs/2026-11-19-member-apps-design.md) and [t
 ## What a member does
 
 1. **Connect their AI** to Slice ([Connect your AI](connect-your-ai.md)).
-2. **Ask it for an app.** The **Connect your AI** page has a message to paste. The AI reads the builder's guide (`slice_app_guide`), asks what the member is trying to solve, calls `slice_app_create`, which reserves the app's ID and records the member as the person who runs it, then `slice_app_publish` with the app's files. Published as a preview, only the member sees it; published for real, it is live at once, still for the member alone.
-3. **Share it** from the app's page in the launcher (**Details** on its tile): add people by name, give them extra powers, add another manager.
-4. **Ask for Public** by choosing Public and saving. The app stays Private and the Slice owner is asked. When an owner saves it as Public, every active member gets it, and its managers can switch it either way from then on.
+2. **Start it on the Build page** (`/build`, beside Applications in the launcher). The member says what the app should help with, names it and says who it is for. That creates the app as a draft, reserving its ID and recording the member as the person who runs it, and the page writes a brief for their AI to paste. Or they skip the page and paste the general message from **Connect your AI**, and the AI creates the app itself with `slice_app_create`.
+3. **Their AI builds it.** It reads the builder's guide (`slice_app_guide`), asks what the member is trying to solve, and calls `slice_app_publish` with the app's files. Published as a preview, only the member sees it; published for real, it is live at once, still for the member alone.
+4. **Bring it live** from the Build page, which shows each of the member's apps as a draft, a preview, live or offline, with the next step beside it. ([Screenshots](images/build/README.md).)
+5. **Share it** from the app's page in the launcher (**Details** on its tile): add people by name, give them extra powers, add another manager.
+6. **Ask for Public** by choosing Public and saving. The app stays Private and the Slice owner is asked. When an owner saves it as Public, every active member gets it, and its managers can switch it either way from then on.
 
 The same page shows every published version. The people who run the app can put an earlier version live, take the app offline (it keeps everything and opens for nobody), or delete it.
 
@@ -73,7 +75,7 @@ Offered to every active member's connected AI while member apps are on:
 
 **A larger app.** An AI that can run commands asks for an upload address and posts the same content as a publish to it. The address works once, for ten minutes, for one app and one member, and allows 100 files, 2 MB each, 5 MB in all. It is the credential, so it needs no browser session; membership and who runs the app are checked again when it is used.
 
-The tools' descriptions carry the rules above, so an AI that has never seen this page can follow them. An AI cannot share an app, make it Public, take it offline or delete it: those are done by a person, on the app's page. Creating and publishing happen only through these tools; the membership API refuses both.
+The tools' descriptions carry the rules above, so an AI that has never seen this page can follow them. An AI cannot share an app, make it Public, take it offline or delete it: those are done by a person, on the app's page. Publishing happens only through these tools; the membership API refuses it. Creating an app, which only reserves its ID, can also be done by a person on the Build page, under the same limits: five apps at a time and ten new ones a day.
 
 ## How it is kept safe
 
@@ -104,6 +106,7 @@ A page can always send its viewer to another address, and a browser policy canno
 | The builder's guide and starter app   | `platform/src/member-apps/guide.ts`                                                                  |
 | Upload addresses                      | `platform/src/member-apps/uploads.ts`, `upload-route.ts`, `platform/migrations/0012_app_uploads.sql` |
 | The app's page and the tiles          | `platform/src/lib/member-about-view.tsx`, `member-app-model.ts`                                      |
+| The Build page                        | `platform/app/build/page.tsx`, `platform/src/build/build-view.tsx`, `model.ts`                       |
 
 A member app's settings are an ordinary app settings record, so [app access](membership.md#app-access) applies unchanged: Public or Private, people, extra powers, managers.
 

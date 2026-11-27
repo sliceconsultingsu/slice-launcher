@@ -94,6 +94,7 @@ const server = createServer(async (req, res) => {
       req.url === "/" ||
       req.url === "/account" ||
       req.url === "/connect-ai" ||
+      req.url === "/build" ||
       /^\/about\/[a-z][a-z0-9-]{0,39}$/.test(req.url ?? "")
     ) {
       const html = await vite.transformIndexHtml(

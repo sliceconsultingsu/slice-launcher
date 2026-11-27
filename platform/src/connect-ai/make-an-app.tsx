@@ -16,8 +16,10 @@ export function MakeAnAppCard({ show }: { show: boolean }) {
       <h2 id="make-an-app">Make an app</h2>
       <p>
         Once your AI is connected, it can build a small app for you and publish it here. You
-        describe the problem; it does the building. A new app is private to you until you share it
-        from its page in the launcher.
+        describe the problem; it does the building. Start on the <a href="/build">Build page</a>:
+        you name the app there, get a message written for it, and bring it live. Or paste the
+        message below and let your AI ask you everything. A new app is private to you until you
+        share it from its page in the launcher.
       </p>
       <CopyField
         id="make-an-app-message"

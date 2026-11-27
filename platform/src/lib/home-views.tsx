@@ -3,6 +3,7 @@
 import { AccountNav } from "../membership/account-nav";
 import { SignInCard } from "../membership/sign-in-card";
 import { ConnectionStatus } from "../ai-connections/connection-status";
+import { SectionNav } from "../build/build-view";
 import { AppGrid } from "./app-grid";
 import { apps } from "./apps";
 
@@ -103,6 +104,7 @@ export function Launcher() {
         <AccountNav />
       </header>
       <main id="main" className="workspace-main">
+        <SectionNav current="applications" />
         <section aria-labelledby="applications-title">
           <h1 id="applications-title">Applications</h1>
           {apps.length === 0 ? (

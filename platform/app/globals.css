@@ -1142,3 +1142,171 @@ button.member-row:hover,
 .member-panel .manage-list li {
   justify-content: space-between;
 }
+
+/* The Build page (src/build/build-view.tsx) and the links between it and Applications. */
+.section-nav {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 28px;
+}
+.section-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: none;
+}
+.section-nav a:hover {
+  color: var(--ink);
+  background: var(--selected);
+}
+.section-nav a[aria-current="page"] {
+  color: var(--ink);
+  background: var(--selected);
+}
+.build-page h1 {
+  margin-bottom: 12px;
+}
+.build-intro {
+  max-width: 62ch;
+  margin: 0 0 20px;
+  font-size: 16px;
+  line-height: 1.55;
+}
+.build-steps {
+  list-style: none;
+  counter-reset: build-step;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+  margin: 0 0 28px;
+  padding: 0;
+}
+.build-steps li {
+  counter-increment: build-step;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.build-steps li::before {
+  content: counter(build-step);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.build-page .account-card {
+  margin-bottom: 24px;
+}
+.build-page .account-card h2 {
+  margin-bottom: 4px;
+}
+.build-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 20px;
+  max-width: 720px;
+}
+.build-form textarea {
+  width: 100%;
+  background: white;
+  border: 1px solid #cfcec6;
+  border-radius: 7px;
+  padding: 11px 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  resize: vertical;
+}
+.build-form .field-note {
+  font-weight: 400;
+}
+.build-form .notice {
+  margin: 0;
+}
+.build-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 20px;
+}
+.build-yours-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.build-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+.build-app {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+.build-app-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.build-app-head h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+.build-app-head p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+.build-app-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.build-app-actions a {
+  text-decoration: none;
+}
+.build-stage {
+  text-transform: none;
+  font-size: 12px;
+  padding: 5px 10px;
+}
+.build-stage-preview {
+  background: #f6ead9;
+  color: #6d4208;
+}
+.build-stage-live {
+  background: #e8efe5;
+  color: #2f5a27;
+}
+.build-brief summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+}
+.build-brief .connection-copy textarea {
+  min-height: 260px;
+}

@@ -57,7 +57,7 @@ describe("the launcher grid", () => {
   });
 
   it("offers the way in to making an app, under the tiles and when there are none", () => {
-    const link = '<a href="/connect-ai#make-an-app">Make an app with your AI</a>';
+    const link = '<a href="/build">Make an app with your AI</a>';
     const tiles = visibleApps(catalog, [told("alumni", { canOpen: true })]);
     expect(render({ kind: "ready", apps: tiles, canMake: true })).toContain(link);
     const empty = render({ kind: "ready", apps: [], canMake: true });

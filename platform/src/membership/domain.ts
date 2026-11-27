@@ -306,6 +306,7 @@ export function applyCommand(
       deletedAt: null,
       database: null,
       preview: null,
+      ...(command.brief ? { brief: command.brief } : {}),
     };
     state.memberApps.push(created);
     // Private, run by the person who created it.
@@ -451,7 +452,7 @@ export function auditView(audit: Audit): Audit {
 export function memberView(
   state: State,
   subject: string,
-  options: { appHost?: string | null } = {},
+  options: { appHost?: string | null; appServer?: boolean } = {},
 ): View {
   const me = subjectMember(state, subject);
   const permissions = effectivePermissions(state, me);
@@ -499,6 +500,7 @@ export function memberView(
                 publicRequestedBy: made.publicRequestedBy
                   ? state.members.find((m) => m.id === made.publicRequestedBy)?.name || "A member"
                   : null,
+                brief: made.brief ?? null,
               },
             }
           : {}),
@@ -526,6 +528,15 @@ export function memberView(
     catalog: manage || permissions.includes("levels.manage") ? organizationPermissions : [],
     apps: appViews,
     appHost: options.appHost ?? null,
+    ...(options.appHost && me.status === "active"
+      ? {
+          making: {
+            used: memberApps(state).filter((made) => made.createdBy === me.id).length,
+            most: me.owner ? null : APP_LIMIT,
+            saves: options.appServer === true,
+          },
+        }
+      : {}),
     ...(appViews.some((app) => app.canManage)
       ? {
           counts: {

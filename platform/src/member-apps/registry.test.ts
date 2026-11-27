@@ -480,6 +480,54 @@ describe("sharing a member app", () => {
   });
 });
 
+describe("starting an app from the Build page", () => {
+  const brief = { audience: "team", saves: true };
+
+  it("keeps what the maker said, so the message for their AI can be written again", () => {
+    const { state } = organization();
+    const started = act(state, create("notes", { brief }), "ana");
+    expect(started.memberApps[0]).toMatchObject({ id: "notes", latest: 0, live: null, brief });
+    const told = memberView(started, "ana-sub", { appHost: "slice.example" }).apps.find(
+      (item) => item.id === "notes",
+    )!;
+    expect(told.member).toMatchObject({ live: false, manage: { latest: 0, brief } });
+    // Publishing describes the app anew and leaves what its maker first said alone.
+    expect(act(started, publish(), "ana").memberApps[0].brief).toEqual(brief);
+    // An app an AI created has none.
+    const byAi = act(state, create("other"), "ana");
+    expect(byAi.memberApps[0]).not.toHaveProperty("brief");
+    expect(
+      memberView(byAi, "ana-sub").apps.find((item) => item.id === "other")!.member!.manage!.brief,
+    ).toBeNull();
+  });
+
+  it("refuses an audience it does not know", () => {
+    const { state } = organization();
+    const bad = create("notes", { brief: { audience: "clients", saves: false } });
+    expect(status(() => act(state, bad, "ana"))).toBe(400);
+  });
+
+  it("tells an active member how many apps they have made and how many they can have", () => {
+    const { state } = organization();
+    const on: { appHost: string; appServer?: boolean } = { appHost: "slice.example" };
+    const making = (from: State, name: string, options = on) =>
+      memberView(from, `${name}-sub`, options).making;
+    expect(making(state, "ana")).toEqual({ used: 0, most: 5, saves: false });
+    let next = act(act(state, create("one"), "ana"), create("two"), "ana");
+    next = act(next, create("theirs"), "max");
+    expect(making(next, "ana")).toEqual({ used: 2, most: 5, saves: false });
+    // A deleted app no longer counts, and an owner has no limit.
+    next = act(next, { type: "memberapp.delete", id: "one" }, "ana");
+    expect(making(next, "ana")).toMatchObject({ used: 1 });
+    expect(making(next, "owner")).toEqual({ used: 0, most: null, saves: false });
+    // Whether an app can save data yet comes from the server, not from a guess on the page.
+    expect(making(next, "ana", { ...on, appServer: true })).toMatchObject({ saves: true });
+    // Nothing is said while member apps are off, or to someone who is not active yet.
+    expect(memberView(next, "ana-sub").making).toBeUndefined();
+    expect(making(next, "pia")).toBeUndefined();
+  });
+});
+
 describe("what each person is told about member apps", () => {
   /** Ana runs "notes" (published, with a power); Max is on it; Sam is not. */
   function shared() {

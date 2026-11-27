@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import Markdown from "react-markdown";
 import Home from "../../app/page";
 import Account from "../../app/account/page";
+import Build from "../../app/build/page";
 import ConnectAi from "../../app/connect-ai/page";
 import { AboutView } from "../../src/lib/about-view";
 import { findGuide } from "../../src/lib/guides";
@@ -31,6 +32,8 @@ createRoot(document.getElementById("root")!).render(
     <Account />
   ) : location.pathname === "/connect-ai" ? (
     <ConnectAi />
+  ) : location.pathname === "/build" ? (
+    <Build />
   ) : (
     <Home />
   ),

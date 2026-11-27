@@ -39,8 +39,8 @@ export type AppGridState =
       canMake?: boolean;
     };
 
-/** Where a member starts making an app of their own: the card on the Connect your AI page. */
-export const MAKE_AN_APP_URL = "/connect-ai#make-an-app";
+/** Where a member starts making an app of their own: the Build page. */
+export const MAKE_AN_APP_URL = "/build";
 
 /** The way in to making an app, shown under the apps a person already has. */
 function MakeAnAppLine() {

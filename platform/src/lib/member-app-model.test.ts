@@ -16,6 +16,7 @@ const manage = {
   latest: 1,
   publicApproved: false,
   publicRequestedBy: null as string | null,
+  brief: null as { audience: "me" | "team" | "everyone"; saves: boolean } | null,
 };
 const told = (id: string, overrides: Partial<AppView> = {}): AppView => ({
   id,

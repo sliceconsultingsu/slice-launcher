@@ -19,9 +19,10 @@ This page says which kind of app to make and where the work happens. [Member app
 ## Make a member app
 
 1. **Connect your AI to Slice.** Follow [Connect your AI](connect-your-ai.md).
-2. **Ask it for an app.** It reads the builder's guide (`slice_app_guide`), asks what you are trying to solve, reserves the app's ID (`slice_app_create`) and publishes a preview that only you can see (`slice_app_publish`).
-3. **Open the preview and ask for changes.** When it is right, have your AI publish it for real.
-4. **Share it** from **Details** on its tile in the launcher.
+2. **Start it on the Build page.** Choose **Build** beside Applications in the launcher. Say what the app should help with, give it a name and an address, and choose **Create draft**. The page writes a brief for your AI.
+3. **Hand the brief to your AI.** Paste it into Claude or ChatGPT. Your AI reads the builder's guide (`slice_app_guide`), asks what you need, and publishes a preview that only you can see (`slice_app_publish`).
+4. **Try it and make it live.** The Build page shows the preview. Open it, ask your AI for changes, and choose **Make it live** when it is right.
+5. **Share it** from its page in the launcher: **Share** on the Build page, or **Details** on its tile.
 
 No Git, pull request, build tool or Cloudflare account is involved, and you do not need a copy of this repository. Keep the app's files in a folder of your own.
 
@@ -55,7 +56,7 @@ When the person you are working with asks for a new app, tool, tracker, calculat
 1. **Do not create it in this repository.** Do not run `pnpm app:create`, add a folder under `platform/apps/` or open a pull request here for it.
 2. **Tell them it will be a member app,** and what that means for them: its own address, live as soon as it is published, and private until they share it.
 3. **Check that you are connected to Slice.** You should have tools named `slice_app_*`. If you do not, follow [Connect your AI](connect-your-ai.md). If your AI app cannot make the connection, say so and stop. Do not fall back to a built-in app.
-4. **Call `slice_app_guide` and follow it.** It carries the current limits, taken from the launcher's code. Where it differs from this page, the guide is right.
+4. **Call `slice_app_guide` and follow it.** It carries the current limits, taken from the launcher's code. Where it differs from this page, the guide is right. If the person's message gives the ID of an app they started on the Build page, publish to that app; do not create another.
 5. **Say what the app will not be able to do** before you build, using the list above. If the request depends on something in that list, stop and have the person ask the maintainer.
 6. **Work in a folder outside this repository.** This repository is public. A member app's files, and any real data, do not belong in it.
 

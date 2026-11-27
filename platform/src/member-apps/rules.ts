@@ -2,6 +2,8 @@
 
 /** How many apps one member can have at a time. Owners are not limited. */
 export const APP_LIMIT = 5;
+/** How many apps one member can create in a day, however they do it. Every one adds a history entry. */
+export const CREATES_PER_DAY = 10;
 
 /** Names kept for Slice itself, or that could pass for part of the launcher or its sign-in. */
 const RESERVED = new Set(

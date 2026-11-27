@@ -95,6 +95,17 @@ export interface MemberApp {
    * try it first. Null when there is none.
    */
   preview: number | null;
+  /**
+   * What its maker said when they started it on the Build page, so the message for their AI can
+   * be written again at any time. Missing or null for an app an AI created.
+   */
+  brief?: AppBrief | null;
+}
+/** The two answers the Build page asks for beyond an app's name and what it is for. */
+export interface AppBrief {
+  audience: "me" | "team" | "everyone";
+  /** Whether it has to remember what people enter, or show people each other's entries. */
+  saves: boolean;
 }
 /** One published version of a member app. Its files are in the launcher's file store. */
 export interface VersionRecord {
@@ -181,6 +192,8 @@ export interface AppView {
       publicApproved: boolean;
       /** The name of the manager waiting for an owner's OK to make it Public, if any. */
       publicRequestedBy: string | null;
+      /** What its maker said when they started it on the Build page, if they did. */
+      brief: AppBrief | null;
     };
   };
 }
@@ -199,6 +212,11 @@ export interface View {
   appHost: string | null;
   /** How many people making an app public would reach; only for someone who runs an app. */
   counts?: { active: number; invited: number };
+  /**
+   * For an active member while member apps are on: how many apps they have made, the most they
+   * can have (null: no limit), and whether an app can save data yet (server code switched on).
+   */
+  making?: { used: number; most: number | null; saves: boolean };
 }
 export class MembershipError extends Error {
   constructor(
@@ -286,6 +304,10 @@ export const commandSchema = z.discriminatedUnion("type", [
     id: z.string().max(80),
     name,
     description: appDescription,
+    /** Set when a person starts the app on the Build page. */
+    brief: z
+      .strictObject({ audience: z.enum(["me", "team", "everyone"]), saves: z.boolean() })
+      .optional(),
   }),
   // One per published version. The version's files are stored before this is saved.
   z.strictObject({
