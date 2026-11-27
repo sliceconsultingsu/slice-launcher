@@ -1,7 +1,8 @@
-// Making a version live describes the app as that version did: its name, description and powers
-// come from the version's saved record. The membership rules are pure and cannot read records, so
+// Making a version live describes the app as that version did: its name, description, powers and
+// tools come from the version's saved record. The membership rules are pure and cannot read records, so
 // the record is read here and handed to them, replacing anything the caller sent.
 import type { Repository } from "../membership/repository";
+import { toolsSummary } from "./app-tools";
 
 /** The memberapp.live command for this version, described from its saved record. */
 export async function liveCommand(repository: Repository, id: string, version: number | null) {
@@ -11,7 +12,14 @@ export async function liveCommand(repository: Repository, id: string, version: n
     id,
     version,
     ...(record
-      ? { as: { name: record.name, description: record.description, powers: record.powers } }
+      ? {
+          as: {
+            name: record.name,
+            description: record.description,
+            powers: record.powers,
+            tools: toolsSummary(record),
+          },
+        }
       : {}),
   };
 }

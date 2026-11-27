@@ -106,6 +106,37 @@ describe("reading what a builder's AI publishes", () => {
     ).toMatch(/worker\.js/);
   });
 
+  it("reads the tools an app offers, which need server code to answer them", () => {
+    const tools = [{ name: "find_entry", description: "Find an entry.", readOnly: true }];
+    const withCode = bundle({
+      files: [
+        { path: "index.html", text: page },
+        { path: "worker.js", text: "export default {}" },
+      ],
+      tools,
+    });
+    expect(readBundle(withCode, { server: true }).tools).toEqual([
+      {
+        name: "find_entry",
+        description: "Find an entry.",
+        readOnly: true,
+        power: null,
+        input: { type: "object", properties: {}, additionalProperties: false },
+      },
+    ]);
+    expect(readBundle(bundle()).tools).toEqual([]);
+    expect(readBundle(bundle({ tools: [] })).tools).toEqual([]);
+    // Screens only, with server code on: nothing would answer the tool.
+    expect(refusal(bundle({ tools }), { server: true })).toContain("Add worker.js");
+    // Server code off: said plainly, like worker.js itself.
+    expect(refusal(bundle({ tools }))).toContain("not switched on yet");
+    // A tool can need only a power this version declares.
+    expect(
+      refusal({ ...withCode, tools: [{ ...tools[0], power: "edit" }] }, { server: true }),
+    ).toContain("not one of this app's powers");
+    expect(refusal({ ...withCode, tools: "find_entry" }, { server: true })).toContain("tools");
+  });
+
   it("treats powers as optional", () => {
     expect(readBundle(bundle()).powers).toEqual([]);
   });

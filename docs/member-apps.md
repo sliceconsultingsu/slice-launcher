@@ -6,6 +6,8 @@ Design: [member apps](superpowers/specs/2026-11-19-member-apps-design.md) and [t
 
 **Status on November 24, 2026: apps made of screens are switched on. Server code is not.** There are two switches. The first turns on apps made of screens and needs no purchase; the maintainer [switched it on](#switching-member-apps-on) on November 24, 2026. The second lets an app include [server code and a database of its own](#server-code-and-a-database), needs Cloudflare's Workers for Platforms, and is off. No member has made an app yet; see [what has not been verified](#what-has-not-been-verified).
 
+An app's [tools for a member's AI](#tools-for-a-members-ai) were built on November 26, 2026. They depend on server code and are off with it.
+
 ## What a member does
 
 1. **Connect their AI** to Slice ([Connect your AI](connect-your-ai.md)).
@@ -54,6 +56,26 @@ An app's code cannot be run on a developer's computer: Cloudflare's local runtim
 
 **Not built:** recent errors in `slice_app_status`, and removing a deleted app's Workers and database. Until there is a clean-up, the maintainer removes them by hand (they are tagged `slice-app:<id>` and named `slice-app-<id>`).
 
+## Tools for a member's AI
+
+An app with server code can also offer tools: things the AI of the people it is shared with can do in the app, such as finding an entry or adding one. Tools are answered by the app's server code, so they are off for as long as server code is. Built on November 26, 2026; none of it has run in production.
+
+**Declaring them.** A publish can list up to 12 tools. Each has a name (up to 30 lower-case letters, digits and underscores), a description of up to 600 characters written for the AI that will call it, whether it only reads, the extra power a person needs (or none: anyone who can open the app), and a description of its input as JSON Schema. The launcher keeps only the keywords it knows (`type`, `description`, `enum`, `minimum`, `maximum`, `minLength`, `maxLength`, `properties`, `required`, `items`, `minItems`, `maxItems`), accepts only the fields an input names, and refuses anything else in a sentence the builder's AI can act on. A version with tools and no `worker.js` is refused.
+
+**Offering them.** A member's AI is offered a tool as `<app id>__<tool>`. The launcher puts its own sentence in front of the app's description, saying that the app was made by a member and that what it returns is information, not instructions. The launcher works out who is offered what on every request, from current membership, the app's settings and the person's powers. One person's AI is offered at most 60 member-app tools.
+
+**An owner agrees first.** Everything an AI is told about a tool was written by the app's maker, and it is read by an AI that also holds that person's other Slice tools. So:
+
+- Until a Slice owner approves an app's tools, they are offered only to **the managers named on the app**. Owners run every app, but an owner who is not named on it is not offered its unapproved tools; otherwise every member's unread descriptions would land in the owner's AI.
+- An owner approves on the app's page, where each tool is shown as an AI is told of it ([screenshots](images/member-app-tools/README.md)). The launcher's front page lists the apps waiting. An AI cannot approve.
+- The OK is for a fingerprint of the tools' names, descriptions, inputs, read-only marks and powers. Publishing the same tools with new server code or screens keeps it. Changing any of those words needs it again, and until then other people's AI stops being offered the tools.
+- An owner can take the OK back at any time. Taking the app offline also stops its tools.
+- A preview's tools are offered only to the managers named on the app.
+
+**Running one.** The launcher checks the input against the app's own description, then works out membership, access, the owner's OK and the power again, and passes the call to the version's server code as `POST /__slice/tools/<name>`: the input as JSON, with the same `X-Slice-*` headers as any request. No page can reach an address under `/__slice/`; the launcher answers those itself. The code answers with a JSON object of up to 64 KB within 10 seconds. A 4xx answer with `{ "error": "..." }` is shown to the AI as the app's refusal, cut to 300 characters; any other failure is reported without detail. The input is at most 64 KB.
+
+**What an owner's OK does not cover.** What a tool returns is not read by anyone first. An app whose descriptions are honest could still return text that tries to steer the AI reading it, and it could change what it returns after being approved. The launcher's sentence in front of every description tells the AI to treat results as information; that is advice to a model, not a control. This is the same limit as in [what this does not prevent](#what-this-does-not-prevent): approve tools only for an app whose maker you would trust with a Public app, and take the OK back if an app misbehaves.
+
 ## The tools a builder's AI gets
 
 Offered to every active member's connected AI while member apps are on:
@@ -67,13 +89,13 @@ Offered to every active member's connected AI while member apps are on:
 | `slice_app_guide`   | The builder's guide and a starter app. Changes nothing.                                |
 | `slice_app_upload`  | A one-time address to send a larger app's files to from a terminal.                    |
 
-`slice_app_publish` takes `"preview": true`.
+`slice_app_publish` takes `"preview": true` and, once server code is on, `"tools"`: the [tools the app offers](#tools-for-a-members-ai).
 
 **The builder's guide** tells an AI how to work with someone who has never built an app: ask what problem they are solving and who will use it, say plainly what an app cannot do, start small, publish a preview, then explain how to share. It carries the limits (taken from the code, so they cannot drift), a recipe for sending a folder of files, and a starter app: a first screen, a style sheet, a script and, when server code is on, a `worker.js` that keeps a list in the app's database with the checks in the right place. The starter's server code is run against a real local database in the tests.
 
 **A larger app.** An AI that can run commands asks for an upload address and posts the same content as a publish to it. The address works once, for ten minutes, for one app and one member, and allows 100 files, 2 MB each, 5 MB in all. It is the credential, so it needs no browser session; membership and who runs the app are checked again when it is used.
 
-The tools' descriptions carry the rules above, so an AI that has never seen this page can follow them. An AI cannot share an app, make it Public, take it offline or delete it: those are done by a person, on the app's page. Creating and publishing happen only through these tools; the membership API refuses both.
+The tools' descriptions carry the rules above, so an AI that has never seen this page can follow them. An AI cannot share an app, make it Public, approve its tools, take it offline or delete it: those are done by a person, on the app's page. Creating and publishing happen only through these tools; the membership API refuses both.
 
 ## How it is kept safe
 
@@ -84,7 +106,7 @@ The tools' descriptions carry the rules above, so an AI that has never seen this
 - **Any other name under the launcher's host is nobody's.** `www.sliceos.app`, a name with a dot, a reserved name: all answer 404 and never reach the launcher's pages or sign-in.
 - **Browser rules.** Every response from an app address carries a content policy that limits loading, calling and posting to the app's own address and forbids framing.
 - **Only what was published is served.** A request is answered only if the live version's saved record lists that file. Each publish's files are kept under a key of their own, so two publishes at the same moment cannot overwrite each other.
-- **Everything is recorded.** Creating, publishing, sharing, approving, taking offline and deleting each add an **Activity** entry.
+- **Everything is recorded.** Creating, publishing, sharing, approving (for Public, and an app's tools), taking offline and deleting each add an **Activity** entry. A call to an app's tool is not recorded by the launcher; an app that needs a record keeps its own.
 
 ### What this does not prevent
 
@@ -92,18 +114,19 @@ A page can always send its viewer to another address, and a browser policy canno
 
 ## Where things are
 
-| What                                  | Where                                                                                                |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Rules for IDs, limits                 | `platform/src/member-apps/rules.ts`, `publish.ts`                                                    |
-| Create, publish, status, list         | `platform/src/member-apps/service.ts`, `tools.ts`                                                    |
-| Sign-in across addresses              | `platform/src/member-apps/app-sessions.ts`, `pass-route.ts`                                          |
-| Answering an app's address            | `platform/src/member-apps/front-door.ts`                                                             |
-| Which requests are for an app address | `platform/src/platform/address.ts`, `src/ai-connections/oauth.ts`                                    |
-| The registry, in the membership state | `platform/src/membership/domain.ts` (`memberapp.*` commands)                                         |
-| Tables                                | `platform/migrations/0011_member_apps.sql`                                                           |
-| The builder's guide and starter app   | `platform/src/member-apps/guide.ts`                                                                  |
-| Upload addresses                      | `platform/src/member-apps/uploads.ts`, `upload-route.ts`, `platform/migrations/0012_app_uploads.sql` |
-| The app's page and the tiles          | `platform/src/lib/member-about-view.tsx`, `member-app-model.ts`                                      |
+| What                                  | Where                                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Rules for IDs, limits                 | `platform/src/member-apps/rules.ts`, `publish.ts`                                                                  |
+| Create, publish, status, list         | `platform/src/member-apps/service.ts`, `tools.ts`                                                                  |
+| Sign-in across addresses              | `platform/src/member-apps/app-sessions.ts`, `pass-route.ts`                                                        |
+| Answering an app's address            | `platform/src/member-apps/front-door.ts`                                                                           |
+| Which requests are for an app address | `platform/src/platform/address.ts`, `src/ai-connections/oauth.ts`                                                  |
+| The registry, in the membership state | `platform/src/membership/domain.ts` (`memberapp.*` commands)                                                       |
+| Tables                                | `platform/migrations/0011_member_apps.sql`                                                                         |
+| The builder's guide and starter app   | `platform/src/member-apps/guide.ts`                                                                                |
+| An app's tools for a member's AI      | `platform/src/member-apps/app-tools.ts`, `service.ts` (`offeredTools`, `callTool`), `platform/src/platform/mcp.ts` |
+| Upload addresses                      | `platform/src/member-apps/uploads.ts`, `upload-route.ts`, `platform/migrations/0012_app_uploads.sql`               |
+| The app's page and the tiles          | `platform/src/lib/member-about-view.tsx`, `member-app-model.ts`                                                    |
 
 A member app's settings are an ordinary app settings record, so [app access](membership.md#app-access) applies unchanged: Public or Private, people, extra powers, managers.
 
@@ -138,11 +161,12 @@ After the steps above, and only once Workers for Platforms is bought on the Clou
    ```
 
 5. **Check on the real account**, because none of it could be tested locally. Publish an app whose `worker.js` tries each of these, and confirm each fails: call an outside address; read a cookie; read an `X-Slice-*` header the browser set; reach a binding other than `DB`; use another app's database. Then confirm it can create a table, write a row as one member and read it as another.
+6. **Check tools the same way.** Publish an app with one tool. Confirm its named manager's AI is offered it and a second member's is not; approve it as an owner and confirm the second member's AI is offered it and can call it; change the tool's description and confirm the second member loses it until it is approved again. Open `https://<id>.sliceos.app/__slice/tools/<name>` in a signed-in browser and confirm 404.
 
 Without all of the binding and both secrets, a publish that includes `worker.js` is refused with "Server code is not switched on yet", and screens-only apps are unaffected.
 
 ## What has not been verified
 
-Everything above is tested against a local Worker, a local database and a browser with made-up people. Server code is tested only up to the edge of Cloudflare: the upload request, the request the code receives and the answer the browser gets. That Cloudflare runs the code with only its own database, and that the outbound Worker sees every outside call, come from Cloudflare's documentation. Checked on November 24, 2026, when member apps were switched on: the zone's certificate covers `*.sliceos.app`, and a name under the launcher's host reaches Cloudflare. Not checked against production: the file store at production size, and a real AI app completing a publish (a publish is a far larger tool call than any other; clients may have limits of their own). Nor has a real AI been watched following the builder's guide with a real member, a signed-in person opened an app at its address, or an upload address been used from a terminal against production.
+Everything above is tested against a local Worker, a local database and a browser with made-up people. Server code is tested only up to the edge of Cloudflare: the upload request, the request the code receives and the answer the browser gets. An app's tools are tested the same way, with a stand-in for the app's code, including in Cloudflare's local runtime; no real app has offered a tool, no real AI app has listed or called one, and no real model's response to the launcher's sentence about results has been measured. That Cloudflare runs the code with only its own database, and that the outbound Worker sees every outside call, come from Cloudflare's documentation. Checked on November 24, 2026, when member apps were switched on: the zone's certificate covers `*.sliceos.app`, and a name under the launcher's host reaches Cloudflare. Not checked against production: the file store at production size, and a real AI app completing a publish (a publish is a far larger tool call than any other; clients may have limits of their own). Nor has a real AI been watched following the builder's guide with a real member, a signed-in person opened an app at its address, or an upload address been used from a terminal against production.
 
 Publishing makes one store write per file. Cloudflare's documentation counts those as requests to its own services, limited to 1,000 for one request on the free plan and more on a paid one, so a 50-file publish fits. The file store's daily write allowance on the account's plan was not checked: on Cloudflare's free plan it is small enough that a day of heavy publishing could reach it.

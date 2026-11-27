@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { loadView } from "../membership/membership-client";
 import { AppGridView, visibleApps, type AppGridState } from "./app-grid-view";
 import { apps } from "./apps";
-import { memberTiles, waitingForOwner } from "./member-app-model";
+import { memberTiles, toolsWaitingForOwner, waitingForOwner } from "./member-app-model";
 
 /** Loads what this person can open and shows those tiles. The server enforces access itself. */
 export function AppGrid() {
@@ -21,6 +21,7 @@ export function AppGrid() {
                 apps: visibleApps(apps, view.apps),
                 made: memberTiles(view.apps, view.appHost),
                 waiting: waitingForOwner(view.apps, view.me.owner),
+                toolsWaiting: toolsWaitingForOwner(view.apps, view.me.owner),
               },
         );
       })

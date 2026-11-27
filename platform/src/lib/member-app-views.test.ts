@@ -4,8 +4,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { AppView, View } from "../membership/contracts";
 import { AboutContent } from "./about-view";
 import { AppGridView } from "./app-grid-view";
-import { MemberAboutContent, type MemberAboutLoad } from "./member-about-view";
-import { memberLauncherApp, memberTiles, waitingForOwner } from "./member-app-model";
+import { MemberAboutContent, type MemberAboutLoad, type MemberAppInfo } from "./member-about-view";
+import {
+  memberLauncherApp,
+  memberTiles,
+  toolsWaitingForOwner,
+  waitingForOwner,
+} from "./member-app-model";
 import { confirmsPublic } from "./app-manage-model";
 
 const manage = {
@@ -15,6 +20,7 @@ const manage = {
   latest: 2,
   publicApproved: false,
   publicRequestedBy: null as string | null,
+  tools: null as { digest: string; count: number; approved: boolean } | null,
 };
 const settings = {
   id: "notes",
@@ -88,11 +94,8 @@ const page = (load: MemberAboutLoad) =>
       reload: () => {},
     }),
   );
-const shown = (
-  app: AppView | null,
-  me: Partial<View["me"]> = {},
-  guide: { guide: string; versions?: typeof info.versions } = info,
-) => page({ kind: "loaded", view: view(app ? [app] : [], me), info: app ? guide : null });
+const shown = (app: AppView | null, me: Partial<View["me"]> = {}, guide: MemberAppInfo = info) =>
+  page({ kind: "loaded", view: view(app ? [app] : [], me), info: app ? guide : null });
 
 describe("the launcher grid with apps members made", () => {
   const grid = (apps: AppView[], owner = false) =>
@@ -103,6 +106,7 @@ describe("the launcher grid with apps members made", () => {
           apps: [],
           made: memberTiles(apps, "slice.example"),
           waiting: waitingForOwner(apps, owner),
+          toolsWaiting: toolsWaitingForOwner(apps, owner),
         },
       }),
     );
@@ -132,6 +136,19 @@ describe("the launcher grid with apps members made", () => {
     expect(grid([notes({}, { publicRequestedBy: "Ana Example" })], false)).not.toContain(
       "Waiting for your OK",
     );
+  });
+
+  it("tells an owner, and nobody else, which apps have tools waiting to be read", () => {
+    const tools = { digest: "d".repeat(32), count: 2, approved: false };
+    const apps = [notes({}, { tools })];
+    const html = grid(apps, true);
+    expect(html).toContain("waiting for you to read and approve");
+    expect(html).toContain('<a href="/about/notes">Team notes</a>, 2 tools');
+    expect(grid(apps, false)).not.toContain("waiting for you to read");
+    expect(grid([notes({}, { tools: { ...tools, approved: true } })], true)).not.toContain(
+      "waiting for you to read",
+    );
+    expect(grid([notes({}, { tools: { ...tools, count: 1 } })], true)).toContain(", 1 tool<");
   });
 
   it("still says nothing has been shared when there are no apps of either kind", () => {
@@ -262,6 +279,99 @@ describe("a member app's page", () => {
     expect(shown(waiting)).toContain("Waiting for the Slice owner&#x27;s OK");
     const owner = shown(waiting, { id: "owner", name: "Owner", owner: true });
     expect(owner).toContain("Ana Example asked for this");
+  });
+
+  describe("with tools for a member's AI", () => {
+    const digest = "d".repeat(32);
+    const list = [
+      {
+        name: "notes__find_entry",
+        description: "Find entries by part of their title.",
+        readOnly: true,
+        power: null,
+        input: { type: "object", properties: { query: { type: "string" } } },
+      },
+      {
+        name: "notes__add_entry",
+        description: "Add an entry.",
+        readOnly: false,
+        power: "Edit notes",
+        input: { type: "object", properties: {} },
+      },
+    ];
+    const withTools = (approved: boolean): MemberAppInfo => ({
+      ...info,
+      tools: { list, approved, digest },
+    });
+    const summary = (approved: boolean) => ({ tools: { digest, count: 2, approved } });
+    const owner = { id: "owner", name: "Owner", owner: true };
+
+    it("shows the people who run the app each tool as an AI is told of it", () => {
+      const html = shown(notes({}, summary(false)), {}, withTools(false));
+      expect(html).toContain("<h3>Tools for your AI</h3>");
+      expect(html).toContain("<code>notes__find_entry</code> · Reads only · Anyone who can open");
+      expect(html).toContain(
+        "<code>notes__add_entry</code> · Can change things · Needs “Edit notes”",
+      );
+      expect(html).toContain("Find entries by part of their title.");
+      expect(html).toContain("What it takes");
+      expect(html).toContain("&quot;query&quot;");
+    });
+
+    it("tells a manager the tools are waiting, and gives only an owner the way to approve", () => {
+      const manager = shown(notes({}, summary(false)), {}, withTools(false));
+      expect(manager).toContain("Waiting for a Slice owner&#x27;s OK.");
+      expect(manager).toContain("only the people named as running this app");
+      expect(manager).toContain("Ask a Slice owner to open this page");
+      expect(manager).not.toContain("Approve these tools");
+      const asOwner = shown(notes({}, summary(false)), owner, withTools(false));
+      expect(asOwner).toContain("Approve these tools");
+      expect(asOwner).toContain("says what its tool does and nothing else");
+      expect(asOwner).not.toContain("Stop offering these tools");
+    });
+
+    it("says once they are approved, and lets an owner take that back", () => {
+      const manager = shown(notes({}, summary(true)), {}, withTools(true));
+      expect(manager).toContain("A Slice owner approved these tools.");
+      expect(manager).not.toContain("Stop offering these tools");
+      expect(manager).not.toContain("Approve these tools");
+      const asOwner = shown(notes({}, summary(true)), owner, withTools(true));
+      expect(asOwner).toContain("Stop offering these tools");
+      expect(asOwner).not.toContain("Approve these tools");
+    });
+
+    it("shows someone on the app what their AI can do there, and nothing to manage", () => {
+      const html = shown(
+        notes({}, null),
+        { id: "max" },
+        {
+          guide: info.guide,
+          // As the page is told for someone who does not run the app: no inputs.
+          tools: {
+            list: list.map(({ name, description, readOnly, power }) => ({
+              name,
+              description,
+              readOnly,
+              power,
+            })),
+            approved: true,
+          },
+        },
+      );
+      expect(html).toContain("<h2>Tools for your AI</h2>");
+      expect(html).toContain('<a href="/connect-ai">connected to Slice</a>');
+      expect(html).toContain("<code>notes__find_entry</code>");
+      expect(html).not.toContain("What it takes");
+      expect(html).not.toContain("Approve these tools");
+      expect(html).not.toContain("Waiting for a Slice owner");
+    });
+
+    it("shows no tools section for an app that offers none", () => {
+      expect(shown(notes())).not.toContain("Tools for your AI");
+      expect(shown(notes({}, null), { id: "max" }, { guide: info.guide })).not.toContain(
+        "Tools for your AI",
+      );
+    });
   });
 
   it("tells someone on an offline app that it is offline", () => {

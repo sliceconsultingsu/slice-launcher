@@ -7,6 +7,7 @@ import { effectivePermissions } from "../membership/domain";
 import { appAddress } from "../platform/address";
 import { cookie } from "../membership/session";
 import { appIdentity, redeemPass, startState, STATE_COOKIE } from "./app-sessions";
+import { setAsking } from "./asking";
 import type { AppFiles } from "./files";
 import { safeAppPath } from "./pass-route";
 import { pathPattern } from "./publish";
@@ -87,10 +88,14 @@ function redirect(location: string, status = 302, cookies: string[] = []) {
 }
 
 /**
- * A request's body, or null once it is larger than `most`. It stops reading at the limit, so a
- * body that does not say how long it is, or goes on for ever, is never held in full.
+ * A request's body (or an answer's), or null once it is larger than `most`. It stops reading at
+ * the limit, so a body that does not say how long it is, or goes on for ever, is never held in
+ * full.
  */
-export async function readUpTo(request: Request, most: number): Promise<ArrayBuffer | null> {
+export async function readUpTo(
+  request: Pick<Request, "headers" | "body">,
+  most: number,
+): Promise<ArrayBuffer | null> {
   if (Number(request.headers.get("Content-Length") ?? 0) > most) return null;
   if (!request.body) return new ArrayBuffer(0);
   const reader = request.body.getReader();
@@ -217,6 +222,8 @@ export function createFrontDoor(deps: FrontDoorDeps) {
           .map((p) => p.slice(prefix.length)),
       });
     }
+    // Everything else under /__slice/ is the launcher's. An app's tools are answered there
+    // (/__slice/tools/<name>), so a page can never call one: only the launcher does, for an AI.
     if (url.pathname.startsWith("/__slice/")) return text(404, "Not found");
     if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
       // The live version's own Worker, if that version was published with server code.
@@ -226,26 +233,7 @@ export function createFrontDoor(deps: FrontDoorDeps) {
       if (!worker) return json(503, { error: "This app's server code is switched off." });
       // What the app's code is told comes from the launcher, never from the browser: no cookie,
       // no credentials, and none of the identity headers as the browser sent them.
-      const headers = new Headers(request.headers);
-      for (const name of [...headers.keys()])
-        if (
-          name === "cookie" ||
-          name === "authorization" ||
-          name.startsWith("x-slice-") ||
-          name.startsWith("cf-access-")
-        )
-          headers.delete(name);
-      const prefix = `app.${appId}.`;
-      headers.set("X-Slice-Member-Id", member.id);
-      headers.set("X-Slice-Member-Name", encodeURIComponent(member.name));
-      headers.set("X-Slice-Manager", String(runs));
-      headers.set(
-        "X-Slice-Powers",
-        permissions
-          .filter((p) => p.startsWith(prefix) && p !== `${prefix}open`)
-          .map((p) => p.slice(prefix.length))
-          .join(","),
-      );
+      const headers = setAsking(new Headers(request.headers), appId, member, runs, permissions);
       let body: ArrayBuffer | undefined;
       if (!reading) {
         const read = await readUpTo(request, MAX_API_BODY_BYTES);

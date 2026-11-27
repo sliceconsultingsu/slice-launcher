@@ -1,18 +1,36 @@
-// What a member app's page in the launcher shows beyond the membership view: its guide and, for
-// the people who run it, its published versions. An app someone is not on is answered exactly
-// like one that does not exist.
+// What a member app's page in the launcher shows beyond the membership view: its guide, the tools
+// it offers to a member's AI and, for the people who run it, its published versions. An app
+// someone is not on is answered exactly like one that does not exist.
 import { managesApp } from "../membership/app-access";
 import { MembershipError } from "../membership/contracts";
 import type { Identity } from "../membership/contracts";
 import { effectivePermissions } from "../membership/domain";
 import type { Repository } from "../membership/repository";
 import { authorizeMember } from "../platform/access";
-import { memberAppDescriptor, memberApps, shownVersion } from "./registry";
+import { offeredName } from "./app-tools";
+import { memberAppDescriptor, memberApps, shownVersion, toolsApproved } from "./registry";
 
+/** One tool as the app's page lists it. */
+export interface ToolInfo {
+  /** The name a member's AI calls it by. */
+  name: string;
+  description: string;
+  readOnly: boolean;
+  /** The label of the extra power a person needs, or null: anyone who can open the app. */
+  power: string | null;
+  /** What it takes, as the AI is told. Only for the people who run the app. */
+  input?: unknown;
+}
 export interface AppInfo {
   /** Markdown from the live version, or from the latest for the people who run an offline app. */
   guide: string;
   versions?: { version: number; at: string; by: string }[];
+  /**
+   * The tools the live version offers to a member's AI. Someone who merely opens the app is told
+   * of them only once an owner has agreed to them; the people who run it always are, with the
+   * fingerprint an owner's OK is given for.
+   */
+  tools?: { list: ToolInfo[]; approved: boolean; digest?: string };
 }
 
 export async function appInfo(
@@ -36,11 +54,36 @@ export async function appInfo(
   // latest one.
   const shown = shownVersion(app, runs) ?? (runs && app.latest ? app.latest : null);
   const guide = shown === null ? "" : ((await repository.version(appId, shown))?.guide ?? "");
-  if (!runs) return { guide };
+  // Tools are agreed to, and offered to other people, for the live version only.
+  const approved = toolsApproved(app);
+  const live =
+    app.live !== null && app.tools && (runs || approved)
+      ? await repository.version(appId, app.live)
+      : null;
+  const tools: Pick<AppInfo, "tools"> = live?.tools?.length
+    ? {
+        tools: {
+          list: live.tools.map((tool) => ({
+            name: offeredName(appId, tool.name),
+            description: tool.description,
+            readOnly: tool.readOnly,
+            power:
+              tool.power === null
+                ? null
+                : (live.powers.find((power) => power.id === tool.power)?.label ?? tool.power),
+            ...(runs ? { input: tool.input } : {}),
+          })),
+          approved,
+          ...(runs ? { digest: app.tools!.digest } : {}),
+        },
+      }
+    : {};
+  if (!runs) return { guide, ...tools };
   const name = (memberId: string) =>
     state.members.find((item) => item.id === memberId)?.name || "A former member";
   return {
     guide,
+    ...tools,
     versions: (await repository.versions(appId, 20)).map((record) => ({
       version: record.version,
       at: record.at,

@@ -816,6 +816,28 @@ describe("an app's server code", () => {
     expect(seen[0].body).toBe('{"title":"Buy milk"}');
   });
 
+  it("never passes a page's request to the address the app's tools are answered at", async () => {
+    // A tool call comes only from the launcher, for a person it has checked for that tool. A
+    // page reaching the same address would get round the owner's OK and the tool's power.
+    const { door, enter, seen } = await withServer();
+    const { cookie } = await enter("max");
+    for (const path of ["/__slice/tools/find_entry", "/__slice/tools/", "/__slice/tools"]) {
+      const read = await door(request("notes", path, { cookie, headers: called }), "notes");
+      expect(read.status).toBe(404);
+      const change = await door(
+        request("notes", path, {
+          cookie,
+          method: "POST",
+          headers: { Origin: "https://notes.slice.example", "Content-Type": "application/json" },
+          body: "{}",
+        }),
+        "notes",
+      );
+      expect(change.status).toBe(404);
+    }
+    expect(seen).toEqual([]);
+  });
+
   it("cleans the answer: no cookie can be set, and the browser rules still apply", async () => {
     const { door, enter } = await withServer(
       () =>

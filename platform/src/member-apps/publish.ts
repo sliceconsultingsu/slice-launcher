@@ -2,6 +2,8 @@
 // not serve. Every refusal is a sentence the AI can act on.
 import { z } from "zod";
 import { MembershipError } from "../membership/contracts";
+import type { AppToolDeclaration } from "../membership/contracts";
+import { readTools } from "./app-tools";
 import type { StoredFile } from "./files";
 
 export const MAX_FILES = 50;
@@ -46,6 +48,8 @@ const input = z.strictObject({
     .array(z.strictObject({ id: z.string().max(80), label: z.string().max(200) }))
     .max(20)
     .default([]),
+  // Read by readTools, which words each refusal for the builder's AI.
+  tools: z.unknown().optional(),
   files: z
     .array(
       z.strictObject({
@@ -66,6 +70,8 @@ export interface Bundle {
   files: StoredFile[];
   /** The contents of worker.js, when the bundle has server code and it is switched on. */
   server: string | null;
+  /** The tools the app offers to a member's AI. They are answered by its server code. */
+  tools: AppToolDeclaration[];
 }
 
 function refuse(message: string): never {
@@ -136,5 +142,10 @@ export function readBundle(
     refuse(`The files add up to more than ${megabytes(most.bundleBytes)}.`);
   if (!files.some((file) => file.path === "index.html"))
     refuse("An app needs an index.html: it is the first screen.");
-  return { name, description, guide, powers, files, server };
+  const tools = readTools(parsed.data.tools, powers);
+  if (tools.length && !options.server)
+    refuse("Tools need server code (worker.js), which is not switched on yet. Leave tools out.");
+  if (tools.length && server === null)
+    refuse("Tools are answered by the app's server code. Add worker.js, or leave tools out.");
+  return { name, description, guide, powers, files, server, tools };
 }

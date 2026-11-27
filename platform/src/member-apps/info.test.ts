@@ -126,6 +126,79 @@ describe("what the app's page in the launcher shows", () => {
     expect(await appInfo(who("max"), repository, "notes")).toEqual({ guide: "# Second guide" });
   });
 
+  it("lists the live version's tools: in full for the people who run the app, and for others once agreed", async () => {
+    const { repository, save } = await setup();
+    const apps = new MemberApps({
+      repository,
+      files: memoryFiles(),
+      origin: "https://slice.example",
+      cloud: { ensureDatabase: async () => "db-notes", uploadServer: async () => {} },
+    });
+    const input = {
+      type: "object",
+      properties: { title: { type: "string" } },
+      required: ["title"],
+    };
+    await apps.publish(who("ana"), "notes", {
+      ...bundle("# With tools"),
+      powers: [{ id: "edit", label: "Edit notes" }],
+      files: [
+        { path: "index.html", text: "<p>notes</p>" },
+        { path: "worker.js", text: "export default {}" },
+      ],
+      tools: [
+        { name: "list_notes", description: "List the notes.", readOnly: true },
+        { name: "add_note", description: "Add a note.", readOnly: false, power: "edit", input },
+      ],
+    });
+    const digest = (await repository.load()).memberApps[0].tools!.digest;
+    const forAna = await appInfo(who("ana"), repository, "notes");
+    expect(forAna.tools).toEqual({
+      approved: false,
+      digest,
+      list: [
+        {
+          name: "notes__add_note",
+          description: "Add a note.",
+          readOnly: false,
+          // The power's label, as the app's page names it.
+          power: "Edit notes",
+          input: { ...input, additionalProperties: false },
+        },
+        {
+          name: "notes__list_notes",
+          description: "List the notes.",
+          readOnly: true,
+          power: null,
+          input: { type: "object", properties: {}, additionalProperties: false },
+        },
+      ],
+    });
+    // An owner reads the same before agreeing.
+    expect((await appInfo(who("owner"), repository, "notes")).tools).toEqual(forAna.tools);
+    // Someone on the app is told nothing until an owner has agreed.
+    expect(await appInfo(who("max"), repository, "notes")).toEqual({ guide: "# With tools" });
+    await save("owner-sub", { type: "memberapp.tools", id: "notes", approve: digest });
+    expect((await appInfo(who("max"), repository, "notes")).tools).toEqual({
+      approved: true,
+      list: [
+        {
+          name: "notes__add_note",
+          description: "Add a note.",
+          readOnly: false,
+          power: "Edit notes",
+        },
+        { name: "notes__list_notes", description: "List the notes.", readOnly: true, power: null },
+      ],
+    });
+    expect((await appInfo(who("ana"), repository, "notes")).tools).toMatchObject({
+      approved: true,
+    });
+    // Offline: nothing is offered, so nothing is listed.
+    await save("ana-sub", { type: "memberapp.live", id: "notes", version: null });
+    expect(await appInfo(who("ana"), repository, "notes")).not.toHaveProperty("tools");
+  });
+
   it("answers the same for an app someone is not on as for one that does not exist", async () => {
     const { repository, save } = await setup();
     expect(await status(() => appInfo(who("sam"), repository, "notes"))).toBe(404);

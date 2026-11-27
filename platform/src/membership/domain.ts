@@ -1,5 +1,5 @@
 import { apps } from "../lib/apps";
-import { catalogFor, memberApps } from "../member-apps/registry";
+import { catalogFor, memberApps, toolsApproved } from "../member-apps/registry";
 import { APP_LIMIT, appIdProblem } from "../member-apps/rules";
 import type { AppDescriptor } from "../platform/contracts";
 import { appPermissions, managesApp, settingsFor } from "./app-access";
@@ -316,7 +316,8 @@ export function applyCommand(
     command.type === "memberapp.publish" ||
     command.type === "memberapp.live" ||
     command.type === "memberapp.preview" ||
-    command.type === "memberapp.delete"
+    command.type === "memberapp.delete" ||
+    command.type === "memberapp.tools"
   ) {
     const made =
       state.memberApps.find((item) => item.id === command.id && !item.deletedAt) ??
@@ -336,6 +337,7 @@ export function applyCommand(
         made.name = command.name;
         made.description = command.description;
         made.powers = command.powers;
+        made.tools = command.tools;
         made.live = made.latest;
         made.preview = null;
       }
@@ -348,11 +350,23 @@ export function applyCommand(
         made.name = command.as.name;
         made.description = command.as.description;
         made.powers = command.as.powers;
+        made.tools = command.as.tools;
       }
     } else if (command.type === "memberapp.preview") {
       if (command.version !== null && command.version > made.latest)
         fail(400, "That version was never published.");
       made.preview = command.version;
+    } else if (command.type === "memberapp.tools") {
+      // Tools put words from the app's maker in front of other members' AI, which also holds
+      // their other Slice tools. So an owner reads them first, and agrees to exactly what was
+      // read: a publish in between changes the fingerprint and the OK is refused.
+      if (!actor.owner) fail(403, "Only a Slice owner can approve an app's tools.");
+      if (command.approve === null) made.toolsApproved = null;
+      else {
+        if (made.live === null || !made.tools || made.tools.digest !== command.approve)
+          fail(409, "This app's tools changed. Reload and read them again.");
+        made.toolsApproved = { digest: command.approve, by: actor.id, at: meta.now };
+      }
     } else {
       made.deletedAt = meta.now;
       made.live = null;
@@ -499,6 +513,10 @@ export function memberView(
                 publicRequestedBy: made.publicRequestedBy
                   ? state.members.find((m) => m.id === made.publicRequestedBy)?.name || "A member"
                   : null,
+                tools:
+                  made.live !== null && made.tools
+                    ? { ...made.tools, approved: toolsApproved(made) }
+                    : null,
               },
             }
           : {}),

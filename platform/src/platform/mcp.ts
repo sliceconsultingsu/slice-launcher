@@ -1,4 +1,8 @@
-import { McpServer, WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/server";
+import {
+  fromJsonSchema,
+  McpServer,
+  WebStandardStreamableHTTPServerTransport,
+} from "@modelcontextprotocol/server";
 import { CfWorkerJsonSchemaValidator } from "@modelcontextprotocol/server/validators/cf-worker";
 import { z } from "zod";
 import { MembershipError } from "../membership/contracts";
@@ -146,6 +150,46 @@ export function createMcpAdapter(dependencies: PlatformDependencies) {
                       error instanceof MembershipError && error.status === 403
                         ? "You no longer have permission to run this tool."
                         : "The tool could not complete. Check the input or contact the app owner.",
+                  },
+                ],
+              };
+            }
+          },
+        );
+      }
+      // Tools that member apps offer (src/member-apps/app-tools.ts). The launcher decides who
+      // is offered each one; the app's own server code answers it.
+      const memberApps = dependencies.memberApps;
+      for (const offered of (await memberApps?.offeredTools(state, identity)) ?? []) {
+        server.registerTool(
+          offered.name,
+          {
+            description: offered.description,
+            // The input description is the app's own, cleaned when it was published.
+            inputSchema: fromJsonSchema(offered.tool.input, new CfWorkerJsonSchemaValidator()),
+            annotations: {
+              readOnlyHint: offered.tool.readOnly,
+              destructiveHint: !offered.tool.readOnly,
+              // An app's server code can reach only its own database.
+              openWorldHint: false,
+            },
+          },
+          async (input) => {
+            try {
+              // Membership, access, the owner's OK and the power are all checked again there.
+              return toolResult(
+                await memberApps!.callTool(identity, offered.appId, offered.tool.name, input),
+              );
+            } catch (error) {
+              return {
+                isError: true,
+                content: [
+                  {
+                    type: "text",
+                    text:
+                      error instanceof MembershipError
+                        ? error.message
+                        : "The tool could not complete. Try again in a moment.",
                   },
                 ],
               };

@@ -1,10 +1,12 @@
-// The four tools a member's connected AI uses to make an app (docs/member-apps.md). Their
+// The tools a member's connected AI uses to make an app (docs/member-apps.md). Their
 // descriptions are the instructions the AI works from, so they say exactly what an app can be.
 // Sharing is not here on purpose: who can open an app is decided by a person, on the app's page.
+// The tools an app itself offers to a member's AI are in app-tools.ts and service.ts.
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { MembershipError } from "../membership/contracts";
 import type { Identity } from "../membership/contracts";
+import { MAX_TOOL_DESCRIPTION, MAX_TOOL_NAME, MAX_TOOLS } from "./app-tools";
 import { builderGuide } from "./guide";
 import { LARGE, MAX_GUIDE } from "./publish";
 import type { MemberApps } from "./service";
@@ -29,7 +31,9 @@ const WITH_SERVER = `- Screens (HTML, CSS, JavaScript and images, sent here as f
 - env.DB is the app's own database, and the only thing worker.js can reach. It is SQLite (Cloudflare D1): await env.DB.prepare("SELECT ... WHERE id = ?").bind(id).all(), .first() or .run(). It starts empty and is shared by every version of the app, so create tables with CREATE TABLE IF NOT EXISTS before using them, and keep existing data working when you change them.
 - Every request to worker.js carries who is asking, set by the launcher: X-Slice-Member-Id, X-Slice-Member-Name (percent-encoded), X-Slice-Manager ("true" or "false") and X-Slice-Powers (comma-separated). Trust these and nothing else; there are no cookies. Decide in worker.js who may read or change what, and check it there, not only on the page.
 - worker.js cannot call any other service (fetch to another address is refused), holds no secrets, gets 50 ms of processing per request, and receives at most 1 MB per request. Changes (POST, PUT, DELETE) are accepted only from the app's own pages.
-- An app with nothing to save needs no worker.js. Do not use localStorage as if it were shared storage.`;
+- An app with nothing to save needs no worker.js. Do not use localStorage as if it were shared storage.
+- An app with worker.js can also offer tools to the AI of the people it is shared with: list them in "tools" (up to ${MAX_TOOLS}). The launcher offers each as "<app id>__<name>" and sends a call to worker.js as POST /__slice/tools/<name>, with the input as JSON and the same X-Slice-* headers; answer with a JSON object, or with a 4xx status and { "error": "..." } to refuse in words the AI will see. No page can reach /__slice/tools/, so a request there is always a tool call. Check in worker.js who may do what, exactly as for /api/.
+- Until a Slice owner agrees to an app's tools on its page in the launcher, only the people named as running the app are offered them. Changing a tool's name, description, input or power needs that OK again, so settle the words before asking. Tell the member this. slice_app_guide has an example.`;
 
 const publish = (
   server: boolean,
@@ -134,6 +138,40 @@ export function registerMemberAppTools(server: McpServer, service: MemberApps, i
           description: z.string(),
           guide: z.string().describe(`Markdown, up to ${MAX_GUIDE} characters.`),
           powers: z.array(z.object({ id: z.string(), label: z.string() }).strict()).optional(),
+          tools: z
+            .array(
+              z
+                .object({
+                  name: z
+                    .string()
+                    .describe(
+                      `Up to ${MAX_TOOL_NAME} lower-case letters, digits and underscores, like find_entry.`,
+                    ),
+                  description: z
+                    .string()
+                    .describe(
+                      `What it does, for the AI that will call it. Up to ${MAX_TOOL_DESCRIPTION} characters.`,
+                    ),
+                  readOnly: z.boolean().describe("false if calling it can change anything."),
+                  power: z
+                    .string()
+                    .optional()
+                    .describe(
+                      'The ID of one of "powers" a person needs to be offered this tool. Leave out for everyone who can open the app.',
+                    ),
+                  input: z
+                    .record(z.string(), z.unknown())
+                    .optional()
+                    .describe(
+                      'A JSON Schema object for the input: { "type": "object", "properties": { ... }, "required": [ ... ] }. Supported: type, description, enum, minimum, maximum, minLength, maxLength, properties, required, items, minItems, maxItems.',
+                    ),
+                })
+                .strict(),
+            )
+            .optional()
+            .describe(
+              "Tools the app offers to the AI of the people it is shared with. Needs worker.js.",
+            ),
           files: z.array(file),
           preview: z
             .boolean()

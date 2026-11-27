@@ -3,16 +3,33 @@
 // the same commands and history as a change made in the launcher.
 import { settingsFor, managesApp } from "../membership/app-access";
 import { MembershipError } from "../membership/contracts";
-import type { Identity, MemberApp, State, VersionRecord } from "../membership/contracts";
-import { applyCommand } from "../membership/domain";
+import type {
+  AppToolDeclaration,
+  Identity,
+  Member,
+  MemberApp,
+  State,
+  VersionRecord,
+} from "../membership/contracts";
+import { applyCommand, effectivePermissions } from "../membership/domain";
 import type { Repository } from "../membership/repository";
 import { authorizeMember } from "../platform/access";
 import { appAddress } from "../platform/address";
+import {
+  MAX_TOOL_INPUT_BYTES,
+  MAX_TOOL_RESULT_BYTES,
+  offeredDescription,
+  offeredName,
+  TOOL_MILLISECONDS,
+  toolsDigest,
+} from "./app-tools";
+import { setAsking } from "./asking";
 import type { AppCloud } from "./cloud";
 import type { AppFiles } from "./files";
+import { readUpTo } from "./front-door";
 import { liveCommand } from "./live";
 import { LARGE, readBundle } from "./publish";
-import { memberApps } from "./registry";
+import { memberAppDescriptor, memberApps, shownVersion, toolsApproved } from "./registry";
 import { APP_LIMIT } from "./rules";
 
 export type MemberAppsDeps = {
@@ -24,7 +41,31 @@ export type MemberAppsDeps = {
   cloud?: AppCloud;
   /** Makes a one-time upload address's token (src/member-apps/uploads.ts). */
   startUpload?: (identity: Identity, appId: string, preview: boolean) => Promise<string>;
+  /**
+   * The Worker a version's server code was uploaded as, by name. An app's tools are answered by
+   * it. Left out while server code is switched off.
+   */
+  server?: (script: string) => { fetch(request: Request): Promise<Response> } | null;
+  /** A saved version record. Records never change, so this may remember them between requests. */
+  version?: (appId: string, version: number) => Promise<VersionRecord | null>;
+  /** How long a tool has to answer, in milliseconds. Left out except in tests. */
+  toolMilliseconds?: number;
 };
+
+/** One tool of a member app, as one person's AI is offered it. */
+export type OfferedTool = {
+  appId: string;
+  /** The name the AI calls it by: "<app id>__<tool>". */
+  name: string;
+  description: string;
+  tool: AppToolDeclaration;
+};
+
+/** The most member-app tools one person's AI is offered. Apps are taken in order of their IDs. */
+export const MAX_OFFERED_TOOLS = 60;
+
+const plainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** How often one member can publish, and create apps. Every one adds a history entry. */
 export const PUBLISHES_PER_HOUR = 30;
@@ -109,6 +150,8 @@ export class MemberApps {
     const state = await this.load(identity);
     await this.pace(state, identity, "memberapp.publish", PUBLISHES_PER_HOUR, 3600_000);
     const stamp = meta();
+    const digest = await toolsDigest(bundle.tools);
+    const tools = digest ? { digest, count: bundle.tools.length } : null;
     const apply = (database: string | null) =>
       applyCommand(
         state,
@@ -121,6 +164,7 @@ export class MemberApps {
           powers: bundle.powers,
           database,
           preview,
+          tools,
         },
         stamp,
       );
@@ -155,6 +199,7 @@ export class MemberApps {
         type: file.type,
         size: file.body.byteLength,
       })),
+      ...(tools ? { tools: bundle.tools, toolsDigest: tools.digest } : {}),
     };
     await this.deps.files.put(id, version.store, [
       ...bundle.files,
@@ -178,7 +223,151 @@ export class MemberApps {
       preview,
       files: bundle.files.length,
       server: server !== null,
+      ...(tools
+        ? {
+            tools: tools.count,
+            toolsNote: preview
+              ? "Only the people named as running this app are offered a preview's tools."
+              : toolsApproved(app)
+                ? "The Slice owner already agreed to these tools, so the people this app is shared with are offered them."
+                : "Only the people named as running this app are offered its tools until a Slice owner agrees to them on the app's page. Changing a tool's name, description, input or power needs that OK again.",
+          }
+        : {}),
     };
+  }
+
+  private version(appId: string, version: number) {
+    return (this.deps.version ?? ((id, v) => this.deps.repository.version(id, v)))(appId, version);
+  }
+
+  /**
+   * The tools of one app this person is offered right now, with the version that answers them,
+   * or null with none. Used both to list tools and, with membership read again, to run one.
+   *
+   * Owners run every app, but tools nobody has agreed to go only to the managers named on the
+   * app: otherwise every member's unread tool descriptions would land in the owner's AI, which
+   * can reach the most. Named managers get the tools of the version they are shown, a preview
+   * included. Everyone else gets the live version's tools, and only once an owner has agreed to
+   * exactly those.
+   */
+  private async toolsOf(state: State, member: Member, app: MemberApp) {
+    const permissions = effectivePermissions(state, member, [memberAppDescriptor(app)]);
+    if (!permissions.includes(`app.${app.id}.open`)) return null;
+    const named = settingsFor(state, app.id).managers.includes(member.id);
+    const shown = named ? shownVersion(app, true) : app.live;
+    if (shown === null) return null;
+    if (!named && !toolsApproved(app)) return null;
+    // The live version's tools are known without reading its record; a preview's are not.
+    if (shown === app.live && !app.tools) return null;
+    const record = await this.version(app.id, shown);
+    if (!record?.server || !record.tools?.length) return null;
+    if (!named && record.toolsDigest !== app.toolsApproved?.digest) return null;
+    return {
+      record,
+      server: record.server,
+      runs: managesApp(state, member, app.id),
+      permissions,
+      // A named manager holds every power, including one only the preview declares.
+      tools: record.tools.filter(
+        (tool) =>
+          named || tool.power === null || permissions.includes(`app.${app.id}.${tool.power}`),
+      ),
+    };
+  }
+
+  /** The member-app tools this person's AI is offered, from the membership already loaded. */
+  async offeredTools(state: State, identity: Identity): Promise<OfferedTool[]> {
+    if (!this.deps.server) return [];
+    const member = authorizeMember(state, identity);
+    const offered: OfferedTool[] = [];
+    const apps = memberApps(state).sort((a, b) => a.id.localeCompare(b.id));
+    for (const app of apps) {
+      const found = await this.toolsOf(state, member, app);
+      for (const tool of found?.tools ?? []) {
+        if (offered.length >= MAX_OFFERED_TOOLS) return offered;
+        offered.push({
+          appId: app.id,
+          name: offeredName(app.id, tool.name),
+          description: offeredDescription(app.id, tool),
+          tool,
+        });
+      }
+    }
+    return offered;
+  }
+
+  /**
+   * Runs one tool for this person. Membership, access to the app, the owner's OK and the power
+   * are all worked out again here, so a change made since the tools were listed applies. The
+   * call goes to the app's own server code at an address no browser can reach, with who is
+   * asking set by the launcher. A refusal thrown here is worded for the AI.
+   */
+  async callTool(
+    identity: Identity,
+    appId: string,
+    name: string,
+    input: unknown,
+  ): Promise<Record<string, unknown>> {
+    const state = await this.load(identity);
+    const member = authorizeMember(state, identity);
+    const app = memberApps(state).find((item) => item.id === appId);
+    const found = app ? await this.toolsOf(state, member, app) : null;
+    const tool = found?.tools.find((item) => item.name === name);
+    if (!found || !tool) throw new MembershipError(403, "You can no longer use this tool.");
+    const worker = this.deps.server?.(found.server.script) ?? null;
+    if (!worker) throw new MembershipError(503, "This app's server code is switched off.");
+    const body = JSON.stringify(input ?? {});
+    if (new TextEncoder().encode(body).byteLength > MAX_TOOL_INPUT_BYTES)
+      throw new MembershipError(413, "That is too much to send to a tool in one call.");
+    const headers = setAsking(
+      new Headers({ "Content-Type": "application/json" }),
+      appId,
+      member,
+      found.runs,
+      found.permissions,
+    );
+    const failed = () => new MembershipError(502, "This app's tool failed. Its maker can fix it.");
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let answered: Response;
+    let read: ArrayBuffer | null;
+    try {
+      answered = await Promise.race([
+        worker.fetch(
+          new Request(`${appAddress(this.deps.origin, appId)}/__slice/tools/${tool.name}`, {
+            method: "POST",
+            headers,
+            body,
+            redirect: "manual",
+          }),
+        ),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("timeout")),
+            this.deps.toolMilliseconds ?? TOOL_MILLISECONDS,
+          );
+        }),
+      ]);
+      read = await readUpTo(answered, MAX_TOOL_RESULT_BYTES);
+    } catch {
+      // What went wrong inside the app's code is the app's; it is not passed on.
+      throw failed();
+    } finally {
+      clearTimeout(timer);
+    }
+    if (read === null)
+      throw new MembershipError(502, "This app's tool answered with more than can be passed on.");
+    let value: unknown;
+    try {
+      value = JSON.parse(new TextDecoder().decode(read));
+    } catch {
+      throw failed();
+    }
+    if (!plainObject(value)) throw failed();
+    if (answered.ok) return value;
+    // The app refusing in its own words (no such entry, not allowed) is useful to the AI.
+    if (answered.status >= 400 && answered.status < 500 && typeof value.error === "string")
+      throw new MembershipError(422, `The app refused: ${value.error.slice(0, 300)}`);
+    throw failed();
   }
 
   /**
@@ -231,6 +420,8 @@ export class MemberApps {
       visibility: settings.visibility,
       waitingForOwner: app.publicRequestedBy !== null,
       people: settings.people.length,
+      // Until an owner agrees, an app's tools are offered only to the people named as running it.
+      tools: app.tools ? { count: app.tools.count, approvedByOwner: toolsApproved(app) } : null,
       lastPublished: last
         ? {
             version: last.version,

@@ -52,13 +52,29 @@ async function setup(options: { memberApps?: boolean; server?: boolean } = {}) {
     }
   }
   const files = memoryFiles();
+  const appCalls: string[] = [];
   const memberApps = new MemberApps({
     repository,
     files,
     origin: "https://slice.example",
     startUpload: async () => "t".repeat(43),
     ...(options.server
-      ? { cloud: { ensureDatabase: async () => "db-1", uploadServer: async () => {} } }
+      ? {
+          cloud: { ensureDatabase: async () => "db-1", uploadServer: async () => {} },
+          // A stand-in for the app's own server code: it answers the one tool these tests use.
+          server: () => ({
+            fetch: async (request: Request) => {
+              appCalls.push(new URL(request.url).pathname);
+              const input = (await request.json()) as { query: string };
+              return input.query === "nothing"
+                ? Response.json({ error: "No entry matches." }, { status: 404 })
+                : Response.json({
+                    query: input.query,
+                    asked: request.headers.get("X-Slice-Member-Id"),
+                  });
+            },
+          }),
+        }
       : {}),
   });
   const adapter = (name: string) =>
@@ -86,11 +102,26 @@ async function setup(options: { memberApps?: boolean; server?: boolean } = {}) {
   };
   const call = async (name: string, tool: string, input: unknown) =>
     (await send(name, "tools/call", { name: tool, arguments: input })).body.result!;
-  return { repository, files, send, call };
+  const save = async (name: string, command: unknown) => {
+    const state = await repository.load();
+    await repository.commit(
+      state,
+      applyCommand(state, `${name}-sub`, command, {
+        id: crypto.randomUUID(),
+        now: "2026-11-19T11:00:00Z",
+      }),
+    );
+  };
+  return { repository, files, send, call, save, appCalls };
 }
 type Reply = {
   result?: {
-    tools?: { name: string; description: string }[];
+    tools?: {
+      name: string;
+      description: string;
+      inputSchema?: unknown;
+      annotations?: Record<string, boolean>;
+    }[];
     isError?: boolean;
     structuredContent?: Record<string, unknown>;
     content?: { type: string; text: string }[];
@@ -299,5 +330,113 @@ describe("the tools a builder's AI gets", () => {
     expect(failed.isError).toBe(true);
     expect(said(failed)).not.toContain("secret detail");
     expect(said(failed)).toMatch(/could not/);
+  });
+});
+
+describe("the tools an app offers, through a member's AI connection", () => {
+  const find = {
+    name: "find_entry",
+    description: "Find entries by part of their title.",
+    readOnly: true,
+    input: {
+      type: "object",
+      properties: { query: { type: "string", maxLength: 20 } },
+      required: ["query"],
+    },
+  };
+  const withTools = version({
+    files: [
+      { path: "index.html", text: page },
+      { path: "worker.js", text: "export default {}" },
+    ],
+    tools: [find],
+  });
+  async function published() {
+    const made = await setup({ server: true });
+    await made.call("ana", "slice_app_create", notes);
+    const result = await made.call("ana", "slice_app_publish", withTools);
+    const listed = async (name: string) =>
+      (await made.send(name, "tools/list", {})).body.result!.tools!.filter((tool) =>
+        tool.name.includes("__"),
+      );
+    return { ...made, result, listed };
+  }
+
+  it("tells the builder's AI how tools work, and who is offered them, only when they can be answered", async () => {
+    const describe = async (server: boolean) =>
+      (await (await setup({ server })).send("ana", "tools/list", {})).body.result!.tools!.find(
+        (tool) => tool.name === "slice_app_publish",
+      )!.description;
+    expect(await describe(false)).not.toContain("/__slice/tools/");
+    const on = await describe(true);
+    for (const fact of ["/__slice/tools/<name>", "<app id>__<name>", "a Slice owner agrees"])
+      expect(on).toContain(fact);
+  });
+
+  it("publishes an app's tools and offers them to the person who runs it, as the app described them", async () => {
+    const { result, listed } = await published();
+    expect(result.structuredContent).toMatchObject({ version: 1, tools: 1 });
+    expect(String(result.structuredContent!.toolsNote)).toContain("until a Slice owner agrees");
+    expect(await listed("ana")).toEqual([
+      {
+        name: "notes__find_entry",
+        description: expect.stringMatching(
+          /^A tool of the Slice member app "notes"\. .* Find entries by part of their title\.$/,
+        ),
+        inputSchema: expect.objectContaining({
+          type: "object",
+          properties: { query: { type: "string", maxLength: 20 } },
+          required: ["query"],
+          additionalProperties: false,
+        }),
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      },
+    ]);
+    // Nobody else yet: not someone the app is not shared with, and not the owner.
+    expect(await listed("max")).toEqual([]);
+    expect(await listed("owner")).toEqual([]);
+  });
+
+  it("checks a call against the app's own description before the app sees it", async () => {
+    const { call, appCalls } = await published();
+    const good = await call("ana", "notes__find_entry", { query: "plan" });
+    expect(good.isError).toBeFalsy();
+    expect(good.structuredContent).toEqual({ query: "plan", asked: "ana-member" });
+    expect(appCalls).toEqual(["/__slice/tools/find_entry"]);
+    for (const bad of [{}, { query: 7 }, { query: "x".repeat(21) }, { query: "x", extra: true }])
+      expect((await call("ana", "notes__find_entry", bad)).isError).toBe(true);
+    expect(appCalls).toHaveLength(1);
+  });
+
+  it("offers them to the people the app is shared with once an owner has agreed", async () => {
+    const { call, save, send, listed, repository } = await published();
+    await save("ana", {
+      type: "app.update",
+      id: "notes",
+      visibility: "private",
+      managers: ["ana-member"],
+      people: [{ memberId: "max-member", powers: [] }],
+    });
+    // Listed for nobody else, and a call by its exact name is refused all the same.
+    expect(await listed("max")).toEqual([]);
+    const early = await send("max", "tools/call", {
+      name: "notes__find_entry",
+      arguments: { query: "plan" },
+    });
+    expect(early.body.result?.isError ?? Boolean(early.body.error)).toBe(true);
+    await save("owner", {
+      type: "memberapp.tools",
+      id: "notes",
+      approve: (await repository.load()).memberApps[0].tools!.digest,
+    });
+    expect((await listed("max")).map((tool) => tool.name)).toEqual(["notes__find_entry"]);
+    expect((await call("max", "notes__find_entry", { query: "plan" })).structuredContent).toEqual({
+      query: "plan",
+      asked: "max-member",
+    });
+    // The app's own refusal reaches the AI, in the app's words.
+    const refused = await call("max", "notes__find_entry", { query: "nothing" });
+    expect(refused.isError).toBe(true);
+    expect(said(refused)).toBe("The app refused: No entry matches.");
   });
 });
