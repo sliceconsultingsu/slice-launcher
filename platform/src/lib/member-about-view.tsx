@@ -80,8 +80,8 @@ function MemberAppTools({
       ) : (
         <div className="notice">
           <p>
-            <strong>Waiting for a Slice owner&apos;s OK.</strong> Until then only the people named
-            as running this app are offered these tools.
+            <strong>Waiting for a Slice owner&apos;s OK.</strong> Until then only the person who
+            published these tools is offered them.
           </p>
           {owner ? (
             <p>

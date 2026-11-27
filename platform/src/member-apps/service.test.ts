@@ -612,7 +612,7 @@ describe("tools a member app offers to a member's AI", () => {
     expect((await repository.load()).memberApps[0].latest).toBe(0);
   });
 
-  it("offers unread tools only to the people named as running the app, not even to an owner", async () => {
+  it("offers unread tools only to the person who published them, not even to an owner", async () => {
     const { apps, offered, share } = await start();
     await apps.publish(who("ana"), "notes", withTools());
     await share([{ memberId: "max-member", powers: ["edit"] }]);
@@ -620,6 +620,45 @@ describe("tools a member app offers to a member's AI", () => {
     expect(await offered("max")).toEqual([]);
     // An owner runs every app, and would otherwise be handed every member's unread tools.
     expect(await offered("owner")).toEqual([]);
+  });
+
+  it("does not let a maker put unread tools in front of someone by naming them a manager", async () => {
+    const { apps, offered, save } = await start();
+    await apps.publish(who("ana"), "notes", withTools());
+    // Anyone who runs an app can name any member a manager, the owner included, without asking.
+    await save("ana-sub", {
+      type: "app.update",
+      id: "notes",
+      visibility: "private",
+      managers: ["ana-member", "max-member", "owner-member"],
+      people: [],
+    });
+    expect(await offered("max")).toEqual([]);
+    expect(await offered("owner")).toEqual([]);
+    expect(await status(() => apps.callTool(who("max"), "notes", "find_entry", {}))).toBe(403);
+    // The same for a preview: it is offered to the person who published it and nobody else.
+    await apps.publish(who("ana"), "notes", withTools(), { preview: true });
+    expect(await offered("max")).toEqual([]);
+    expect(await offered("owner")).toEqual([]);
+    // A manager who publishes a version themself is offered what they published.
+    await apps.publish(who("max"), "notes", withTools([find]));
+    expect(await offered("max")).toEqual(["notes__find_entry"]);
+    expect(await offered("ana")).toEqual([]);
+  });
+
+  it("goes on offering a publisher their own unread tools by the powers they hold once they stop running the app", async () => {
+    const { apps, offered, save } = await start();
+    await apps.publish(who("ana"), "notes", withTools());
+    const settings = { type: "app.update", id: "notes", visibility: "private" };
+    await save("owner-sub", {
+      ...settings,
+      managers: ["max-member"],
+      people: [{ memberId: "ana-member", powers: [] }],
+    });
+    expect(await offered("ana")).toEqual(["notes__find_entry"]);
+    // Off the app altogether: nothing.
+    await save("owner-sub", { ...settings, managers: ["max-member"], people: [] });
+    expect(await offered("ana")).toEqual([]);
   });
 
   it("offers agreed tools to the people the app is shared with, each by the powers they hold", async () => {
@@ -663,7 +702,7 @@ describe("tools a member app offers to a member's AI", () => {
     expect(await offered("max")).toEqual(["notes__find_entry"]);
   });
 
-  it("offers a preview's tools to the people named as running the app and nobody else", async () => {
+  it("offers a preview's tools to the person who published it and nobody else", async () => {
     const { apps, offered, share, approve } = await start();
     await apps.publish(who("ana"), "notes", withTools([find]));
     await share([{ memberId: "max-member", powers: [] }]);
@@ -673,8 +712,9 @@ describe("tools a member app offers to a member's AI", () => {
       preview: true,
     });
     expect(result.toolsNote).toContain("preview");
-    // A named manager holds every power the preview declares.
+    // Someone who runs the app holds every power their own preview declares.
     expect(await offered("ana")).toEqual(["notes__add_entry", "notes__count_entries"]);
+    // Everyone else, an owner included, keeps the live version's agreed tools.
     expect(await offered("max")).toEqual(["notes__find_entry"]);
     expect(await offered("owner")).toEqual(["notes__find_entry"]);
   });
@@ -842,8 +882,18 @@ describe("tools a member app offers to a member's AI", () => {
         throw new Error("SQLITE_ERROR: no such table: entries");
       }),
     ).toEqual(failed);
-    // An app that never answers.
+    // An app that never answers, and one that starts to answer and then stalls.
     expect(await refused(() => new Promise<Response>(() => {}))).toEqual(failed);
+    expect(
+      await refused(
+        () =>
+          new Response(
+            new ReadableStream({
+              start: (controller) => controller.enqueue(new TextEncoder().encode('{"items":[')),
+            }),
+          ),
+      ),
+    ).toEqual(failed);
     expect(await refused(() => Response.json({ text: "x".repeat(MAX_TOOL_RESULT_BYTES) }))).toEqual(
       [502, "This app's tool answered with more than can be passed on."],
     );
@@ -853,6 +903,18 @@ describe("tools a member app offers to a member's AI", () => {
     ).toEqual([422, `The app refused: No entry ${"9".repeat(291)}`]);
     server.answer = () => Response.json({ entries: [] }, { status: 201 });
     expect(await call()).toEqual({ entries: [] });
+  });
+
+  it("cancels the request to the app when the deadline passes", async () => {
+    const { apps, calls, server } = await start({ toolMilliseconds: 50 });
+    await apps.publish(who("ana"), "notes", withTools());
+    server.answer = () => new Promise<Response>(() => {});
+    expect(await status(() => apps.callTool(who("ana"), "notes", "find_entry", {}))).toBe(502);
+    expect(calls[0].request.signal.aborted).toBe(true);
+    // An answer that arrives in time is not cancelled.
+    server.answer = () => Response.json({});
+    await apps.callTool(who("ana"), "notes", "find_entry", {});
+    expect(calls[1].request.signal.aborted).toBe(false);
   });
 
   it("refuses an input too large to pass on", async () => {

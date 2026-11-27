@@ -321,7 +321,7 @@ describe("a member app's page", () => {
     it("tells a manager the tools are waiting, and gives only an owner the way to approve", () => {
       const manager = shown(notes({}, summary(false)), {}, withTools(false));
       expect(manager).toContain("Waiting for a Slice owner&#x27;s OK.");
-      expect(manager).toContain("only the people named as running this app");
+      expect(manager).toContain("only the person who published these tools is offered them");
       expect(manager).toContain("Ask a Slice owner to open this page");
       expect(manager).not.toContain("Approve these tools");
       const asOwner = shown(notes({}, summary(false)), owner, withTools(false));

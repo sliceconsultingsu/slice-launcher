@@ -227,10 +227,10 @@ export class MemberApps {
         ? {
             tools: tools.count,
             toolsNote: preview
-              ? "Only the people named as running this app are offered a preview's tools."
+              ? "Only you, who published this preview, are offered its tools."
               : toolsApproved(app)
                 ? "The Slice owner already agreed to these tools, so the people this app is shared with are offered them."
-                : "Only the people named as running this app are offered its tools until a Slice owner agrees to them on the app's page. Changing a tool's name, description, input or power needs that OK again.",
+                : "Only you, who published this version, are offered its tools until a Slice owner agrees to them on the app's page. Changing a tool's name, description, input or power needs that OK again.",
           }
         : {}),
     };
@@ -244,33 +244,40 @@ export class MemberApps {
    * The tools of one app this person is offered right now, with the version that answers them,
    * or null with none. Used both to list tools and, with membership read again, to run one.
    *
-   * Owners run every app, but tools nobody has agreed to go only to the managers named on the
-   * app: otherwise every member's unread tool descriptions would land in the owner's AI, which
-   * can reach the most. Named managers get the tools of the version they are shown, a preview
-   * included. Everyone else gets the live version's tools, and only once an owner has agreed to
-   * exactly those.
+   * Tools nobody has agreed to go only to the person who published them. That is the one
+   * relationship to an app nobody can put on someone else: a maker can name any member a manager,
+   * and owners run every app, so offering unread tools to "the people who run the app" would let
+   * a maker place their own words in front of anyone's AI, the owner's included. Everyone else
+   * gets the live version's tools, and only once an owner has agreed to exactly those.
    */
   private async toolsOf(state: State, member: Member, app: MemberApp) {
     const permissions = effectivePermissions(state, member, [memberAppDescriptor(app)]);
     if (!permissions.includes(`app.${app.id}.open`)) return null;
-    const named = settingsFor(state, app.id).managers.includes(member.id);
-    const shown = named ? shownVersion(app, true) : app.live;
-    if (shown === null) return null;
-    if (!named && !toolsApproved(app)) return null;
+    const runs = managesApp(state, member, app.id);
+    // Someone who runs the app and published its preview is offered the preview's tools, as
+    // they are shown its pages. A preview someone else published is not theirs to be handed.
+    const shown = shownVersion(app, runs);
+    const drafted = shown !== null && shown !== app.live ? await this.version(app.id, shown) : null;
+    const own = drafted?.publishedBy === member.id;
     // The live version's tools are known without reading its record; a preview's are not.
-    if (shown === app.live && !app.tools) return null;
-    const record = await this.version(app.id, shown);
+    if (!own && (app.live === null || !app.tools)) return null;
+    const record = own ? drafted : await this.version(app.id, app.live!);
     if (!record?.server || !record.tools?.length) return null;
-    if (!named && record.toolsDigest !== app.toolsApproved?.digest) return null;
+    const mine = record.publishedBy === member.id;
+    // The record is what an AI would be told, so the owner's OK is checked against it too.
+    if (!mine && !(toolsApproved(app) && record.toolsDigest === app.toolsApproved?.digest))
+      return null;
     return {
       record,
       server: record.server,
-      runs: managesApp(state, member, app.id),
+      runs,
       permissions,
-      // A named manager holds every power, including one only the preview declares.
+      // Someone who runs the app holds every power, including one only their preview declares.
       tools: record.tools.filter(
         (tool) =>
-          named || tool.power === null || permissions.includes(`app.${app.id}.${tool.power}`),
+          (mine && runs) ||
+          tool.power === null ||
+          permissions.includes(`app.${app.id}.${tool.power}`),
       ),
     };
   }
@@ -327,27 +334,34 @@ export class MemberApps {
       found.permissions,
     );
     const failed = () => new MembershipError(502, "This app's tool failed. Its maker can fix it.");
+    // One deadline for the whole exchange: the answer's headers and all of its body. When it
+    // passes, the request is cancelled, so an app that stalls part-way holds nothing open.
+    const cancel = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
+    const exchange = async () => {
+      const response = await worker.fetch(
+        new Request(`${appAddress(this.deps.origin, appId)}/__slice/tools/${tool.name}`, {
+          method: "POST",
+          headers,
+          body,
+          redirect: "manual",
+          signal: cancel.signal,
+        }),
+      );
+      return { response, read: await readUpTo(response, MAX_TOOL_RESULT_BYTES) };
+    };
     let answered: Response;
     let read: ArrayBuffer | null;
     try {
-      answered = await Promise.race([
-        worker.fetch(
-          new Request(`${appAddress(this.deps.origin, appId)}/__slice/tools/${tool.name}`, {
-            method: "POST",
-            headers,
-            body,
-            redirect: "manual",
-          }),
-        ),
+      ({ response: answered, read } = await Promise.race([
+        exchange(),
         new Promise<never>((_, reject) => {
-          timer = setTimeout(
-            () => reject(new Error("timeout")),
-            this.deps.toolMilliseconds ?? TOOL_MILLISECONDS,
-          );
+          timer = setTimeout(() => {
+            cancel.abort();
+            reject(new Error("timeout"));
+          }, this.deps.toolMilliseconds ?? TOOL_MILLISECONDS);
         }),
-      ]);
-      read = await readUpTo(answered, MAX_TOOL_RESULT_BYTES);
+      ]));
     } catch {
       // What went wrong inside the app's code is the app's; it is not passed on.
       throw failed();
@@ -420,7 +434,7 @@ export class MemberApps {
       visibility: settings.visibility,
       waitingForOwner: app.publicRequestedBy !== null,
       people: settings.people.length,
-      // Until an owner agrees, an app's tools are offered only to the people named as running it.
+      // Until an owner agrees, an app's tools are offered only to the person who published them.
       tools: app.tools ? { count: app.tools.count, approvedByOwner: toolsApproved(app) } : null,
       lastPublished: last
         ? {

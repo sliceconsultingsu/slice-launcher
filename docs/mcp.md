@@ -6,7 +6,7 @@ The endpoint exposes `slice_apps`, which returns the apps the current member may
 
 While [member apps](member-apps.md) are switched on, the endpoint also offers six tools to every active member: `slice_app_guide`, `slice_app_create`, `slice_app_publish`, `slice_app_upload`, `slice_app_status` and `slice_app_list`. They act only on apps the caller runs. A publish carries an app's files, so with member apps on a request to `/mcp` may be up to 2 MB instead of 16 KB.
 
-Once server code for member apps is switched on, a member app can offer tools of its own, named `<app id>__<tool>`. They are declared as data when the app is published, not registered in this repository, and they reach people other than the app's named managers only after a Slice owner approves them. See [tools for a member's AI](member-apps.md#tools-for-a-members-ai). The rest of this page is about tools registered by built-in apps.
+Once server code for member apps is switched on, a member app can offer tools of its own, named `<app id>__<tool>`. They are declared as data when the app is published, not registered in this repository, and they reach anyone other than the person who published them only after a Slice owner approves them. See [tools for a member's AI](member-apps.md#tools-for-a-members-ai). The rest of this page is about tools registered by built-in apps.
 
 Consultants and their agents should start with [Connect your AI](connect-your-ai.md), also linked from the launcher. That guide explains setup and troubleshooting without granting access.
 

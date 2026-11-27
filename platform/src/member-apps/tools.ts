@@ -33,7 +33,7 @@ const WITH_SERVER = `- Screens (HTML, CSS, JavaScript and images, sent here as f
 - worker.js cannot call any other service (fetch to another address is refused), holds no secrets, gets 50 ms of processing per request, and receives at most 1 MB per request. Changes (POST, PUT, DELETE) are accepted only from the app's own pages.
 - An app with nothing to save needs no worker.js. Do not use localStorage as if it were shared storage.
 - An app with worker.js can also offer tools to the AI of the people it is shared with: list them in "tools" (up to ${MAX_TOOLS}). The launcher offers each as "<app id>__<name>" and sends a call to worker.js as POST /__slice/tools/<name>, with the input as JSON and the same X-Slice-* headers; answer with a JSON object, or with a 4xx status and { "error": "..." } to refuse in words the AI will see. No page can reach /__slice/tools/, so a request there is always a tool call. Check in worker.js who may do what, exactly as for /api/.
-- Until a Slice owner agrees to an app's tools on its page in the launcher, only the people named as running the app are offered them. Changing a tool's name, description, input or power needs that OK again, so settle the words before asking. Tell the member this. slice_app_guide has an example.`;
+- Until a Slice owner agrees to an app's tools on its page in the launcher, only the person who published them is offered them. Changing a tool's name, description, input or power needs that OK again, so settle the words before asking. Tell the member this. slice_app_guide has an example.`;
 
 const publish = (
   server: boolean,

@@ -66,13 +66,13 @@ An app with server code can also offer tools: things the AI of the people it is 
 
 **An owner agrees first.** Everything an AI is told about a tool was written by the app's maker, and it is read by an AI that also holds that person's other Slice tools. So:
 
-- Until a Slice owner approves an app's tools, they are offered only to **the managers named on the app**. Owners run every app, but an owner who is not named on it is not offered its unapproved tools; otherwise every member's unread descriptions would land in the owner's AI.
+- Until a Slice owner approves an app's tools, they are offered only to **the person who published them**, so the maker can try them and nobody else's AI reads them. Not to the app's other managers, and not to an owner: anyone who runs an app can name any member a manager, and owners run every app, so either rule would let a maker put unread words in front of someone else's AI.
 - An owner approves on the app's page, where each tool is shown as an AI is told of it ([screenshots](images/member-app-tools/README.md)). The launcher's front page lists the apps waiting. An AI cannot approve.
 - The OK is for a fingerprint of the tools' names, descriptions, inputs, read-only marks and powers. Publishing the same tools with new server code or screens keeps it. Changing any of those words needs it again, and until then other people's AI stops being offered the tools.
 - An owner can take the OK back at any time. Taking the app offline also stops its tools.
-- A preview's tools are offered only to the managers named on the app.
+- A preview's tools are offered only to the person who published the preview.
 
-**Running one.** The launcher checks the input against the app's own description, then works out membership, access, the owner's OK and the power again, and passes the call to the version's server code as `POST /__slice/tools/<name>`: the input as JSON, with the same `X-Slice-*` headers as any request. No page can reach an address under `/__slice/`; the launcher answers those itself. The code answers with a JSON object of up to 64 KB within 10 seconds. A 4xx answer with `{ "error": "..." }` is shown to the AI as the app's refusal, cut to 300 characters; any other failure is reported without detail. The input is at most 64 KB.
+**Running one.** The launcher checks the input against the app's own description, then works out membership, access, the owner's OK and the power again, and passes the call to the version's server code as `POST /__slice/tools/<name>`: the input as JSON, with the same `X-Slice-*` headers as any request. No page can reach an address under `/__slice/`; the launcher answers those itself. The code answers with a JSON object of up to 64 KB within 10 seconds, counted to the end of the answer; after that the request is cancelled. A 4xx answer with `{ "error": "..." }` is shown to the AI as the app's refusal, cut to 300 characters; any other failure is reported without detail. The input is at most 64 KB.
 
 **What an owner's OK does not cover.** What a tool returns is not read by anyone first. An app whose descriptions are honest could still return text that tries to steer the AI reading it, and it could change what it returns after being approved. The launcher's sentence in front of every description tells the AI to treat results as information; that is advice to a model, not a control. This is the same limit as in [what this does not prevent](#what-this-does-not-prevent): approve tools only for an app whose maker you would trust with a Public app, and take the OK back if an app misbehaves.
 
@@ -161,7 +161,7 @@ After the steps above, and only once Workers for Platforms is bought on the Clou
    ```
 
 5. **Check on the real account**, because none of it could be tested locally. Publish an app whose `worker.js` tries each of these, and confirm each fails: call an outside address; read a cookie; read an `X-Slice-*` header the browser set; reach a binding other than `DB`; use another app's database. Then confirm it can create a table, write a row as one member and read it as another.
-6. **Check tools the same way.** Publish an app with one tool. Confirm its named manager's AI is offered it and a second member's is not; approve it as an owner and confirm the second member's AI is offered it and can call it; change the tool's description and confirm the second member loses it until it is approved again. Open `https://<id>.sliceos.app/__slice/tools/<name>` in a signed-in browser and confirm 404.
+6. **Check tools the same way.** Publish an app with one tool. Confirm the AI of the person who published it is offered it, and that a second member's is not, even when named a manager; approve it as an owner and confirm the second member's AI is offered it and can call it; change the tool's description and confirm the second member loses it until it is approved again. Open `https://<id>.sliceos.app/__slice/tools/<name>` in a signed-in browser and confirm 404.
 
 Without all of the binding and both secrets, a publish that includes `worker.js` is refused with "Server code is not switched on yet", and screens-only apps are unaffected.
 
