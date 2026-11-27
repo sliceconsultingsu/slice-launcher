@@ -94,7 +94,7 @@ describe("the Build page for someone who can make apps", () => {
     expect(html).toContain("Version 2 is live, and private to the people who run it.");
     // An offline app: its page has the way to put it back.
     expect(html).toContain('<a class="secondary-button" href="/about/old">Details');
-    for (const label of ["Draft", "Preview ready", "Live", "Offline"])
+    for (const label of ["Draft", "Preview", "Live", "Offline"])
       expect(html).toContain(`>${label}</span>`);
     expect(html.match(/Make it live/g)).toHaveLength(1);
     expect(html.match(/Copy the brief for/g)).toHaveLength(1);

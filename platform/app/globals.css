@@ -309,14 +309,23 @@ h1 {
   margin: 0 0 28px;
   overflow-x: auto;
 }
-.account-tabs button {
+.account-tabs button,
+.account-tabs a {
   padding: 0 0 15px;
   color: var(--muted);
   border-bottom: 2px solid transparent;
   font-size: 14px;
   white-space: nowrap;
 }
-.account-tabs button[aria-current] {
+/* A link between pages (Applications, Build) is a tab too; give it the height of a control. */
+.account-tabs a {
+  display: inline-flex;
+  align-items: flex-end;
+  min-height: 44px;
+  text-decoration: none;
+}
+.account-tabs button[aria-current],
+.account-tabs a[aria-current] {
   border-color: var(--accent);
   color: var(--ink);
   font-weight: 600;
@@ -1143,39 +1152,15 @@ button.member-row:hover,
   justify-content: space-between;
 }
 
-/* The Build page (src/build/build-view.tsx) and the links between it and Applications. */
-.section-nav {
-  display: flex;
-  gap: 8px;
-  margin: 0 0 28px;
-}
-.section-nav a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 16px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--muted);
-  text-decoration: none;
-}
-.section-nav a:hover {
-  color: var(--ink);
-  background: var(--selected);
-}
-.section-nav a[aria-current="page"] {
-  color: var(--ink);
-  background: var(--selected);
-}
+/* The Build page (src/build/build-view.tsx). Everything here uses the profile's tokens. */
 .build-page h1 {
   margin-bottom: 12px;
 }
 .build-intro {
   max-width: 62ch;
   margin: 0 0 20px;
-  font-size: 16px;
-  line-height: 1.55;
+  font-size: 14px;
+  line-height: 1.6;
 }
 .build-steps {
   list-style: none;
@@ -1191,12 +1176,12 @@ button.member-row:hover,
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 16px 18px;
+  padding: 16px 20px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--surface);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 .build-steps li::before {
   content: counter(build-step);
@@ -1210,6 +1195,10 @@ button.member-row:hover,
 .build-page .account-card h2 {
   margin-bottom: 4px;
 }
+.build-page .section-toolbar {
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
 .build-form {
   display: flex;
   flex-direction: column;
@@ -1222,11 +1211,11 @@ button.member-row:hover,
   background: white;
   border: 1px solid #cfcec6;
   border-radius: 7px;
-  padding: 11px 12px;
+  padding: 12px;
   font: inherit;
   font-size: 14px;
   font-weight: 400;
-  line-height: 1.5;
+  line-height: 1.6;
   resize: vertical;
 }
 .build-form .field-note {
@@ -1240,14 +1229,6 @@ button.member-row:hover,
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   gap: 20px;
 }
-.build-yours-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
-}
 .build-list {
   list-style: none;
   margin: 0;
@@ -1258,7 +1239,7 @@ button.member-row:hover,
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 18px 0;
+  padding: 20px 0;
   border-bottom: 1px solid var(--line);
 }
 .build-app-head {
@@ -1268,7 +1249,7 @@ button.member-row:hover,
   gap: 16px;
 }
 .build-app-head h3 {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   margin: 0 0 4px;
 }
@@ -1280,31 +1261,18 @@ button.member-row:hover,
 .build-app-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
 }
 .build-app-actions a {
   text-decoration: none;
-}
-.build-stage {
-  text-transform: none;
-  font-size: 12px;
-  padding: 5px 10px;
-}
-.build-stage-preview {
-  background: #f6ead9;
-  color: #6d4208;
-}
-.build-stage-live {
-  background: #e8efe5;
-  color: #2f5a27;
 }
 .build-brief summary {
   cursor: pointer;
   min-height: 44px;
   display: flex;
   align-items: center;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--accent);
 }
 .build-brief .connection-copy textarea {

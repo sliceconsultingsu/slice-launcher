@@ -293,7 +293,7 @@ test("a member starts an app on the Build page, hands it to their AI, and brings
     });
     expect(published.status()).toBe(200);
     await page.getByRole("button", { name: "Check again" }).click();
-    await expect(row.getByText("Preview ready", { exact: true })).toBeVisible();
+    await expect(row.getByText("Preview", { exact: true })).toBeVisible();
     await expect(row.getByRole("link", { name: /Open preview/ })).toHaveAttribute("href", address);
     await expect(row.getByText("The brief for your AI")).toHaveCount(0);
     await accessible(page);

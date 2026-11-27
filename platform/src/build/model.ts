@@ -24,7 +24,7 @@ export interface BuildApp {
 
 export const STAGE_LABEL: Record<Stage, string> = {
   draft: "Draft",
-  preview: "Preview ready",
+  preview: "Preview",
   live: "Live",
   offline: "Offline",
 };

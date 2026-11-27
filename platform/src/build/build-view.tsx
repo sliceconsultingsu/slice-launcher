@@ -39,7 +39,7 @@ export function SectionNav({ current }: { current: "applications" | "build" }) {
     </a>
   );
   return (
-    <nav className="section-nav" aria-label="Sections">
+    <nav className="account-tabs" aria-label="Sections">
       {link("applications", "/", "Applications")}
       {link("build", "/build", "Build")}
     </nav>
@@ -177,6 +177,14 @@ function StartForm({
   );
 }
 
+/** The profile's status badges: a preview is waiting on its maker, a live app is active. */
+const STAGE_BADGE: Record<BuildApp["stage"], string> = {
+  draft: "",
+  preview: "status-pending",
+  live: "status-active",
+  offline: "",
+};
+
 /** One of a person's apps: where it stands and the next thing to do with it. */
 function AppRow({
   app,
@@ -198,9 +206,7 @@ function AppRow({
           <h3>{app.name}</h3>
           <p>{app.line}</p>
         </div>
-        <span className={`status-badge build-stage build-stage-${app.stage}`}>
-          {STAGE_LABEL[app.stage]}
-        </span>
+        <span className={`status-badge ${STAGE_BADGE[app.stage]}`}>{STAGE_LABEL[app.stage]}</span>
       </div>
       <div className="build-app-actions">
         {app.stage === "preview" && app.address && (
@@ -329,7 +335,7 @@ export function BuildContent({
   );
   const yours = (
     <section className="account-card" aria-labelledby="build-yours">
-      <div className="build-yours-head">
+      <div className="section-toolbar">
         <h2 id="build-yours">Your apps</h2>
         <button className="secondary-button" type="button" disabled={busy} onClick={reload}>
           Check again
