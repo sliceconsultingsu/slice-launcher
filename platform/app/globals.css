@@ -1109,7 +1109,7 @@ button.member-row:hover,
 /* Under the tiles: where a member starts making an app of their own. */
 .grid-note {
   margin: 32px 0 0;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--muted);
 }
 .empty-catalog .grid-note {
