@@ -35,7 +35,21 @@ export type AppGridState =
       made?: VisibleApp[];
       /** For an owner: member apps whose managers asked to make them Public. */
       waiting?: { id: string; name: string; by: string }[];
+      /** Whether members can make their own apps: true while member apps are switched on. */
+      canMake?: boolean;
     };
+
+/** Where a member starts making an app of their own: the card on the Connect your AI page. */
+export const MAKE_AN_APP_URL = "/connect-ai#make-an-app";
+
+/** The way in to making an app, shown under the apps a person already has. */
+function MakeAnAppLine() {
+  return (
+    <p className="grid-note">
+      Need something that is not here? <a href={MAKE_AN_APP_URL}>Make an app with your AI</a>.
+    </p>
+  );
+}
 
 function Tiles({ apps }: { apps: VisibleApp[] }) {
   return (
@@ -81,6 +95,7 @@ export function AppGridView({ state }: { state: AppGridState }) {
     return (
       <div className="empty-catalog">
         <h2>No apps have been shared with you yet.</h2>
+        {state.canMake && <MakeAnAppLine />}
       </div>
     );
   return (
@@ -106,6 +121,7 @@ export function AppGridView({ state }: { state: AppGridState }) {
           <Tiles apps={made} />
         </section>
       )}
+      {state.canMake && <MakeAnAppLine />}
     </>
   );
 }

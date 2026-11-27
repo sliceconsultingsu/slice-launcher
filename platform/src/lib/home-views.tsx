@@ -45,11 +45,11 @@ export function Footer() {
       <nav className="project-links" aria-label="Project resources">
         <a href="/connect-ai">Connect your AI</a>
         <a
-          href="https://github.com/sliceconsultingsu/slice-launcher/blob/main/docs/adding-an-app.md"
+          href="https://github.com/sliceconsultingsu/slice-launcher/blob/main/docs/building-an-app.md"
           target="_blank"
           rel="noopener noreferrer"
         >
-          Contributor guide<span className="sr-only"> (opens in a new tab)</span>
+          Making an app<span className="sr-only"> (opens in a new tab)</span>
         </a>
         <a
           href="https://github.com/sliceconsultingsu/slice-launcher"

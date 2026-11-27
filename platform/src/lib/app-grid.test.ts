@@ -56,6 +56,28 @@ describe("the launcher grid", () => {
     expect(render({ kind: "ready", apps: [] })).toContain("No apps have been shared with you yet.");
   });
 
+  it("offers the way in to making an app, under the tiles and when there are none", () => {
+    const link = '<a href="/connect-ai#make-an-app">Make an app with your AI</a>';
+    const tiles = visibleApps(catalog, [told("alumni", { canOpen: true })]);
+    expect(render({ kind: "ready", apps: tiles, canMake: true })).toContain(link);
+    const empty = render({ kind: "ready", apps: [], canMake: true });
+    expect(empty).toContain("No apps have been shared with you yet.");
+    expect(empty).toContain(link);
+  });
+
+  it("does not offer it while member apps are switched off, or before a person can use Slice", () => {
+    const tiles = visibleApps(catalog, [told("alumni", { canOpen: true })]);
+    const states: Parameters<typeof AppGridView>[0]["state"][] = [
+      { kind: "ready", apps: tiles },
+      { kind: "ready", apps: tiles, canMake: false },
+      { kind: "ready", apps: [] },
+      { kind: "join" },
+      { kind: "error" },
+      { kind: "loading" },
+    ];
+    for (const state of states) expect(render(state)).not.toContain("Make an app");
+  });
+
   it("sends someone with no profile to their account instead of showing tiles", () => {
     const html = render({ kind: "join" });
     expect(html).toContain('href="/account"');

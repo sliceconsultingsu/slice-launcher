@@ -21,6 +21,7 @@ export function AppGrid() {
                 apps: visibleApps(apps, view.apps),
                 made: memberTiles(view.apps, view.appHost),
                 waiting: waitingForOwner(view.apps, view.me.owner),
+                canMake: view.appHost !== null,
               },
         );
       })

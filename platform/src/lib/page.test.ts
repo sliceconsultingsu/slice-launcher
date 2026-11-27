@@ -9,7 +9,7 @@ vi.mock("./apps", async (importOriginal) => ({
   apps: entries,
 }));
 import Home from "../../app/page";
-import { FrontPage, Launcher } from "./home-views";
+import { Footer, FrontPage, Launcher } from "./home-views";
 
 afterEach(() => {
   entries.length = 0;
@@ -42,4 +42,14 @@ it("shows no tiles until it knows which apps this person can open", () => {
   expect(html).not.toContain("Alumni directory");
   expect(html).not.toContain('href="/apps/alumni"');
   expect(html).not.toContain("No apps have been added yet");
+});
+it("points people from the footer to making an app, not to adding one to the launcher's code", () => {
+  const html = renderToStaticMarkup(createElement(Footer));
+  expect(html).toContain('href="/connect-ai"');
+  expect(html).toContain(
+    'href="https://github.com/sliceconsultingsu/slice-launcher/blob/main/docs/building-an-app.md"',
+  );
+  expect(html).toContain("Making an app");
+  expect(html).not.toContain("adding-an-app");
+  expect(html).not.toContain("Contributor guide");
 });

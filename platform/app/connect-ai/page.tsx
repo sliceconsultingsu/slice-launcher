@@ -142,9 +142,10 @@ export default function ConnectAiPage() {
             passwords and verification codes only in the sign-in window, never in the AI chat.
           </p>
           <p>
-            Your AI only receives tools allowed for your account. There are no business apps
-            connected yet, so a successful connection may show an empty app list. This does not
-            enable member administration.
+            Your AI only receives tools allowed for your account. Today that can include the tools
+            for making your own apps, and the tools of any app you can open that offers some, such
+            as the Alumni directory. If you cannot open an app yet, the list of apps your AI sees
+            may be empty. This does not enable member administration.
           </p>
         </section>
       </main>

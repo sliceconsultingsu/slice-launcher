@@ -49,7 +49,7 @@ The client should open a browser window. If asked, the person signs in with thei
 
 ## 4. Verify with a harmless request
 
-Initialize the MCP connection, list its tools, and call `slice_apps`. Report success only if the call succeeds. An empty app list is a valid result: there are currently no business apps registered. Explain that only explicitly provided tools and actions permitted for this person will be available. The connection does not expose member administration or arbitrary app APIs.
+Initialize the MCP connection, list its tools, and call `slice_apps`. Report success only if the call succeeds. An empty app list is a valid result for someone who cannot open a built-in app yet: `slice_apps` lists only those. The tool list can still include the `slice_app_*` tools for [making an app](building-an-app.md), and the tools of any app the person can open, such as the alumni directory's. Explain that only explicitly provided tools and actions permitted for this person will be available. The connection does not expose member administration or arbitrary app APIs.
 
 Do not modify business records to test a connection. Use only the minimum data needed. Slice checks current membership and action permissions again on subsequent requests; an agent never receives broader access just because it is an agent.
 

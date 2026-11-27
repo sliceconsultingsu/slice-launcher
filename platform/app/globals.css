@@ -1097,6 +1097,23 @@ button.member-row:hover,
   font-size: 1.125rem;
   font-weight: 700;
 }
+/* Under the tiles: where a member starts making an app of their own. */
+.grid-note {
+  margin: 32px 0 0;
+  font-size: 15px;
+  color: var(--muted);
+}
+.empty-catalog .grid-note {
+  margin-top: 12px;
+}
+.grid-note a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.grid-note a:hover {
+  color: var(--accent-hover);
+}
 .member-panel {
   display: flex;
   flex-direction: column;
