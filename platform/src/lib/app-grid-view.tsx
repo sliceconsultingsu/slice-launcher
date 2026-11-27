@@ -35,6 +35,8 @@ export type AppGridState =
       made?: VisibleApp[];
       /** For an owner: member apps whose managers asked to make them Public. */
       waiting?: { id: string; name: string; by: string }[];
+      /** For an owner: member apps whose tools for a member's AI nobody has agreed to yet. */
+      toolsWaiting?: { id: string; name: string; count: number }[];
     };
 
 function Tiles({ apps }: { apps: VisibleApp[] }) {
@@ -77,6 +79,7 @@ export function AppGridView({ state }: { state: AppGridState }) {
     );
   const made = state.made ?? [];
   const waiting = state.waiting ?? [];
+  const toolsWaiting = state.toolsWaiting ?? [];
   if (state.apps.length === 0 && made.length === 0)
     return (
       <div className="empty-catalog">
@@ -92,6 +95,19 @@ export function AppGridView({ state }: { state: AppGridState }) {
             {waiting.map((item) => (
               <li key={item.id}>
                 <a href={getAboutUrl(item)}>{item.name}</a>, asked by {item.by}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {toolsWaiting.length > 0 && (
+        <div className="notice" role="status">
+          <p>Tools for members&apos; AI, waiting for you to read and approve:</p>
+          <ul>
+            {toolsWaiting.map((item) => (
+              <li key={item.id}>
+                <a href={getAboutUrl(item)}>{item.name}</a>, {item.count}{" "}
+                {item.count === 1 ? "tool" : "tools"}
               </li>
             ))}
           </ul>

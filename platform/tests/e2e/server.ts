@@ -27,6 +27,9 @@ const memberApps = new MemberApps({
   repository: repo,
   files: memoryFiles(),
   origin: `https://${APP_HOST}`,
+  // slice-e2e-only: stands in for Cloudflare, so an app can be published with server code and
+  // tools. Nothing is uploaded and no server code ever runs here.
+  cloud: { ensureDatabase: async () => "e2e-only", uploadServer: async () => {} },
 });
 await createIdentityKey();
 const pair = await keyPair();
@@ -75,9 +78,10 @@ const server = createServer(async (req, res) => {
         if (info) response = Response.json(await appInfo(identity, repo, info[1]));
         else if (req.url === "/__e2e/member-app") {
           // slice-e2e-only: stands in for a member's AI creating and publishing an app.
-          const { id, preview, ...bundle } = JSON.parse(body ?? "{}");
-          // A preview is a further version of an app that exists; anything else creates it.
-          if (!preview)
+          const { id, preview, again, ...bundle } = JSON.parse(body ?? "{}");
+          // A preview, or a version sent with "again", is a further version of an app that
+          // exists; anything else creates it.
+          if (!preview && !again)
             await memberApps.create(identity, {
               id,
               name: bundle.name,

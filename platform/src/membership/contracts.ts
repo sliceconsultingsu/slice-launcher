@@ -95,6 +95,38 @@ export interface MemberApp {
    * try it first. Null when there is none.
    */
   preview: number | null;
+  /**
+   * The tools the live version offers to a member's AI, in short: how many, and a fingerprint of
+   * everything an AI is told about them. The tools themselves are in the version's record.
+   * Missing or null: none.
+   */
+  tools?: ToolsSummary | null;
+  /**
+   * The fingerprint of the tools an owner agreed to, with who and when. An app's tools reach
+   * people other than its own managers only while this matches `tools`. Missing or null: never.
+   */
+  toolsApproved?: { digest: string; by: string; at: string } | null;
+}
+/** How many tools a version offers, and a fingerprint of what an AI is told about them. */
+export interface ToolsSummary {
+  digest: string;
+  count: number;
+}
+/** A JSON value, as a tool's input is described. */
+export type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
+/**
+ * One tool a member app offers to a member's AI (src/member-apps/app-tools.ts). Everything here
+ * is read by an AI, so all of it is covered by the fingerprint an owner agrees to.
+ */
+export interface AppToolDeclaration {
+  name: string;
+  description: string;
+  /** False when calling it can change anything. */
+  readOnly: boolean;
+  /** The extra power a person needs to be offered it, or null: anyone who can open the app. */
+  power: string | null;
+  /** A JSON Schema for the input: always an object, limited to what the launcher keeps. */
+  input: { [key: string]: Json };
 }
 /** One published version of a member app. Its files are in the launcher's file store. */
 export interface VersionRecord {
@@ -116,6 +148,10 @@ export interface VersionRecord {
   guide: string;
   powers: { id: string; label: string }[];
   files: { path: string; type: string; size: number }[];
+  /** The tools this version offers to a member's AI. Missing in versions with none. */
+  tools?: AppToolDeclaration[];
+  /** The fingerprint of `tools`, or null with none. */
+  toolsDigest?: string | null;
 }
 export interface State {
   revision: number;
@@ -181,6 +217,11 @@ export interface AppView {
       publicApproved: boolean;
       /** The name of the manager waiting for an owner's OK to make it Public, if any. */
       publicRequestedBy: string | null;
+      /**
+       * The live version's tools for a member's AI: how many, their fingerprint, and whether an
+       * owner has agreed to them. Null with none.
+       */
+      tools: (ToolsSummary & { approved: boolean }) | null;
     };
   };
 }
@@ -240,6 +281,12 @@ const appPowers = z
     (values) => new Set(values.map((power) => power.id)).size === values.length,
     "A power is listed twice.",
   );
+/** A fingerprint of a version's tools, as src/member-apps/app-tools.ts makes it. */
+const toolsDigest = z.string().regex(/^[0-9a-f]{32}$/);
+const toolsSummary = z
+  .strictObject({ digest: toolsDigest, count: z.number().int().min(1).max(50) })
+  .nullable()
+  .default(null);
 export const emailSchema = z
   .email()
   .max(254)
@@ -298,6 +345,8 @@ export const commandSchema = z.discriminatedUnion("type", [
     database: z.string().min(1).max(80).nullable().default(null),
     /** Store the version for the people who run the app only; what is live does not change. */
     preview: z.boolean().default(false),
+    /** The tools this version offers to a member's AI, in short. */
+    tools: toolsSummary,
   }),
   // Which version people get. null takes the app offline and keeps everything else.
   z.strictObject({
@@ -308,7 +357,9 @@ export const commandSchema = z.discriminatedUnion("type", [
      * What that version called itself, so the app is described by what is live. Filled in by the
      * server from the version's saved record; anything a browser sends here is replaced.
      */
-    as: z.strictObject({ name, description: appDescription, powers: appPowers }).optional(),
+    as: z
+      .strictObject({ name, description: appDescription, powers: appPowers, tools: toolsSummary })
+      .optional(),
   }),
   // Which version the people who run the app are shown instead of the live one. null: none.
   z.strictObject({
@@ -317,5 +368,8 @@ export const commandSchema = z.discriminatedUnion("type", [
     version: z.number().int().positive().nullable(),
   }),
   z.strictObject({ type: z.literal("memberapp.delete"), id }),
+  // An owner's OK for a member app's tools to reach the people it is shared with. `approve` is
+  // the fingerprint of the tools the owner read; null takes the OK back.
+  z.strictObject({ type: z.literal("memberapp.tools"), id, approve: toolsDigest.nullable() }),
 ]);
 export type Command = z.infer<typeof commandSchema>;

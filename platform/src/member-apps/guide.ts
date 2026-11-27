@@ -1,6 +1,13 @@
 // What the launcher hands a member's AI before it builds an app: how to work with someone who has
 // never built one, the rules in one place, and a small starter app that already works. The
 // numbers come from the code's own limits, so the guide cannot drift from what the launcher does.
+import {
+  MAX_TOOL_DESCRIPTION,
+  MAX_TOOL_NAME,
+  MAX_TOOL_RESULT_BYTES,
+  MAX_TOOLS,
+  TOOL_MILLISECONDS,
+} from "./app-tools";
 import { LARGE, MAX_BUNDLE_BYTES, MAX_FILE_BYTES, MAX_FILES, MAX_GUIDE } from "./publish";
 import { APP_LIMIT } from "./rules";
 
@@ -206,14 +213,27 @@ document.getElementById("add").addEventListener("submit", function (event) {
 load();
 `;
 
-const WORKER_JS = `// The app's server code. It answers every address under /api/. The launcher has already checked
-// that the person is a signed-in Slice member who may open this app, and tells this code who they
-// are in the X-Slice-* headers. Who may change what is decided here, not on the page.
+const WORKER_JS = `// The app's server code. It answers every address under /api/ for the app's pages, and the
+// app's tools under /__slice/tools/ for a member's AI. The launcher has already checked that the
+// person is a signed-in Slice member who may open this app, and tells this code who they are in
+// the X-Slice-* headers. Who may change what is decided here, not on the page.
 function json(data, status) {
   return new Response(JSON.stringify(data), {
     status: status || 200,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+// One way to add an item, used by the page and by the tool, so both follow the same rules.
+async function addItem(env, me, value) {
+  const title = typeof value === "string" ? value.trim().slice(0, 200) : "";
+  if (!title) return null;
+  await env.DB.prepare(
+    "INSERT INTO items (title, added_by, added_by_name, added_at) VALUES (?, ?, ?, ?)",
+  )
+    .bind(title, me.id, me.name, new Date().toISOString())
+    .run();
+  return title;
 }
 
 export default {
@@ -240,13 +260,8 @@ export default {
       const body = await request.json().catch(function () {
         return null;
       });
-      const title = body && typeof body.title === "string" ? body.title.trim().slice(0, 200) : "";
-      if (!title) return json({ error: "Give the item a title." }, 400);
-      await env.DB.prepare(
-        "INSERT INTO items (title, added_by, added_by_name, added_at) VALUES (?, ?, ?, ?)",
-      )
-        .bind(title, me.id, me.name, new Date().toISOString())
-        .run();
+      if (!(await addItem(env, me, body && body.title)))
+        return json({ error: "Give the item a title." }, 400);
       return json({ ok: true }, 201);
     }
 
@@ -263,10 +278,51 @@ export default {
       return json({ ok: true });
     }
 
+    // Tools for a member's AI, as listed in "tools" when publishing. No page can reach
+    // /__slice/tools/: a request here is always the launcher passing on a tool call, for a
+    // person it has already checked. The input is JSON; the answer is a JSON object.
+    if (url.pathname === "/__slice/tools/list_items" && request.method === "POST") {
+      const found = await env.DB.prepare(
+        "SELECT id, title, added_by_name, added_at FROM items ORDER BY id DESC LIMIT 50",
+      ).all();
+      return json({ items: found.results });
+    }
+
+    if (url.pathname === "/__slice/tools/add_item" && request.method === "POST") {
+      const input = await request.json().catch(function () {
+        return null;
+      });
+      const added = await addItem(env, me, input && input.title);
+      // A 4xx answer with an error is passed to the AI in these words.
+      if (!added) return json({ error: "Give the item a title." }, 400);
+      return json({ added: added });
+    }
+
     return json({ error: "Not found." }, 404);
   },
 };
 `;
+
+/** The tools the starter's worker.js answers, as they are sent in "tools" when publishing. */
+const STARTER_TOOLS = [
+  {
+    name: "list_items",
+    description: "List the newest items on this app's shared list, with who added each and when.",
+    readOnly: true,
+  },
+  {
+    name: "add_item",
+    description: "Add one item to this app's shared list, as the signed-in member.",
+    readOnly: false,
+    input: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "The item, up to 200 characters.", maxLength: 200 },
+      },
+      required: ["title"],
+    },
+  },
+];
 
 const FOLDER_RECIPE = `python3 - <<'PY' > bundle.json
 import base64, json, os, sys
@@ -291,10 +347,22 @@ json.dump({
 PY
 curl -sS -X POST -H "Content-Type: application/json" --data-binary @bundle.json "THE ADDRESS FROM slice_app_upload"`;
 
+const TOOLS_SECTION = `## Tools for a member's AI
+
+An app with worker.js can offer tools: things the AI of the people it is shared with can do in the app, such as finding an entry or adding one. Offer them only if the member wants the app used that way; most apps need none.
+
+- List them in "tools" when you publish, up to ${MAX_TOOLS}: { "name", "description", "readOnly", "power" (optional), "input" (optional) }. The name is up to ${MAX_TOOL_NAME} lower-case letters, digits and underscores. The description is for the AI that will call it, up to ${MAX_TOOL_DESCRIPTION} characters: say what the tool does and nothing else. "readOnly" is false if calling it can change anything. "power" is one of the app's powers; leave it out for everyone who can open the app.
+- "input" is a JSON Schema object: { "type": "object", "properties": { ... }, "required": [ ... ] }. Supported: type, description, enum, minimum, maximum, minLength, maxLength, properties, required, items, minItems, maxItems. The launcher checks each call against it and accepts only the fields it names.
+- The launcher offers each tool as "<app id>__<name>" and sends a call to worker.js as POST /__slice/tools/<name>, with the input as JSON and the same X-Slice-* headers as any request. Answer with a JSON object of up to ${MAX_TOOL_RESULT_BYTES / 1024} KB within ${TOOL_MILLISECONDS / 1000} seconds. To refuse, answer with a 4xx status and { "error": "..." }: the AI is shown those words.
+- No page can reach /__slice/tools/, so a request there is always a tool call. Decide in worker.js who may read or change what, exactly as for /api/, and use the same functions for both.
+- **A Slice owner has to agree first.** Until an owner approves the tools on the app's page in the launcher, only the person who published them is offered them, so the member can try them with you and nobody else can. Changing a tool's name, description, input or power needs the owner's OK again; changing worker.js or the screens does not. Settle the words with the member before they ask, and tell them this is how it works. You cannot approve tools for them.
+
+`;
+
 function guideText(server: boolean): string {
   const data = server
     ? `An app can save and share data. Add one file named worker.js: an ES module, \`export default { async fetch(request, env) { ... } }\`, that answers every address under /api/. \`env.DB\` is the app's own database (SQLite, through Cloudflare D1) and the only thing worker.js can reach. It starts empty and is shared by every version of the app, so create tables with CREATE TABLE IF NOT EXISTS and keep existing data working when you change them. Each request carries who is asking, set by the launcher: X-Slice-Member-Id, X-Slice-Member-Name (percent-encoded), X-Slice-Manager and X-Slice-Powers. Trust those and nothing else. Decide in worker.js who may read or change what. worker.js cannot call any other service, holds no secrets, gets 50 ms of processing per request and at most 1 MB per request. The starter's worker.js shows the pattern.`
-    : `An app cannot save anything between visits or share data between people yet: there is no server code and no database. If the member needs a tracker, a sign-up sheet or anything two people both see, say so plainly and offer what is possible now (a calculator, a checklist for one sitting, a reference page, a guide). Do not use localStorage as if it were shared storage.`;
+    : `An app cannot save anything between visits, share data between people or offer tools to an AI yet: there is no server code and no database. If the member needs a tracker, a sign-up sheet or anything two people both see, say so plainly and offer what is possible now (a calculator, a checklist for one sitting, a reference page, a guide). Do not use localStorage as if it were shared storage.`;
   return `# Building a Slice app with a member
 
 You are helping a member of Slice Consulting make an app. They may never have built one. Your job is the building; theirs is knowing the problem.
@@ -336,9 +404,9 @@ If you can run commands and the app is too large to type into one call, write it
 ${FOLDER_RECIPE}
 \`\`\`
 
-## The starter app
+${server ? TOOLS_SECTION : ""}## The starter app
 
-"starter" in this result is a small app that already works. Adapt it instead of starting from nothing: keep its structure, replace its content.
+"starter" in this result is a small app that already works. Adapt it instead of starting from nothing: keep its structure, replace its content.${server ? ' "starterTools" is what to send as "tools" for the two tools its worker.js answers; leave it out for an app that offers none.' : ""}
 
 ## If something is refused
 
@@ -348,12 +416,15 @@ The launcher's refusals say what is wrong in a sentence. Fix that and try again;
 export interface BuilderGuide {
   guide: string;
   starter: { path: string; text: string }[];
+  /** What to send as "tools" for the starter's tools. Only with server code. */
+  starterTools?: typeof STARTER_TOOLS;
 }
 
 /** The guide and the starter app, for an app with or without server code. */
 export function builderGuide(options: { server: boolean }): BuilderGuide {
   return {
     guide: guideText(options.server),
+    ...(options.server ? { starterTools: STARTER_TOOLS } : {}),
     starter: options.server
       ? [
           { path: "index.html", text: SERVER_INDEX_HTML },

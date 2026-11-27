@@ -26,6 +26,14 @@ export function shownVersion(app: MemberApp, runs: boolean): number | null {
   return runs && preview !== null ? preview : app.live;
 }
 
+/**
+ * Whether an owner has agreed to the tools the live version offers. Until then they are offered
+ * only to the app's own managers (src/member-apps/app-tools.ts).
+ */
+export function toolsApproved(app: MemberApp): boolean {
+  return Boolean(app.tools && app.toolsApproved?.digest === app.tools.digest);
+}
+
 /** Every app there is: the built-in ones, then member apps. */
 export function catalogFor(state: State): AppDescriptor[] {
   return [...apps, ...memberApps(state).map(memberAppDescriptor)];

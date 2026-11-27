@@ -7,7 +7,7 @@ import {
   memberView,
 } from "../membership/domain";
 import type { State } from "../membership/contracts";
-import { catalogFor, shownVersion } from "./registry";
+import { catalogFor, shownVersion, toolsApproved } from "./registry";
 
 // An owner plus active members Ana, Max and Sam; Pia is still pending.
 const meta = () => ({ id: crypto.randomUUID(), now: "2026-11-19T12:00:00Z" });
@@ -477,6 +477,111 @@ describe("sharing a member app", () => {
     s = act(s, { type: "member.remove", id: ids.ana });
     expect(app(s)).toMatchObject({ createdBy: ids.ana, publicRequestedBy: null, deletedAt: null });
     expect(s.apps.find((item) => item.id === "notes")!.managers).toEqual([ids.max]);
+  });
+});
+
+describe("an owner's OK for an app's tools", () => {
+  const one = { digest: "1".repeat(32), count: 2 };
+  const two = { digest: "2".repeat(32), count: 2 };
+  const approve = (digest: string | null) => ({
+    type: "memberapp.tools",
+    id: "notes",
+    approve: digest,
+  });
+  const app = (state: State) => state.memberApps.find((item) => item.id === "notes")!;
+  const published = () => {
+    const { state, ids } = organization();
+    return {
+      ids,
+      state: act(act(state, create(), "ana"), publish("notes", { tools: one }), "ana"),
+    };
+  };
+
+  it("records what the live version offers, and that nobody has agreed to it yet", () => {
+    const { state } = published();
+    expect(app(state).tools).toEqual(one);
+    expect(toolsApproved(app(state))).toBe(false);
+    // A version with no tools offers none.
+    expect(app(act(state, publish(), "ana")).tools).toBeNull();
+  });
+
+  it("lets an owner agree, and nobody else: not even the person who runs the app", () => {
+    const { state, ids } = published();
+    expect(status(() => act(state, approve(one.digest), "ana"))).toBe(403);
+    expect(status(() => act(state, approve(one.digest), "max"))).toBe(403);
+    const agreed = act(state, approve(one.digest));
+    expect(app(agreed).toolsApproved).toEqual({
+      digest: one.digest,
+      by: ids.owner,
+      at: "2026-11-19T12:00:00Z",
+    });
+    expect(toolsApproved(app(agreed))).toBe(true);
+  });
+
+  it("refuses an OK for tools other than the ones that are live", () => {
+    const { state } = published();
+    expect(status(() => act(state, approve(two.digest)))).toBe(409);
+    // Nothing is live: nothing to agree to.
+    const offline = act(state, { type: "memberapp.live", id: "notes", version: null }, "ana");
+    expect(status(() => act(offline, approve(one.digest)))).toBe(409);
+    // No tools at all.
+    expect(status(() => act(act(state, publish(), "ana"), approve(one.digest)))).toBe(409);
+    expect(status(() => act(state, approve("not-a-fingerprint")))).toBe(400);
+  });
+
+  it("needs the OK again once the tools change, and keeps it when they do not", () => {
+    const agreed = act(published().state, approve(one.digest));
+    const same = act(agreed, publish("notes", { tools: one }), "ana");
+    expect(toolsApproved(app(same))).toBe(true);
+    const changed = act(agreed, publish("notes", { tools: two }), "ana");
+    expect(toolsApproved(app(changed))).toBe(false);
+    // Going back to the version that was agreed to brings the OK back with it.
+    const back = act(
+      changed,
+      {
+        type: "memberapp.live",
+        id: "notes",
+        version: 1,
+        as: { name: "Team notes", description: "Notes the team shares.", powers: [], tools: one },
+      },
+      "ana",
+    );
+    expect(toolsApproved(app(back))).toBe(true);
+  });
+
+  it("leaves what is live, and its OK, alone when a preview is published", () => {
+    const agreed = act(published().state, approve(one.digest));
+    const previewing = act(agreed, publish("notes", { tools: two, preview: true }), "ana");
+    expect(app(previewing).tools).toEqual(one);
+    expect(toolsApproved(app(previewing))).toBe(true);
+  });
+
+  it("lets an owner take the OK back", () => {
+    const agreed = act(published().state, approve(one.digest));
+    expect(status(() => act(agreed, approve(null), "ana"))).toBe(403);
+    const withdrawn = act(agreed, approve(null));
+    expect(app(withdrawn).toolsApproved).toBeNull();
+    expect(toolsApproved(app(withdrawn))).toBe(false);
+  });
+
+  it("tells the people who run the app how many tools it offers and whether they are agreed", () => {
+    const { state, ids } = published();
+    const told = (from: State) =>
+      memberView(from, "ana-sub").apps.find((item) => item.id === "notes")!.member!.manage!.tools;
+    expect(told(state)).toEqual({ ...one, approved: false });
+    expect(told(act(state, approve(one.digest)))).toEqual({ ...one, approved: true });
+    expect(
+      told(act(state, { type: "memberapp.live", id: "notes", version: null }, "ana")),
+    ).toBeNull();
+    // Someone merely on the app is not told.
+    const shared = act(
+      state,
+      settings("notes", { managers: [ids.ana], people: [{ memberId: ids.max, powers: [] }] }),
+      "ana",
+    );
+    expect(
+      memberView(shared, "max-sub").apps.find((item) => item.id === "notes")!.member!.manage,
+    ).toBeUndefined();
   });
 });
 

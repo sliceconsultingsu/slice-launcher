@@ -17,6 +17,18 @@ import { memberAppUrl, memberLauncherApp, publicRule } from "./member-app-model"
 export type MemberAppInfo = {
   guide: string;
   versions?: { version: number; at: string; by: string }[];
+  /** The tools the live version offers to a member's AI (src/member-apps/info.ts). */
+  tools?: {
+    list: {
+      name: string;
+      description: string;
+      readOnly: boolean;
+      power: string | null;
+      input?: unknown;
+    }[];
+    approved: boolean;
+    digest?: string;
+  };
 };
 export type MemberAboutLoad =
   | { kind: "loading" }
@@ -27,6 +39,103 @@ export type MemberAboutLoad =
 
 const day = (at: string) =>
   new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+/**
+ * The tools an app offers to a member's AI, and where they stand. The people who run the app see
+ * each tool as an AI is told of it; an owner can agree to them, or take that back.
+ */
+function MemberAppTools({
+  told,
+  info,
+  owner,
+  save,
+  busy,
+}: {
+  told: AppView;
+  info: MemberAppInfo;
+  owner: boolean;
+  save: (command: Command) => void;
+  busy: boolean;
+}) {
+  const tools = info.tools;
+  if (!tools || tools.list.length === 0) return null;
+  const manages = told.canManage && tools.digest !== undefined;
+  const approve = (digest: string | null) =>
+    save({ type: "memberapp.tools", id: told.id, approve: digest });
+  const Heading = manages ? "h3" : "h2";
+  return (
+    <div className={manages ? "member-panel member-tools" : "member-tools"}>
+      <Heading>Tools for your AI</Heading>
+      {!manages ? (
+        <p>
+          If your AI is <a href="/connect-ai">connected to Slice</a>, it can use these in this app
+          for you.
+        </p>
+      ) : tools.approved ? (
+        <p>
+          A Slice owner approved these tools. The AI of everyone this app is shared with is offered
+          them. Changing a tool&apos;s name, description, input or power needs an owner&apos;s OK
+          again.
+        </p>
+      ) : (
+        <div className="notice">
+          <p>
+            <strong>Waiting for a Slice owner&apos;s OK.</strong> Until then only the person who
+            published these tools is offered them.
+          </p>
+          {owner ? (
+            <p>
+              Each description below was written by the app&apos;s maker and will be read by other
+              members&apos; AI, which also holds their other Slice tools. Approve only if each one
+              says what its tool does and nothing else.
+            </p>
+          ) : (
+            <p>Ask a Slice owner to open this page and approve them.</p>
+          )}
+        </div>
+      )}
+      <ul className="manage-list">
+        {tools.list.map((tool) => (
+          <li key={tool.name}>
+            <div>
+              <p>
+                <code>{tool.name}</code> · {tool.readOnly ? "Reads only" : "Can change things"} ·{" "}
+                {tool.power === null ? "Anyone who can open the app" : `Needs “${tool.power}”`}
+              </p>
+              <p>{tool.description}</p>
+              {tool.input !== undefined && (
+                <details>
+                  <summary>What it takes</summary>
+                  <pre>{JSON.stringify(tool.input, null, 2)}</pre>
+                </details>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {manages && owner && !tools.approved && (
+        <button
+          className="primary-button"
+          type="button"
+          disabled={busy}
+          onClick={() => approve(tools.digest ?? null)}
+        >
+          Approve these tools
+        </button>
+      )}
+      {manages && owner && tools.approved && (
+        <button
+          className="secondary-button"
+          type="button"
+          disabled={busy}
+          onClick={() => approve(null)}
+        >
+          Stop offering these tools
+        </button>
+      )}
+    </div>
+  );
+}
 
 /** Versions, and the ways to take the app offline, put a version live, or delete it. */
 function MemberAppPanel({
@@ -254,12 +363,19 @@ export function MemberAboutContent({
           {offline && !told.canManage ? (
             <p>This app is offline. Ask the people who run it when it will be back.</p>
           ) : (
-            // Raw HTML is never rendered; react-markdown also strips unsafe link protocols.
-            <Markdown skipHtml>{info.guide}</Markdown>
+            <>
+              {/* Raw HTML is never rendered; react-markdown also strips unsafe link protocols. */}
+              <Markdown skipHtml>{info.guide}</Markdown>
+              {/* The people who run the app see its tools with the rest of what they manage. */}
+              {!told.canManage && (
+                <MemberAppTools told={told} info={info} owner={false} save={save} busy={busy} />
+              )}
+            </>
           )}
         </>
       }
     >
+      <MemberAppTools told={told} info={info} owner={view.me.owner} save={save} busy={busy} />
       <MemberAppPanel told={told} info={info} address={address} save={save} busy={busy} />
     </AboutContent>
   );

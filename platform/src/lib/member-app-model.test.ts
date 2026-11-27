@@ -6,6 +6,7 @@ import {
   memberTiles,
   publicNote,
   publicRule,
+  toolsWaitingForOwner,
   waitingForOwner,
 } from "./member-app-model";
 
@@ -16,6 +17,7 @@ const manage = {
   latest: 1,
   publicApproved: false,
   publicRequestedBy: null as string | null,
+  tools: null as { digest: string; count: number; approved: boolean } | null,
 };
 const told = (id: string, overrides: Partial<AppView> = {}): AppView => ({
   id,
@@ -103,6 +105,38 @@ describe("tiles for apps members made", () => {
     ];
     expect(waitingForOwner(apps, true)).toEqual([{ id: "notes", name: "Notes", by: "Ana" }]);
     expect(waitingForOwner(apps, false)).toEqual([]);
+  });
+});
+
+describe("tools waiting for an owner", () => {
+  const tools = { digest: "d".repeat(32), count: 3, approved: false };
+  const apps = [
+    told("notes", {
+      canManage: true,
+      member: { name: "Notes", description: "", live: true, manage: { ...manage, tools } },
+    }),
+    told("agreed", {
+      canManage: true,
+      member: {
+        name: "Agreed",
+        description: "",
+        live: true,
+        manage: { ...manage, tools: { ...tools, approved: true } },
+      },
+    }),
+    told("plain", {
+      canManage: true,
+      member: { name: "Plain", description: "", live: true, manage },
+    }),
+    builtIn,
+  ];
+
+  it("lists for an owner the apps whose tools nobody has agreed to", () => {
+    expect(toolsWaitingForOwner(apps, true)).toEqual([{ id: "notes", name: "Notes", count: 3 }]);
+  });
+
+  it("lists nothing for anyone else", () => {
+    expect(toolsWaitingForOwner(apps, false)).toEqual([]);
   });
 });
 

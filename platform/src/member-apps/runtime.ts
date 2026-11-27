@@ -1,5 +1,6 @@
 // Production wiring for member apps: whether they are switched on, and where things live.
 import { env } from "cloudflare:workers";
+import type { VersionRecord } from "../membership/contracts";
 import { Repository } from "../membership/repository";
 import { cloudflareApps, type AppCloud } from "./cloud";
 import { kvFiles, type AppFiles } from "./files";
@@ -73,6 +74,26 @@ export function passDeps(request: Request): PassDeps {
   };
 }
 
+/** Each version's server code is its own Worker in the dispatch namespace, found by name. */
+const serverCode = (source: MemberAppsEnv) =>
+  source.APPS
+    ? { server: (script: string) => source.APPS!.get(script, {}, { limits: SERVER_LIMITS }) }
+    : {};
+
+/** Version records never change once saved, so the ones tools were read from are remembered. */
+const records = new Map<string, VersionRecord>();
+async function remembered(repository: Repository, appId: string, version: number) {
+  const key = `${appId}:${version}`;
+  const known = records.get(key);
+  if (known) return known;
+  const loaded = await repository.version(appId, version);
+  if (loaded) {
+    if (records.size >= 500) records.clear();
+    records.set(key, loaded);
+  }
+  return loaded;
+}
+
 let door: ReturnType<typeof createFrontDoor> | undefined;
 /**
  * Answers a request to a member app's address, or null while member apps are switched off.
@@ -92,11 +113,9 @@ export function memberAppRequest(
     version: (id, version) => repository.version(id, version),
     files,
     origin: launcherOrigin(request, source),
-    // Each version's server code is its own Worker in the dispatch namespace. Every call it
-    // makes to anywhere else goes to the outbound Worker bound to the namespace, which refuses.
-    ...(source.APPS
-      ? { server: (script: string) => source.APPS!.get(script, {}, { limits: SERVER_LIMITS }) }
-      : {}),
+    // Every call an app's server code makes to anywhere else goes to the outbound Worker bound
+    // to the namespace, which refuses.
+    ...serverCode(source),
   });
   return door(request, appId);
 }
@@ -105,9 +124,13 @@ export function memberAppRequest(
 export function memberAppsService(request: Request, source: MemberAppsEnv): MemberApps | undefined {
   const files = appFiles(source);
   if (!files) return undefined;
+  const repository = new Repository(source.MEMBERSHIP_DB);
   return new MemberApps({
-    repository: new Repository(source.MEMBERSHIP_DB),
+    repository,
     files,
+    // An app's tools are answered by the same server code as its pages' calls.
+    ...serverCode(source),
+    version: (appId, version) => remembered(repository, appId, version),
     origin: launcherOrigin(request, source),
     cloud: appCloud(source),
     startUpload: (identity, appId, preview) =>

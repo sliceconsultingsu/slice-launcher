@@ -53,6 +53,16 @@ export function waitingForOwner(told: readonly AppView[], owner: boolean) {
   );
 }
 
+/** For an owner: the member apps whose live tools nobody has agreed to yet. */
+export function toolsWaitingForOwner(told: readonly AppView[], owner: boolean) {
+  if (!owner) return [];
+  return told.flatMap((view) =>
+    view.member?.manage?.tools && !view.member.manage.tools.approved
+      ? [{ id: view.id, name: view.member.name, count: view.member.manage.tools.count }]
+      : [],
+  );
+}
+
 /**
  * What saving an app as Public does. "free": it becomes Public. "ask": it stays Private and the
  * owner is asked. "approve": an owner's save is the one-time OK.

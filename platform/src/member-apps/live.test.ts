@@ -7,8 +7,15 @@ const record = {
   description: "What it said.",
   powers: [{ id: "edit", label: "Edit" }],
 };
+const digest = "d".repeat(32);
+const withTools = {
+  ...record,
+  tools: [{ name: "find", description: "Find.", readOnly: true, power: null, input: {} }],
+  toolsDigest: digest,
+};
 const repository = {
-  version: async (id: string, version: number) => (id === "notes" && version === 2 ? record : null),
+  version: async (id: string, version: number) =>
+    id !== "notes" ? null : version === 2 ? record : version === 3 ? withTools : null,
 } as unknown as Repository;
 
 describe("describing an app by the version made live", () => {
@@ -17,7 +24,14 @@ describe("describing an app by the version made live", () => {
       type: "memberapp.live",
       id: "notes",
       version: 2,
-      as: record,
+      as: { ...record, tools: null },
+    });
+  });
+
+  it("takes the version's tools from its record too, in short", async () => {
+    expect((await liveCommand(repository, "notes", 3)).as).toEqual({
+      ...record,
+      tools: { digest, count: 1 },
     });
   });
 
@@ -31,8 +45,12 @@ describe("describing an app by the version made live", () => {
   });
 
   it("replaces whatever a browser sent as the description", async () => {
-    const sent = { type: "memberapp.live", id: "notes", version: 2, as: { name: "Made up" } };
-    expect(await describedFromRecord(repository, sent)).toMatchObject({ as: record });
+    // A fingerprint a browser sent could otherwise pass for the one an owner agreed to.
+    const made = { name: "Made up", tools: { digest: "a".repeat(32), count: 1 } };
+    const sent = { type: "memberapp.live", id: "notes", version: 2, as: made };
+    expect(await describedFromRecord(repository, sent)).toMatchObject({
+      as: { ...record, tools: null },
+    });
   });
 
   it.each([
