@@ -1,6 +1,8 @@
-# Adding an app
+# Adding a built-in app
 
-Slice apps inherit login, permissions and deployment from one platform. Add a module, not a new Worker or login system.
+**Most apps are not added this way.** A new app on Slice is a member app, made with your own AI and never added to this repository: start with [making an app](building-an-app.md). This page is for a built-in app, which the maintainer agrees to before the work starts.
+
+Built-in apps inherit login, permissions and deployment from one platform. Add a module, not a new Worker or login system.
 
 ## Create and register
 

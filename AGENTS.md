@@ -8,6 +8,14 @@ Build useful, maintainable internal tools for Slice Consulting while helping con
 
 This is a public repository. Source, documentation, fixtures, PRs, and build artifacts must be safe to publish. Private membership and business data stay in approved private storage.
 
+## A new app is a member app
+
+Member apps are the main way to make an app on Slice (the maintainer's decision, November 24, 2026). When a consultant asks you for a new app, tool, tracker, calculator or page, **do not create it in this repository**: no `pnpm app:create`, no new folder under `platform/apps/`, no pull request here. Read [making an app](docs/building-an-app.md) and follow its steps for agents. In short: tell the consultant it will be a member app, [connect to Slice](docs/connect-your-ai.md), call `slice_app_guide`, and build and publish through the `slice_app_*` tools from a folder outside this repository.
+
+Before you build, say plainly what a member app cannot do today. It is made of screens, so it cannot save anything between visits or share data between people, and it cannot call outside services, send email, read Slice's data or offer AI tools. If the request depends on one of those, stop and have the consultant ask the maintainer. Do not build it here as a way round the limit.
+
+Work in this repository is on the platform itself and on a built-in app the maintainer has agreed to. The alumni directory is the only one.
+
 ## Communicate as a business partner and teacher
 
 Use the README's plain business tone in chat, plans, reviews and handoffs. Lead with the outcome and why it matters. Teach one idea at a time with small examples; define necessary technical terms and preserve exact commands. Treat consultants as capable learners. Check understanding when a decision depends on it without turning routine work into quizzes or repeated approvals. Challenge mistaken assumptions respectfully; distinguish facts, assumptions and untested claims. Explain what was checked and whether work is proposed, merged or live. Before your first contributor-facing explanation, read [the teaching guide](skills/communication.md).
@@ -28,7 +36,8 @@ Before planning, building, debugging or reviewing a change, read [the skills sec
 
 Read these references when changing the matching area:
 
-- App modules, routes, UI or shared packages: [architecture](docs/architecture.md), [adding an app](docs/adding-an-app.md).
+- A request for a new app: [making an app](docs/building-an-app.md), before anything else.
+- Built-in app modules, routes, UI or shared packages: [architecture](docs/architecture.md), [adding a built-in app](docs/adding-an-app.md).
 - Login, permissions, membership or private data: [membership](docs/membership.md), [data boundary](docs/data-boundary.md), [security review](docs/security-review.md).
 - MCP tools, clients or OAuth activation: [MCP contract and rollout](docs/mcp.md).
 - CI, releases, secrets, rollback or migrations: [deployment](docs/deployment.md), [security review](docs/security-review.md).
@@ -36,8 +45,8 @@ Read these references when changing the matching area:
 
 ## Platform rules
 
-- **One platform, one login, one permission system, one deployment.** Apps are modules in `platform/apps/<id>`. Create them with `pnpm app:create <id> "Name"`; after app settings edits run `pnpm apps:sync`. Keep public metadata in `platform/apps/<id>/app.json`; regenerate the catalog and import registry instead of hand-editing them.
-- **Member apps are not built here.** An app a member makes with their AI is published through the launcher's `slice_app_*` tools and never enters this repository ([member apps](docs/member-apps.md)). Work in this repository is on the platform and on built-in apps.
+- **One platform, one login, one permission system, one deployment.** Built-in apps are modules in `platform/apps/<id>`. Create one with `pnpm app:create <id> "Name"` only when the maintainer has agreed that the app must be built in; after app settings edits run `pnpm apps:sync`. Keep public metadata in `platform/apps/<id>/app.json`; regenerate the catalog and import registry instead of hand-editing them.
+- **Member apps are not built here.** An app a member makes with their AI is published through the launcher's `slice_app_*` tools and never enters this repository ([member apps](docs/member-apps.md)). Every new app is one unless the maintainer has agreed otherwise ([making an app](docs/building-an-app.md)).
 - Use platform-owned `/apps/<id>` and `/api/apps/<id>` routes and the module contract. Do not add app-specific Workers, OAuth clients, deployment jobs, credentials, shadow routes, or server actions that bypass guarded dispatch. A transport the contract cannot support requires a reviewed platform extension.
 - The host verifies the person's Slice session (from Slice's own Google sign-in), reloads current membership, and checks `app.<id>.open` on every protected request. A valid sign-in alone does not grant access. App access is set only on each app's own page (Public or Private, plus named people and managers; see [membership](docs/membership.md#app-access)); access levels and individual grants carry organization permissions only. Work it out through `effectivePermissions`, never a second rule. Never trust client-provided roles or cached permissions.
 - Declare app actions and call `context.requirePermission("action.id")` before restricted operations. Apps must also validate inputs, enforce record-level access, and test denial paths. Never mutate on GET/HEAD. Retain same-origin bounded JSON writes and private/no-store responses.

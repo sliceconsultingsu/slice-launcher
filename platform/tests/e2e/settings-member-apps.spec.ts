@@ -79,9 +79,24 @@ test("a member's app appears in the launcher, goes Public with the owner's OK, a
       ADDRESS,
     );
     await accessible(riley.page);
-    // Noor, who is not on it, is told nothing about it.
+    // Noor, who is not on it, is told nothing about it, and is shown how to make one of her own.
     await noor.page.goto("/");
     await expect(noor.page.getByText("Team notes")).toHaveCount(0);
+    await expect(noor.page.getByRole("link", { name: /Making an app/ })).toHaveAttribute(
+      "href",
+      /\/docs\/building-an-app\.md$/,
+    );
+    await accessible(noor.page);
+    await noor.page.screenshot({
+      path: test.info().outputPath("launcher-make-an-app-desktop.png"),
+      fullPage: true,
+    });
+    await noor.page.getByRole("link", { name: "Make an app with your AI" }).click();
+    await expect(noor.page).toHaveURL(/\/connect-ai#make-an-app$/);
+    await expect(noor.page.getByRole("heading", { name: "Make an app" })).toBeInViewport();
+    await expect(noor.page.getByText(/such as the Alumni directory/)).toBeVisible();
+    await expect(noor.page.getByText(/no business apps/)).toHaveCount(0);
+    await accessible(noor.page);
     await noor.page.goto("/about/team-notes");
     await expect(noor.page.getByText("There is no app here that you can open.")).toBeVisible();
     await accessible(noor.page);

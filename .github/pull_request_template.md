@@ -16,6 +16,7 @@ Configuration/secret names (never values), schema compatibility, ordering, relea
 
 ## Sensitive-change review
 
+- [ ] If this adds a built-in app: the maintainer agreed to it, and the Purpose says what it needs that a [member app](../docs/building-an-app.md) cannot do.
 - [ ] Authentication, authorization, membership, or data privacy impact considered.
 - [ ] Workflow trust boundaries, secrets, and dependency changes considered.
 - [ ] AI findings checked against source and reviewed SHA; unavailable/incomplete reviews identified.

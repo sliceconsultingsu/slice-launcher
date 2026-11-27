@@ -1,12 +1,15 @@
 # Contributing to Slice
 
-You do not need to understand the whole platform to contribute an app. Start with a small, agreed task and work in that app's folder. You are responsible for the changes you submit, including work produced by an AI agent.
+**Making a new app? You do not contribute it here.** A new app on Slice is a member app: you make it with your own AI, and it never enters this repository. Start with [making an app](docs/building-an-app.md). This guide is for changes to the platform and to a built-in app.
+
+You do not need to understand the whole platform to contribute. Start with a small, agreed task and work in that app's folder. You are responsible for the changes you submit, including work produced by an AI agent.
 
 For the alumni project, start with the [beginner team guide](docs/team/README.md). The alumni starter already exists; use your own prepared workspace instead of scaffolding it again.
 
 ## 1. Find the right place
 
-- **App features:** `platform/apps/<app-name>/`. Start with [the apps folder](platform/apps/README.md).
+- **A new app:** not in this repository. See [making an app](docs/building-an-app.md).
+- **Features of a built-in app:** `platform/apps/<app-name>/`. Start with [the apps folder](platform/apps/README.md).
 - **Login, permissions, shared MCP or launcher behavior:** `platform/src/` and `platform/app/`.
 - **Shared visual components:** `packages/ui/`.
 - **Shared development rules:** `packages/config/`.
@@ -23,13 +26,13 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Create a feature branch before editing. Keep other contributors' changes. If you need a new app, run this from the repository root:
+Create a feature branch before editing. Keep other contributors' changes. A new app is a [member app](docs/building-an-app.md) and needs none of this. If the maintainer has agreed to a new built-in app, run this from the repository root:
 
 ```sh
 pnpm app:create my-tool "My tool"
 ```
 
-The command creates its folder, app settings, starter screen and README. Follow [adding an app](docs/adding-an-app.md). Edit that app's `app.json` to change its public name or declared permissions, then run `pnpm apps:sync`. Generated catalog/import files are not edited by hand. Every app inherits the platform's sign-in, permission checks, MCP adapter and deployment.
+The command creates its folder, app settings, starter screen and README. Follow [adding a built-in app](docs/adding-an-app.md). Edit that app's `app.json` to change its public name or declared permissions, then run `pnpm apps:sync`. Generated catalog/import files are not edited by hand. Every app inherits the platform's sign-in, permission checks, MCP adapter and deployment.
 
 ## 3. If you use an AI agent
 

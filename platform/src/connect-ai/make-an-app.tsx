@@ -50,5 +50,11 @@ export function MakeAnApp() {
       active = false;
     };
   }, []);
+  // The card appears after the page has loaded, so a link to it (the launcher's "Make an app")
+  // would otherwise leave the person at the top of the page.
+  useEffect(() => {
+    if (show && window.location.hash === "#make-an-app")
+      document.getElementById("make-an-app")?.scrollIntoView();
+  }, [show]);
   return <MakeAnAppCard show={show} />;
 }
